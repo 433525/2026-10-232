@@ -37,14 +37,14 @@ const FAQ_LIST: FaqItem[] = [
   {
     id: 'faq_3',
     question: '志愿者上门服务时如何保障老人家中安全与隐私？',
-    answer: '平台所有入驻志愿者均经过公安背景审核与社区实名认证；老人的具体房间门牌号和既往病史默认处于加密脱敏状态，只有志愿者接单并验证通过后方可限时查看；服务前后支持拍照签到与平台双向确认。',
-    audioText: '安全保障说明：所有志愿者都经过社区实名审核，老人的门牌号和病史严格保密，只有接单的志愿者才能看到，服务过程有记录，请您放心！'
+    answer: '本原型不做任何背景审核或实名认证：页面上的志愿者头像、评分与“已实名”标签全部是虚构演示数据，不代表真实人员或真实资质。老人门牌号与病史在本机演练中不会被采集，也不存在“接单后自动解锁”的真实数据；服务前后的签到与双向确认仅记录在当前浏览器。',
+    audioText: '安全保障说明：本演练不进行实名审核，志愿者信息和评分都是虚构演示数据，不会采集真实门牌号或病史，所有记录只保存在当前浏览器。'
   },
   {
     id: 'faq_4',
     question: '遇到突发紧急情况该怎么使用？',
-    answer: '遇到严重身体不适或险情，请直接点击首页红色【紧急求助】按钮，或拨打 120/110。系统将同步震动告警呼叫 500 米内金牌急救志愿者和社区网格长紧急上门支援。',
-    audioText: '紧急情况应对：遇到突发紧急情况，请点击红色紧急求助按钮，或者直接拨打120急救电话。系统会立刻通知附近的网格员和急救员上门。'
+    answer: '遇到严重身体不适或险情，请直接拨打 120 / 110。本平台的“紧急求助”只是界面演示：它不会呼叫急救、不会通知网格员、不会定位，也不会派单，因此不能替代任何急救通道。',
+    audioText: '紧急情况应对：请直接拨打 120 或 110。本页的紧急求助按钮只是界面演示，不会真的通知任何人，也不能替代急救电话。'
   }
 ];
 
@@ -180,25 +180,22 @@ export const HelpCenterModal: React.FC = () => {
               <Phone className="w-5 h-5 text-emerald-700 shrink-0" />
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  如遇操作困难，可直接拨打社区长者帮办热线
+                  如遇操作困难，可先看图文教程；本演示不提供真实热线
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  热线服务时间：工作日 08:30 - 17:30 · 社区网格员人工指导
+                  生产环境应提供社区帮办电话与值班时段，并明示响应时限
                 </p>
               </div>
             </div>
-            <a
-              href="tel:025-88886666"
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800 shadow-xs shrink-0"
-            >
-              025-88886666
-            </a>
+            <span className="px-3.5 py-1.5 rounded-lg bg-slate-200 text-slate-600 text-xs font-bold shrink-0">
+              未提供
+            </span>
           </div>
         </div>
 
         {/* Footer */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-400">
-          翠湖花园社区“时间银行·银龄守护”综合便民服务站编制
+          社区服务演练项目组（虚构）编制
         </div>
       </div>
     </div>

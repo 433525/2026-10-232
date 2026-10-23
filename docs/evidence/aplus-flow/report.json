@@ -1,0 +1,129 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-10-23T14:07:03.999Z",
+  "summary": "演练-功能验收-mvl1ncu5",
+  "total": 24,
+  "passed": 24,
+  "results": [
+    {
+      "name": "新建弹层可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "未勾选虚构确认时创建按钮禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "勾选虚构确认后创建按钮可用",
+      "ok": true,
+      "detail": "disabled=false"
+    },
+    {
+      "name": "新建记录后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "新建记录给出成功提示",
+      "ok": true,
+      "detail": "演练记录已加入队列"
+    },
+    {
+      "name": "新建记录后队列 +1",
+      "ok": true,
+      "detail": "5 → 6"
+    },
+    {
+      "name": "新建记录自动选中",
+      "ok": true,
+      "detail": "演练-功能验收-mvl1ncu5"
+    },
+    {
+      "name": "重复登记进入人工复核",
+      "ok": true,
+      "detail": "发现完全重复的登记内容"
+    },
+    {
+      "name": "重复复核列出候选记录",
+      "ok": true,
+      "detail": "candidates=1"
+    },
+    {
+      "name": "复核确认按钮初始禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "检查点未完成时流转被阻止",
+      "ok": true,
+      "detail": "action=BEGIN_SCREENING disabled=true"
+    },
+    {
+      "name": "阻止原因可见",
+      "ok": true,
+      "detail": "演练同意状态尚未确认为“已确认”：开始初筛、请求或恢复信息补充、接单、转介、跟进"
+    },
+    {
+      "name": "检查点弹层提交可用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "检查点保存后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "检查点保存后标记完成",
+      "ok": true,
+      "detail": "ready=true"
+    },
+    {
+      "name": "解锁后流转提交可用",
+      "ok": true,
+      "detail": "action=BEGIN_SCREENING"
+    },
+    {
+      "name": "流转后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "流转后时间线追加",
+      "ok": true,
+      "detail": "2 → 3"
+    },
+    {
+      "name": "流转后状态刷新",
+      "ok": true,
+      "detail": "初筛中"
+    },
+    {
+      "name": "备份文本非空",
+      "ok": true,
+      "detail": "length=9897"
+    },
+    {
+      "name": "备份文本是合法 JSON",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "备份含新建记录",
+      "ok": true,
+      "detail": "cases=6"
+    },
+    {
+      "name": "刷新后记录仍在本机存档",
+      "ok": true,
+      "detail": "queue=6 status=saved"
+    },
+    {
+      "name": "主流程无控制台异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

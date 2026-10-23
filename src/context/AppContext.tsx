@@ -1,53 +1,63 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
-import { 
-  User, 
-  HelpOrder, 
-  Post, 
-  TimeLedger, 
-  MessageItem, 
-  VolunteerProfile, 
-  EldercareArticle, 
-  Announcement, 
-  BannerItem, 
-  ComplaintTicket, 
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import type {
+  Announcement,
+  BannerItem,
   ChatMessage,
-  Comment
+  ComplaintTicket,
+  EldercareArticle,
+  HelpOrder,
+  MessageItem,
+  Post,
+  TimeLedger,
+  User,
+  VolunteerProfile,
 } from '../types';
-import { 
-  INITIAL_USERS, 
-  INITIAL_ORDERS, 
-  INITIAL_POSTS, 
-  INITIAL_TIME_LEDGER, 
-  INITIAL_MESSAGES, 
-  INITIAL_CHAT_MESSAGES, 
-  INITIAL_VOLUNTEERS, 
-  INITIAL_ARTICLES, 
-  INITIAL_ANNOUNCEMENTS, 
-  INITIAL_BANNERS, 
-  INITIAL_COMPLAINTS 
-} from '../data/mockData';
+import { useCommunityStore } from '../data/community/store';
+import { SYNTHETIC_DEMO_AUTHOR } from '../data/community/fixtures';
+import {
+  ANNOUNCEMENTS,
+  BANNER_ITEMS,
+  ELDERCARE_ARTICLES,
+} from '../data/community/content';
+import {
+  MEMBERSHIP_USER_IDS,
+  membershipFromUserId,
+  projectCommunity,
+} from '../selectors/community';
+import type { PostMode } from '../data/community/types';
 import { sound } from '../utils/audio';
-import { safeRead, safeWrite, isArray } from '../utils/storage';
+import { safeRead, safeWrite } from '../utils/storage';
+import { toast } from '../utils/toast';
 
-export type SubPageType = 
-  | null 
-  | 'tasks_hall' 
-  | 'order_detail' 
-  | 'eldercare_detail' 
-  | 'certificate_view' 
-  | 'help_center' 
-  | 'admin_center' 
-  | 'sos_modal' 
-  | 'complaint_modal' 
-  | 'post_detail' 
-  | 'community_qr' 
-  | 'realname_verify' 
+export type SubPageType =
+  | null
+  | 'tasks_hall'
+  | 'order_detail'
+  | 'eldercare_detail'
+  | 'certificate_view'
+  | 'help_center'
+  | 'admin_center'
+  | 'sos_modal'
+  | 'complaint_modal'
+  | 'post_detail'
+  | 'community_qr'
+  | 'realname_verify'
   | 'terms_modal'
   | 'search_page'
   | 'time_ledger_page';
 
-interface AppContextType {
+/**
+ * 与 232 原实现完全一致的上下文契约（字段名与签名不变）。
+ * 变化只发生在实现侧：数据来自 mvp 领域层，而不是 mockData。
+ */
+export interface AppContextType {
   // User & View
   currentUser: User;
   users: User[];
@@ -56,7 +66,7 @@ interface AppContextType {
   setViewMode: (mode: 'mobile_frame' | 'responsive_web') => void;
   elderlyMode: boolean;
   setElderlyMode: (val: boolean) => void;
-  
+
   // Navigation
   activeTab: 'home' | 'community' | 'publish' | 'messages' | 'profile';
   setActiveTab: (tab: 'home' | 'community' | 'publish' | 'messages' | 'profile') => void;
@@ -70,7 +80,7 @@ interface AppContextType {
   setSelectedArticleId: (id: string | null) => void;
   searchKeyword: string;
   setSearchKeyword: (val: string) => void;
-  
+
   // Data entities
   orders: HelpOrder[];
   posts: Post[];
@@ -82,13 +92,13 @@ interface AppContextType {
   announcements: Announcement[];
   banners: BannerItem[];
   eldercareArticles: EldercareArticle[];
-  
+
   // Audio state
   playingArticleId: string | null;
   isAudioPlaying: boolean;
   playArticleAudio: (article: EldercareArticle) => void;
   stopArticleAudio: () => void;
-  
+
   // Actions
   createHelpOrder: (order: Partial<HelpOrder>) => void;
   createPost: (post: Partial<Post>) => void;
@@ -104,673 +114,510 @@ interface AppContextType {
   submitComplaint: (data: Partial<ComplaintTicket>) => void;
   triggerSos: () => void;
   verifyRealName: (name: string, idCard: string) => void;
-  
+
   // Admin actions
   adminApprovePost: (postId: string) => void;
   adminRejectPost: (postId: string) => void;
+  /**
+   * 追加能力（不改变既有签名）：带理由的驳回。
+   * 232 原实现没有理由收集，R7 要求「驳回必须有理由」，所以后台改用这个入口。
+   */
+  adminRejectPostWithReason: (postId: string, reason: string) => void;
   adminResolveComplaint: (ticketId: string, resolution: string) => void;
   adminAdjustTimeCoin: (userId: string, amount: number, note: string) => void;
-  
+
   // UI helpers
   unreadMessagesCount: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // 本地存档容错读取：单条损坏自动回退默认数据，绝不白屏（见 utils/storage.ts）
-  const [users, setUsers] = useState<User[]>(() =>
-    safeRead<User[]>('cuihu.users', INITIAL_USERS, isArray),
-  );
+/** UI 偏好键：与业务存档（community-mvp.synthetic-state.v1）分开，互不污染。 */
+const UI_KEYS = {
+  viewMode: 'community.ui.view-mode',
+  elderlyMode: 'community.ui.elderly-mode',
+  activeTab: 'community.ui.active-tab',
+} as const;
 
-  const [currentUserId, setCurrentUserId] = useState<string>('user_elder_1');
-  const [viewMode, setViewMode] = useState<'mobile_frame' | 'responsive_web'>('responsive_web');
-  const [elderlyMode, setElderlyMode] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'community' | 'publish' | 'messages' | 'profile'>('home');
+const TAB_STORAGE_IDS: Record<AppContextType['activeTab'], string> = {
+  home: 'home',
+  community: 'community',
+  publish: 'publish',
+  messages: 'messages',
+  profile: 'profile',
+};
+
+function readTab(): AppContextType['activeTab'] {
+  const stored = safeRead<string>(UI_KEYS.activeTab, 'home');
+  const found = (Object.keys(TAB_STORAGE_IDS) as AppContextType['activeTab'][]).find(
+    (tab) => TAB_STORAGE_IDS[tab] === stored,
+  );
+  return found ?? 'home';
+}
+
+/** 232 的分类 → mvp 发布模式。见 docs/组件映射表 与 README 的「裁决记录」。 */
+function resolvePublishMode(post: Partial<Post>): PostMode {
+  if (post.category === 'activity') return 'volunteer';
+  // 志愿动态必须落在 volunteer 上：mvp 的解析器只允许 volunteer 携带匿名/同步开关，
+  // 若按字面映射成 neighbor，匿名发布会直接校验失败（见 §8.1 不改 mvp 类型）。
+  if (post.category === 'story') return 'volunteer';
+  // 邻里帖（含「求助交流」话题）不生成订单、不计时长。
+  return 'neighbor';
+}
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // store 是「对象」而不是「函数」：React 侧由 useSyncExternalStore 驱动。
+  const store = useCommunityStore;
+
+  // 订阅 store 版本号：ref 写入后递增，用来触发重渲染。
+  const version = useSyncExternalStore(store.subscribe, store.getVersion, store.getVersion);
+
+  const [viewMode, setViewModeState] = useState<'mobile_frame' | 'responsive_web'>(() =>
+    safeRead<'mobile_frame' | 'responsive_web'>(UI_KEYS.viewMode, 'responsive_web'),
+  );
+  const [elderlyMode, setElderlyModeState] = useState<boolean>(() =>
+    safeRead<boolean>(UI_KEYS.elderlyMode, false),
+  );
+  const [activeTab, setActiveTabState] = useState<AppContextType['activeTab']>(readTab);
   const [activeSubPage, setActiveSubPage] = useState<SubPageType>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState<string>('');
-
-  const [orders, setOrders] = useState<HelpOrder[]>(() =>
-    safeRead<HelpOrder[]>('cuihu.orders', INITIAL_ORDERS, isArray),
-  );
-
-  const [posts, setPosts] = useState<Post[]>(() =>
-    safeRead<Post[]>('cuihu.posts', INITIAL_POSTS, isArray),
-  );
-
-  const [messages, setMessages] = useState<MessageItem[]>(() =>
-    safeRead<MessageItem[]>('cuihu.messages', INITIAL_MESSAGES, isArray),
-  );
-
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    safeRead<ChatMessage[]>('cuihu.chats', INITIAL_CHAT_MESSAGES, isArray),
-  );
-
-  const [timeLedger, setTimeLedger] = useState<TimeLedger[]>(() =>
-    safeRead<TimeLedger[]>('cuihu.ledger', INITIAL_TIME_LEDGER, isArray),
-  );
-
-  const [complaints, setComplaints] = useState<ComplaintTicket[]>(() =>
-    safeRead<ComplaintTicket[]>('cuihu.complaints', INITIAL_COMPLAINTS, isArray),
-  );
-
-  const [volunteers] = useState<VolunteerProfile[]>(INITIAL_VOLUNTEERS);
-  const [announcements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
-  const [banners] = useState<BannerItem[]>(INITIAL_BANNERS);
-  const [eldercareArticles] = useState<EldercareArticle[]>(INITIAL_ARTICLES);
-
   const [playingArticleId, setPlayingArticleId] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
-  // 同步本地存档（写入失败不抛异常：隐私模式/配额满时仍可正常使用）
-  useEffect(() => {
-    safeWrite('cuihu.orders', orders);
-  }, [orders]);
+  const state = store.state.value;
+  const membership = store.membership.value;
 
-  useEffect(() => {
-    safeWrite('cuihu.posts', posts);
-  }, [posts]);
+  const projection = useMemo(
+    // version 参与依赖：store 每次写入都会重建投影。
+    () => projectCommunity(state, membership, ANNOUNCEMENTS, BANNER_ITEMS, ELDERCARE_ARTICLES),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version, state, membership],
+  );
 
-  useEffect(() => {
-    safeWrite('cuihu.users', users);
-  }, [users]);
+  const currentUser =
+    projection.users.find((user) => user.id === MEMBERSHIP_USER_IDS[membership])
+    ?? projection.users[1];
 
-  useEffect(() => {
-    safeWrite('cuihu.ledger', timeLedger);
-  }, [timeLedger]);
+  const setViewMode = useCallback((mode: 'mobile_frame' | 'responsive_web') => {
+    setViewModeState(mode);
+    safeWrite(UI_KEYS.viewMode, mode);
+  }, []);
 
-  useEffect(() => {
-    safeWrite('cuihu.messages', messages);
-  }, [messages]);
+  const setElderlyMode = useCallback((value: boolean) => {
+    setElderlyModeState(value);
+    safeWrite(UI_KEYS.elderlyMode, value);
+  }, []);
 
-  useEffect(() => {
-    safeWrite('cuihu.chats', chatMessages);
-  }, [chatMessages]);
+  const setActiveTab = useCallback((tab: AppContextType['activeTab']) => {
+    setActiveTabState(tab);
+    safeWrite(UI_KEYS.activeTab, TAB_STORAGE_IDS[tab]);
+  }, []);
 
-  useEffect(() => {
-    safeWrite('cuihu.complaints', complaints);
-  }, [complaints]);
+  const switchUser = useCallback(
+    (userId: string) => {
+      const next = membershipFromUserId(userId);
+      const result = store.setMembership(next);
+      sound.playTap();
+      if (!result.ok) toast(result.errors[0] ?? '切换演练身份失败');
+    },
+    [store],
+  );
 
-  const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  /* ---------------- 音频（浏览器朗读；不是唯一入口，见 T18） ---------------- */
+  const playArticleAudio = useCallback(
+    (article: EldercareArticle) => {
+      if (playingArticleId === article.id && isAudioPlaying) {
+        sound.stopSpeaking();
+        setIsAudioPlaying(false);
+        setPlayingArticleId(null);
+        return;
+      }
+      setPlayingArticleId(article.id);
+      setIsAudioPlaying(true);
+      sound.speakText(article.audioText, () => {
+        setIsAudioPlaying(false);
+        setPlayingArticleId(null);
+      });
+    },
+    [playingArticleId, isAudioPlaying],
+  );
 
-  const switchUser = (userId: string) => {
-    setCurrentUserId(userId);
-    sound.playTap();
-  };
-
-  // Audio Player
-  const playArticleAudio = (article: EldercareArticle) => {
-    if (playingArticleId === article.id && isAudioPlaying) {
-      sound.stopSpeaking();
-      setIsAudioPlaying(false);
-      setPlayingArticleId(null);
-      return;
-    }
-    setPlayingArticleId(article.id);
-    setIsAudioPlaying(true);
-    sound.speakText(article.audioText, () => {
-      setIsAudioPlaying(false);
-      setPlayingArticleId(null);
-    });
-  };
-
-  const stopArticleAudio = () => {
+  const stopArticleAudio = useCallback(() => {
     sound.stopSpeaking();
     setIsAudioPlaying(false);
     setPlayingArticleId(null);
-  };
+  }, []);
 
-  // Create Help Order
-  const createHelpOrder = (orderData: Partial<HelpOrder>) => {
-    const newId = `order_${Date.now()}`;
-    const newOrder: HelpOrder = {
-      id: newId,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
-      userPhoneMasked: currentUser.phoneMasked,
-      userPhoneReal: currentUser.phone,
-      community: currentUser.community,
-      category: orderData.category || 'daily_chores',
-      categoryLabel: orderData.categoryLabel || '日常家务',
-      title: orderData.title || '社区求助需求',
-      description: orderData.description || '',
-      locationArea: orderData.locationArea || '翠湖花园3期',
-      locationDetail: orderData.locationDetail || currentUser.address,
-      isUrgent: orderData.isUrgent || false,
-      dateStr: orderData.dateStr || '今天',
-      timeStr: orderData.timeStr || '14:00 - 16:00',
-      durationHours: orderData.durationHours || 2,
-      timeCoinReward: orderData.timeCoinReward || 2,
-      photos: orderData.photos || [],
-      medicalNotes: orderData.medicalNotes || '',
-      consentSensitive: orderData.consentSensitive || true,
-      status: 'published', // Directly published in controlled sandbox
-      createdAt: '刚刚'
-    };
-
-    setOrders(prev => [newOrder, ...prev]);
-
-    // Send order message
-    const newMsg: MessageItem = {
-      id: `msg_${Date.now()}`,
-      type: 'order',
-      title: '求助订单已发布至接单大厅',
-      content: `您的求助【${newOrder.title}】已成功发布，正等待就近志愿者认领。`,
-      orderId: newId,
-      unread: true,
-      timestamp: '刚刚',
-      extra: {
-        statusBadge: '待接单',
-        actionText: '查看订单',
-        actionTarget: newId
+  /* ------------------------------ 发布 ------------------------------ */
+  const createHelpOrder = useCallback(
+    (order: Partial<HelpOrder>) => {
+      // 实名前置（R5）：未实名不进入 store，直接拦在门口并给出可执行下一步。
+      if (membership === 'visitor') {
+        sound.playSosAlert();
+        toast('发布求助订单需先完成演练实名（仅切换身份，不采集身份证号）。');
+        setActiveSubPage('realname_verify');
+        return;
       }
-    };
-    setMessages(prev => [newMsg, ...prev]);
 
-    sound.playSuccess();
-    try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.7 }
+      const title = order.title?.trim() ?? '';
+      const content = order.description?.trim() ?? '';
+      const result = store.publishPost({
+        mode: 'help',
+        title,
+        content,
+        category: order.categoryLabel,
+        timeWindow: [order.dateStr, order.timeStr].filter(Boolean).join(' ').trim() || undefined,
+        duration: order.durationHours ? `${order.durationHours} 小时` : undefined,
+        // 敏感信息最小化（R6）：未勾选单独同意就不写进存档。
+        specialNote: order.consentSensitive ? order.medicalNotes?.trim() || undefined : undefined,
+        location: order.locationArea,
       });
-    } catch {
-      // Confetti fallback
-    }
-  };
 
-  // Create UGC Post / Moment
-  const createPost = (postData: Partial<Post>) => {
-    const newId = `post_${Date.now()}`;
-    const newPost: Post = {
-      id: newId,
-      userId: currentUser.id,
-      userName: postData.isAnonymous ? '匿名邻里' : currentUser.name,
-      userAvatar: postData.isAnonymous ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80' : currentUser.avatar,
-      userRole: currentUser.role,
-      isAnonymous: postData.isAnonymous || false,
-      isOfficial: currentUser.role === 'admin',
-      community: currentUser.community,
-      category: postData.category || 'story',
-      categoryLabel: postData.categoryLabel || '志愿风采',
-      title: postData.title || '',
-      content: postData.content || '',
-      images: postData.images || [],
-      likesCount: 0,
-      isLiked: false,
-      bookmarksCount: 0,
-      isBookmarked: false,
-      comments: [],
-      status: 'approved',
-      createdAt: '刚刚',
-      locationTag: postData.locationTag || '翠湖花园社区',
-      tags: postData.tags || ['邻里互助']
-    };
-
-    setPosts(prev => [newPost, ...prev]);
-    sound.playSuccess();
-  };
-
-  // Accept Order (Volunteer accepts)
-  const acceptOrder = (orderId: string) => {
-    setOrders(prev => prev.map(order => {
-      if (order.id === orderId) {
-        return {
-          ...order,
-          status: 'accepted',
-          volunteerId: currentUser.id,
-          volunteerName: currentUser.name,
-          volunteerAvatar: currentUser.avatar,
-          volunteerPhone: currentUser.phone,
-          volunteerRating: currentUser.rating,
-          volunteerDistance: '320米'
-        };
+      if (!result.ok) {
+        toast(result.errors[0] ?? '发布失败');
+        return;
       }
-      return order;
-    }));
+      sound.playSuccess();
+      toast('已提交审核；通过后才会出现在接单大厅（本机演练，不会通知任何人）。', 'success');
+      setActiveTab('home');
+    },
+    [membership, store],
+  );
 
-    // Notification
-    const newMsg: MessageItem = {
-      id: `msg_${Date.now()}`,
-      type: 'order',
-      title: '您已成功认领互助订单',
-      content: '请按时佩戴志愿者徽章前往服务地点，上门前建议通过订单留言与长者提前确认细节。',
-      orderId: orderId,
-      unread: true,
-      timestamp: '刚刚',
-      extra: {
-        statusBadge: '已接单',
-        actionText: '进入服务沟通',
-        actionTarget: orderId
-      }
-    };
-    setMessages(prev => [newMsg, ...prev]);
-
-    sound.playSuccess();
-  };
-
-  // Clock In (Volunteer arrives)
-  const clockInOrder = (orderId: string) => {
-    const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    setOrders(prev => prev.map(order => {
-      if (order.id === orderId) {
-        return {
-          ...order,
-          status: 'in_progress',
-          clockInTime: timeStr
-        };
-      }
-      return order;
-    }));
-
-    sound.playNotification();
-  };
-
-  // Complete Order & Settle Time Coins
-  const completeOrder = (orderId: string, ratingScore = 5, ratingComment = '服务非常满意，志愿者准时热情！') => {
-    const targetOrder = orders.find(o => o.id === orderId);
-    if (!targetOrder) return;
-
-    const completeTimeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    const coins = targetOrder.timeCoinReward || 2;
-
-    // Update order
-    setOrders(prev => prev.map(order => {
-      if (order.id === orderId) {
-        return {
-          ...order,
-          status: 'completed',
-          completeTime: completeTimeStr,
-          ratingScore,
-          ratingComment
-        };
-      }
-      return order;
-    }));
-
-    // Update users: Volunteer +coins, hours; Elder -coins or stats
-    const volId = targetOrder.volunteerId || 'user_volunteer_1';
-    setUsers(prev => prev.map(u => {
-      if (u.id === volId) {
-        return {
-          ...u,
-          timeCoins: u.timeCoins + coins,
-          volunteerHours: u.volunteerHours + targetOrder.durationHours,
-          completedTasks: u.completedTasks + 1
-        };
-      }
-      if (u.id === targetOrder.userId) {
-        return {
-          ...u,
-          timeCoins: Math.max(0, u.timeCoins - coins),
-          completedTasks: u.completedTasks + 1
-        };
-      }
-      return u;
-    }));
-
-    // Add Time Ledgers (Immutable double-entry)
-    const txIdVol = `tx_${Date.now()}_v`;
-    const newVolLedger: TimeLedger = {
-      id: txIdVol,
-      userId: volId,
-      orderId: targetOrder.id,
-      orderTitle: targetOrder.title,
-      amount: coins,
-      type: 'earn',
-      typeLabel: '志愿服务入账',
-      balanceAfter: (users.find(u => u.id === volId)?.timeCoins || 80) + coins,
-      description: `完成【${targetOrder.title}】服务，获得 ${coins} 时长币`,
-      createdAt: '刚刚',
-      txHash: `TX-${Date.now().toString().slice(-8)}`
-    };
-
-    const txIdElder = `tx_${Date.now()}_e`;
-    const newElderLedger: TimeLedger = {
-      id: txIdElder,
-      userId: targetOrder.userId,
-      orderId: targetOrder.id,
-      orderTitle: targetOrder.title,
-      amount: -coins,
-      type: 'spend',
-      typeLabel: '求助服务结算',
-      balanceAfter: Math.max(0, (users.find(u => u.id === targetOrder.userId)?.timeCoins || 28) - coins),
-      description: `支付【${targetOrder.title}】志愿者时长 ${coins} 币`,
-      createdAt: '刚刚',
-      txHash: `TX-${(Date.now() + 1).toString().slice(-8)}`
-    };
-
-    setTimeLedger(prev => [newVolLedger, newElderLedger, ...prev]);
-
-    // System Message
-    const settlementMsg: MessageItem = {
-      id: `msg_${Date.now()}`,
-      type: 'system',
-      title: '订单完成与时间币到账提醒',
-      content: `订单【${targetOrder.title}】已圆满完成双向确认，${coins} 时长币已安全入账时间银行。`,
-      orderId: targetOrder.id,
-      unread: true,
-      timestamp: '刚刚',
-      extra: {
-        statusBadge: '已结算'
-      }
-    };
-    setMessages(prev => [settlementMsg, ...prev]);
-
-    sound.playSuccess();
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 80,
-        origin: { y: 0.6 }
+  const createPost = useCallback(
+    (post: Partial<Post>) => {
+      const mode = resolvePublishMode(post);
+      const result = store.publishPost({
+        mode,
+        title: post.title?.trim() || '（无标题）',
+        content: post.content?.trim() ?? '',
+        category: post.categoryLabel,
+        location: post.locationTag,
+        anonymous: mode === 'volunteer' ? post.isAnonymous === true : undefined,
+        volunteerKind: mode === 'volunteer'
+          ? (post.category === 'activity' ? 'activity' : 'update')
+          : undefined,
+        publishedToFeed: mode === 'volunteer' ? true : undefined,
       });
-    } catch {
-      // Confetti fallback
-    }
-  };
 
-  // Cancel Order
-  const cancelOrder = (orderId: string, reason: string) => {
-    setOrders(prev => prev.map(order => {
-      if (order.id === orderId) {
-        return {
-          ...order,
-          status: 'cancelled',
-          auditNote: reason
-        };
+      if (!result.ok) {
+        toast(result.errors[0] ?? '发布失败');
+        return;
       }
-      return order;
-    }));
-    sound.playTap();
-  };
+      sound.playSuccess();
+      toast('已提交审核；通过后才会进入社区信息流（本机演练）。', 'success');
+      setActiveTab('community');
+    },
+    [store],
+  );
 
-  // Social Feed Actions
-  const likePost = (postId: string) => {
-    sound.playTap();
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        const isLiked = !p.isLiked;
-        return {
-          ...p,
-          isLiked,
-          likesCount: isLiked ? p.likesCount + 1 : p.likesCount - 1
-        };
+  /* ------------------------------ 订单 ------------------------------ */
+  const acceptOrder = useCallback(
+    (orderId: string) => {
+      const result = store.acceptOrder(orderId);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '接单失败');
+        return;
       }
-      return p;
-    }));
-  };
+      sound.playSuccess();
+      toast('已在本机演练中标记接单（不产生真实派单或通知）。', 'success');
+    },
+    [store],
+  );
 
-  const bookmarkPost = (postId: string) => {
-    sound.playTap();
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        const isBookmarked = !p.isBookmarked;
-        return {
-          ...p,
-          isBookmarked,
-          bookmarksCount: isBookmarked ? p.bookmarksCount + 1 : p.bookmarksCount - 1
-        };
+  const clockInOrder = useCallback(
+    (orderId: string) => {
+      const result = store.clockInOrder(orderId);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '签到失败');
+        return;
       }
-      return p;
-    }));
-  };
-
-  const addComment = (postId: string, content: string) => {
-    if (!content.trim()) return;
-    const newComment: Comment = {
-      id: `c_${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
-      userRole: currentUser.role,
-      content: content.trim(),
-      createdAt: '刚刚',
-      likesCount: 0
-    };
-
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: [newComment, ...p.comments]
-        };
-      }
-      return p;
-    }));
-
-    sound.playSuccess();
-  };
-
-  const enrollActivity = (postId: string) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId && p.category === 'activity') {
-        const isEnrolled = !p.isEnrolled;
-        return {
-          ...p,
-          isEnrolled,
-          activityEnrolledCount: isEnrolled ? (p.activityEnrolledCount || 0) + 1 : (p.activityEnrolledCount || 0) - 1
-        };
-      }
-      return p;
-    }));
-    sound.playSuccess();
-  };
-
-  // Chat message sending with simulated response
-  const sendChatMessage = (conversationId: string, text: string, type: 'text' | 'location' = 'text') => {
-    const newMsg: ChatMessage = {
-      id: `chat_${Date.now()}`,
-      conversationId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
-      isMe: true,
-      text,
-      type,
-      locationInfo: type === 'location' ? {
-        name: '翠湖花园3期8号楼单元门前',
-        address: '翠湖南路28号'
-      } : undefined,
-      timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setChatMessages(prev => [...prev, newMsg]);
-    sound.playTap();
-
-    // Simulate auto reply after 1.2s if sending to volunteer/elder
-    setTimeout(() => {
-      const isElder = currentUser.role === 'elder';
-      const autoText = isElder 
-        ? '收到大爷！您在屋里安心歇着，我快步走过去，马上敲门！'
-        : '好的小同志，门虚掩着的，进来直接换鞋套就行，麻烦你了！';
-      
-      const replyMsg: ChatMessage = {
-        id: `chat_${Date.now() + 1}`,
-        conversationId,
-        senderId: isElder ? 'user_volunteer_1' : 'user_elder_1',
-        senderName: isElder ? '陈明 (志愿者)' : '张建国 (长者)',
-        senderAvatar: isElder ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80' : 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=200&q=80',
-        isMe: false,
-        text: autoText,
-        type: 'text',
-        timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-      };
-
-      setChatMessages(prev => [...prev, replyMsg]);
       sound.playNotification();
-    }, 1200);
-  };
+      toast('已记录上门签到（本机演练；不代表真实到场）。', 'success');
+    },
+    [store],
+  );
 
-  // Complaint submission
-  const submitComplaint = (data: Partial<ComplaintTicket>) => {
-    const newTicket: ComplaintTicket = {
-      id: `cmp_${Date.now()}`,
-      ticketNo: `TS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      orderId: data.orderId || 'order_1001',
-      orderTitle: data.orderTitle || '社区互助服务',
-      targetUser: data.targetUser || '涉事人员',
-      reason: data.reason || '服务不规范',
-      detail: data.detail || '',
-      evidencePhotos: data.evidencePhotos || [],
-      status: 'pending',
-      statusLabel: '等待网格长核查',
-      createdAt: '刚刚'
-    };
+  const completeOrder = useCallback(
+    (orderId: string, ratingScore = 5, ratingComment = '') => {
+      // 双方确认在本机拆成两步：发起完成申请 → 确认完成。任一步失败就停下，不写账本。
+      const requested = store.requestOrderCompletion(orderId, '');
+      if (!requested.ok) {
+        toast(requested.errors[0] ?? '发起完成申请失败');
+        return;
+      }
+      const confirmed = store.confirmOrderCompletion(orderId);
+      if (!confirmed.ok) {
+        toast(confirmed.errors[0] ?? '确认完成失败');
+        return;
+      }
+      if (ratingComment.trim()) {
+        store.submitOrderFeedback(orderId, ratingScore, ratingComment.trim());
+      }
+      sound.playSuccess();
+      toast('已完成双方确认（本机演练），时间账本新增一条「未结算」记录。', 'success');
+    },
+    [store],
+  );
 
-    setComplaints(prev => [newTicket, ...prev]);
-    sound.playSuccess();
-  };
+  const cancelOrder = useCallback(
+    (orderId: string, reason: string) => {
+      const result = store.cancelOrder(orderId, reason);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '取消失败');
+        return;
+      }
+      sound.playTap();
+      toast('已取消（本机演练），取消原因已写入订单事件。');
+    },
+    [store],
+  );
 
-  // Emergency SOS Trigger
-  const triggerSos = () => {
+  /* ------------------------------ 互动 ------------------------------ */
+  const likePost = useCallback(
+    (postId: string) => {
+      sound.playTap();
+      const result = store.toggleLike(postId);
+      if (!result.ok) toast(result.errors[0] ?? '操作失败');
+    },
+    [store],
+  );
+
+  const bookmarkPost = useCallback(
+    (postId: string) => {
+      sound.playTap();
+      const result = store.toggleFavorite(postId);
+      if (!result.ok) toast(result.errors[0] ?? '操作失败');
+    },
+    [store],
+  );
+
+  const addComment = useCallback(
+    (postId: string, content: string) => {
+      if (!content.trim()) return;
+      const result = store.addComment(postId, content);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '评论失败');
+        return;
+      }
+      sound.playSuccess();
+      toast('评论已提交，待审核通过后展示（先审后发）。', 'success');
+    },
+    [store],
+  );
+
+  const enrollActivity = useCallback(
+    (postId: string) => {
+      const post = store.posts.value.find((item) => item.id === postId);
+      const result = post?.signedUpByMe === true
+        ? store.cancelEventSignup(postId)
+        : store.signUpForEvent(postId);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '报名失败');
+        return;
+      }
+      sound.playSuccess();
+      toast(result.message ?? '已记录本机演练报名');
+    },
+    [store],
+  );
+
+  const sendChatMessage = useCallback(
+    (conversationId: string, text: string) => {
+      // 路线 B：自由私信关闭，私信降级为「订单内留言」（T9）。
+      const thread = store.threads.value.find((item) => item.id === conversationId);
+      if (!thread) {
+        toast('找不到这条演练会话。');
+        return;
+      }
+      if (thread.kind !== 'order' || !thread.postId) {
+        toast('按受控社区方案，私信已降级为订单内留言；非订单会话不接收新消息。');
+        return;
+      }
+      const result = store.sendOrderMessage(thread.postId, text);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '留言失败');
+        return;
+      }
+      sound.playTap();
+    },
+    [store],
+  );
+
+  const submitComplaint = useCallback(
+    (data: Partial<ComplaintTicket>) => {
+      const targetId = data.orderId ?? store.posts.value[0]?.id;
+      if (!targetId) {
+        toast('当前没有可举报的演练内容。');
+        return;
+      }
+      const reason = [data.reason, data.detail].filter(Boolean).join('：') || '未填写原因';
+      const result = store.reportContent('post', targetId, reason);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '提交失败');
+        return;
+      }
+      sound.playSuccess();
+      toast('举报已记录在本机（不会通知任何真实机构）；处置结果会写入站内消息。', 'success');
+    },
+    [store],
+  );
+
+  const triggerSos = useCallback(() => {
     sound.playSosAlert();
     setActiveSubPage('sos_modal');
-  };
+  }, []);
 
-  // Real-name verification
-  const verifyRealName = (name: string, idCard: string) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === currentUser.id) {
-        return {
-          ...u,
-          name,
-          verifyStatus: 'verified',
-          idCardMasked: `${idCard.slice(0, 6)}****${idCard.slice(-4)}`
-        };
+  const verifyRealName = useCallback(
+    (_name: string, _idCard: string) => {
+      // 只切换演练身份：不接收、不校验、不存储身份证号（R5 / T13）。
+      const result = store.setMembership('member');
+      if (!result.ok) {
+        toast(result.errors[0] ?? '实名状态切换失败');
+        return;
       }
-      return u;
-    }));
-    sound.playSuccess();
-  };
-
-  // Admin Actions
-  const adminApprovePost = (postId: string) => {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: 'approved' } : p));
-    sound.playSuccess();
-  };
-
-  const adminRejectPost = (postId: string) => {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: 'rejected' } : p));
-    sound.playTap();
-  };
-
-  const adminResolveComplaint = (ticketId: string, resolution: string) => {
-    setComplaints(prev => prev.map(c => {
-      if (c.id === ticketId) {
-        return {
-          ...c,
-          status: 'resolved',
-          statusLabel: '已调解办结',
-          resolutionNote: resolution,
-          handlerName: currentUser.name,
-          resolvedAt: '刚刚'
-        };
-      }
-      return c;
-    }));
-    sound.playSuccess();
-  };
-
-  const adminAdjustTimeCoin = (userId: string, amount: number, note: string) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return {
-          ...u,
-          timeCoins: Math.max(0, u.timeCoins + amount)
-        };
-      }
-      return u;
-    }));
-
-    const tx: TimeLedger = {
-      id: `tx_admin_${Date.now()}`,
-      userId,
-      orderTitle: '社区网格管理员手工调账（留痕）',
-      amount,
-      type: 'admin_adjust',
-      typeLabel: '管理员人工核准',
-      balanceAfter: (users.find(u => u.id === userId)?.timeCoins || 0) + amount,
-      description: note,
-      createdAt: '刚刚',
-      txHash: `ADM-${Date.now().toString().slice(-8)}`
-    };
-
-    setTimeLedger(prev => [tx, ...prev]);
-    sound.playSuccess();
-  };
-
-  const unreadMessagesCount = messages.filter(m => m.unread).length;
-
-  return (
-    <AppContext.Provider value={{
-      currentUser,
-      users,
-      switchUser,
-      viewMode,
-      setViewMode,
-      elderlyMode,
-      setElderlyMode,
-      activeTab,
-      setActiveTab,
-      activeSubPage,
-      setActiveSubPage,
-      selectedOrderId,
-      setSelectedOrderId,
-      selectedPostId,
-      setSelectedPostId,
-      selectedArticleId,
-      setSelectedArticleId,
-      searchKeyword,
-      setSearchKeyword,
-      orders,
-      posts,
-      messages,
-      chatMessages,
-      timeLedger,
-      complaints,
-      volunteers,
-      announcements,
-      banners,
-      eldercareArticles,
-      playingArticleId,
-      isAudioPlaying,
-      playArticleAudio,
-      stopArticleAudio,
-      createHelpOrder,
-      createPost,
-      acceptOrder,
-      clockInOrder,
-      completeOrder,
-      cancelOrder,
-      likePost,
-      bookmarkPost,
-      addComment,
-      enrollActivity,
-      sendChatMessage,
-      submitComplaint,
-      triggerSos,
-      verifyRealName,
-      adminApprovePost,
-      adminRejectPost,
-      adminResolveComplaint,
-      adminAdjustTimeCoin,
-      unreadMessagesCount
-    }}>
-      {children}
-    </AppContext.Provider>
+      sound.playSuccess();
+      toast('已切换为「演练成员（已实名）」；本演练不采集身份证号。', 'success');
+      setActiveSubPage(null);
+    },
+    [store],
   );
+
+  /* ------------------------------ 审核 ------------------------------ */
+  const adminApprovePost = useCallback(
+    (postId: string) => {
+      const result = store.moderatePost(postId, 'approved', '内容符合演练社区规范');
+      if (!result.ok) {
+        toast(result.errors[0] ?? '审核失败');
+        return;
+      }
+      sound.playSuccess();
+      toast('已通过审核，内容进入信息流。', 'success');
+    },
+    [store],
+  );
+
+  const adminRejectPostWithReason = useCallback(
+    (postId: string, reason: string) => {
+      const trimmed = reason.trim();
+      if (!trimmed) {
+        toast('驳回必须填写理由（会写入审核日志并通知发布者）。');
+        return;
+      }
+      const result = store.moderatePost(postId, 'rejected', trimmed);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '审核失败');
+        return;
+      }
+      sound.playTap();
+      toast('已驳回并记录理由。');
+    },
+    [store],
+  );
+
+  const adminRejectPost = useCallback(
+    (postId: string) => {
+      // 兼容旧签名：没有理由时不放行，避免出现“无理由驳回”。
+      adminRejectPostWithReason(postId, '');
+    },
+    [adminRejectPostWithReason],
+  );
+
+  const adminResolveComplaint = useCallback(
+    (ticketId: string, resolution: string) => {
+      const result = store.resolveReport(ticketId, 'resolved', resolution);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '处理失败');
+        return;
+      }
+      sound.playSuccess();
+      toast('举报已处置，结果已写入站内消息。', 'success');
+    },
+    [store],
+  );
+
+  const adminAdjustTimeCoin = useCallback(() => {
+    // 账本只读：不伪造流水，也不改余额（R18 / T11）。
+    toast('演练数据只读：时间账本不支持调账、兑现或转让。');
+  }, []);
+
+  const unreadMessagesCount = projection.messages.filter((message) => message.unread).length;
+
+  const value: AppContextType = {
+    currentUser,
+    users: projection.users,
+    switchUser,
+    viewMode,
+    setViewMode,
+    elderlyMode,
+    setElderlyMode,
+    activeTab,
+    setActiveTab,
+    activeSubPage,
+    setActiveSubPage,
+    selectedOrderId,
+    setSelectedOrderId,
+    selectedPostId,
+    setSelectedPostId,
+    selectedArticleId,
+    setSelectedArticleId,
+    searchKeyword,
+    setSearchKeyword,
+    orders: projection.orders,
+    posts: projection.posts,
+    messages: projection.messages,
+    chatMessages: projection.chatMessages,
+    timeLedger: projection.timeLedger,
+    complaints: projection.complaints,
+    volunteers: projection.volunteers,
+    announcements: projection.announcements,
+    banners: projection.banners,
+    eldercareArticles: projection.eldercareArticles,
+    playingArticleId,
+    isAudioPlaying,
+    playArticleAudio,
+    stopArticleAudio,
+    createHelpOrder,
+    createPost,
+    acceptOrder,
+    clockInOrder,
+    completeOrder,
+    cancelOrder,
+    likePost,
+    bookmarkPost,
+    addComment,
+    enrollActivity,
+    sendChatMessage,
+    submitComplaint,
+    triggerSos,
+    verifyRealName,
+    adminApprovePost,
+    adminRejectPost,
+    adminRejectPostWithReason,
+    adminResolveComplaint,
+    adminAdjustTimeCoin,
+    unreadMessagesCount,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-export const useApp = () => {
+export const useApp = (): AppContextType => {
   const context = useContext(AppContext);
   if (!context) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
 };
+
+/** 演练身份 id → 展示名（供「我的」页切换身份使用）。 */
+export const DEMO_IDENTITY_LABELS: Record<string, string> = {
+  [MEMBERSHIP_USER_IDS.visitor]: '访客（未实名）',
+  [MEMBERSHIP_USER_IDS.member]: '演练成员（已实名）',
+  [MEMBERSHIP_USER_IDS.reviewer]: '审核员（演练）',
+};
+
+export { SYNTHETIC_DEMO_AUTHOR };

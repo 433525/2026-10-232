@@ -1,0 +1,64 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-10-23T14:11:51.393Z",
+  "title": "演练-求助-mvl1tg8v",
+  "total": 11,
+  "passed": 11,
+  "results": [
+    {
+      "name": "B 端发布页可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "未实名访客被前置拦截",
+      "ok": true,
+      "detail": "!依据实名制法规要求，发布求助订单须先完成实名认证！正在打开认证界面…"
+    },
+    {
+      "name": "拦截后未写入本机存档",
+      "ok": true,
+      "detail": "archive=false"
+    },
+    {
+      "name": "可切换到已实名演练成员",
+      "ok": true,
+      "detail": "演练用户·我（虚构）"
+    },
+    {
+      "name": "成员发布后写入本机存档",
+      "ok": true,
+      "detail": "archive=true"
+    },
+    {
+      "name": "发布后提示进入审核",
+      "ok": true,
+      "detail": "跳转到主要内容 演练社区·梧桐里（虚构） 互助演练站 搜索 关怀模式 小程序视图 SOS 演练用户·我（虚构） 搜索服务类型、附近志愿者、紧急求助... 一键直"
+    },
+    {
+      "name": "社区信息流已渲染内容",
+      "ok": true,
+      "detail": "textLength=1451"
+    },
+    {
+      "name": "待审内容不出现在公开信息流",
+      "ok": true,
+      "detail": "hasTitle=false"
+    },
+    {
+      "name": "A+ 社区桥可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 读到 B 写入的存档（不再提示未找到）",
+      "ok": true,
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/23 22:11"
+    },
+    {
+      "name": "B 主链路无控制台异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

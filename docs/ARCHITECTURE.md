@@ -1,74 +1,104 @@
 # 架构说明
 
-> 面向维护者：模块边界、状态流、可扩展点，以及从 `community-service-mvp` 借鉴并落地的工程基线。
+> 面向维护者：分层、状态流、可扩展点，以及从 `community-service-mvp`（Vue 3）移植到 React 时做的取舍。
+> 对应实现见 `docs/delivery/component-data-map.md`（谁读谁、谁调谁）。
 
 ## 1. 分层
 
 | 层 | 位置 | 职责 |
 | --- | --- | --- |
-| 外壳层 | `App.tsx` | 双视口切换、错误边界、全局快捷键、弹层调度、跳过链接 |
-| 状态层 | `context/AppContext.tsx` | 身份、导航、订单状态机、时间币账本、消息、投诉、审核动作 |
-| 领域层 | `types/index.ts` + `data/mockData.ts` | 类型契约与合成数据 |
-| 组件层 | `components/*.tsx` | 5 个主 Tab + 11 个弹层/子页面 + 3 个基础组件 |
-| 基础层 | `utils/*`、`hooks/*` | 音频、存档、内容预检、草稿、Toast、弹层焦点 |
+| 入口层 | `index.html` + `main.tsx`；`aplus.html` + `main-aplus.tsx` | 两个 HTML 各自闭环：入口脚本、`noscript` 兜底、`noindex`、内联图标 |
+| 外壳层 | `App.tsx`（B）；`aplus/App.tsx`（A+） | 版面装配、错误边界、跳过链接、弹层调度 |
+| 状态层 | `context/AppContext.tsx`（B 契约适配）；`aplus/workbench.ts`（A+ 唯一状态源） | 身份与导航、动作编排、表单草稿、提示与深链 |
+| 领域层 | `data/community/*`、`data/intake/*` | 类型、状态机、存档读写、校验；**与框架无关** |
+| 原语层 | `data/reactive.ts` | `ref` / `computed` / `createReactiveStore`（约 90 行，零依赖） |
+| 组件层 | `components/*.tsx`（B 22 个）、`aplus/components/**`（A+ 21 个） | 只做展示与事件绑定 |
+| 基础层 | `utils/*`、`hooks/*`、`shared/*` | 音频、Toast、剪贴板、查询串、异常上报 |
 
-依赖方向自上而下单向：组件 → context/utils/types，禁止反向引用组件。
+依赖方向单向：组件 → 状态层 → 领域层。**组件不得自建业务状态副本**，领域层不得 import 组件。
 
 ## 2. 关键机制
 
-### 2.1 订单状态机
+### 2.1 双入口与共享领域层
+
+`vite.config.ts` 用 `rollupOptions.input` 声明两份 HTML。两端共享的 `data/**` 由 Rollup 抽成单个 `assets/types-*.js`，被两份 HTML 共同引用——**领域层只打一份**。
+`sections` 之间没有运行时耦合；唯一的跨端通道是 `data/intake/community-bridge.ts`，它按存档键读取 B 端状态并做校验。
+
+### 2.2 B 端订单状态机
+
 ```
-published(接单大厅) → accepted(待上门) → in_progress(已签到)
-    → completed(双向确认结算) | cancelled | disputed
+open → accepted-local-demo → completion-requested → completed-local-demo
+         ↓                        ↓
+     cancelled-local-demo     disputed-local-demo → resume / close
 ```
-状态变更集中在 `AppContext`：`acceptOrder / clockInOrder / completeOrder / cancelOrder`。
-结算 `completeOrder` 同时写入两笔账本流水（志愿者 +币、求助者 −币），并推送站内消息，保证「一笔业务、双向留痕」。
 
-### 2.2 时间币账本
-`TimeLedger` 采用不可篡改流水模型：`txHash`（幂等业务号）+ `balanceAfter` + `type`。
-管理员人工调账走 `adminAdjustTimeCoin`，独立标记 `admin_adjust` 并写入原因，满足「管理员调整留痕」要求。
+六个状态都带 `-local-demo` 后缀或中文「（本机演练）」，**状态文案本身就在提示这不是真实履约**。
+全部转换集中在 `data/community/store.ts`；`orderEvents` 是追加式时间线（上限 100 条），记录「谁在本机点了什么」，`actor` 可为 `demo-side` / `synthetic-counterpart` / `reviewer`。
+`synthetic-counterpart` 的存在是为了演示「双方确认」——没有真实对方，所以由本机代记，并在界面标注「合成对方（代记录）」。
 
-### 2.3 本地存档容错（utils/storage.ts）
-写入带版本信封 `{ v, savedAt, data }`，读取时：
-1. 非法 JSON / 版本过高 / 结构校验失败 → 回退默认数据并告警；
-2. 裸数据（历史格式）可兼容读取；
-3. 写入失败（隐私模式、配额满）不抛异常。
+### 2.3 时间币：只读流水
 
-### 2.4 内容安全预检（utils/moderation.ts）
-`moderateContent(...)` 返回 `{ severity: pass|warn|block, hits, advice }`：
-- `block`：涉政涉暴、黄赌毒、诈骗等 → 阻断发布并给出中文整改建议；
-- `warn`：医疗断言、时长买卖、站外导流等 → 允许发布但提示进入人工复核；
-- 接口形态与线上内容安全 API 一致，可直接替换为云端审核。
+`LedgerEntry.status` 恒为 `'unsettled'`，store 中**没有任何结算动作**。完成订单只追加一条未结算流水，不产生余额、不可兑现、不可转让。这是 R18 的落地方式：把「记账」与「结算」在类型层面分开。
 
-### 2.5 发布草稿（utils/draft.ts）
-输入 600ms 防抖后写入 `cuihu.publish-draft.v1`；进入页面自动恢复并提示。
-**合规勾选（敏感信息授权）永不自动恢复**，提交前必须由用户重新确认。提交成功即清除草稿。
+### 2.4 存档容错
 
-### 2.6 弹层可访问性（hooks/useDialog.ts）
-打开：锁定背景滚动 → 焦点进入弹层 → Tab 循环；关闭：Esc / 遮罩 → 焦点归还触发元素。
-主弹层由 `App.tsx` 统一调度，页内小弹层各自调用 `useDialog`。
+`CommunityStorageStatus` / `IntakeStorageStatus` 是六个显式状态：`ready / saved / memory-only / recovery-required / save-error / conflict`。
+读写失败不抛异常，而是落到对应状态并由 UI 说明；`recovery-required` 时 A+ **必须先下载旧存档原文**才允许重置（B 端暂无此路径，见缺口报告）。
 
-### 2.7 全局提示（utils/toast.tsx）
-单例提示队列（最多 3 条），按文案特征推断等级：错误 → `role="alert"` + `aria-live="assertive"`，
-其余 → `role="status"` + `polite`。全站不使用 `alert()`，避免阻塞主线程与打断读屏。
+### 2.5 先审后发与留痕
+
+`publishPost` 一律写 `moderation: 'pending'`；`visiblePosts` 只取 `approved && publishedToFeed !== false`。
+审核动作（`moderatePost` / `moderateComment` / `resolveReport` / `hideOrderMessage` / `create-report`）都会追加 `auditLog`，`reason` 必填，审核**只改状态与理由，不改正文**。
+
+### 2.6 A+ 工作台：去框架化
+
+mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive / computed / watch / nextTick / onMounted`。移植时只替换这六项，业务判断逐条保留：
+
+| Vue | React 版 |
+|---|---|
+| `ref` / `computed` | `data/reactive.ts` 同名原语（惰性、不缓存） |
+| `reactive(form)` | `ref<Form>` + `setForm(name, patch)` 整体替换 |
+| `watch(activeFilter, …)` | `setActiveFilter()` 内显式写偏好 |
+| `watch(() => action, …)` | `setTransitionAction()` 内同步 `reasonCode` |
+| `nextTick()` | `afterPaint()`（双 rAF） |
+| `onMounted` / `onBeforeUnmount` | `init()` 返回清理函数，由 `useEffect` 调用 |
+
+组件通过 `useAplusContext()` 读取工作台，内部用 `useSyncExternalStore(subscribe, getVersion)` 订阅。`intake` store 的写入由工作台内的 `revision` 计数器转接，否则 A+ 界面不会跟着重渲染。
+
+### 2.7 A+ 弹层焦点
+
+`aplus/dialog-focus.ts` 实现 APG「Dialog (Modal)」最小闭环：`[data-autofocus]` → 首个可编辑字段 → 首个可聚焦元素；Tab/Shift+Tab 循环；Esc 交调用方；关闭后归还触发元素。
+背景用 `inert`，**不用** `aria-hidden`（避免双重隐藏导致读屏重复播报）。
+与 mvp 的差异：Vue 有 `watch(isOpen)` 这个同步点，React 没有，改为在每个开/关动作末尾显式 `sync()`。
+
+### 2.8 社区桥：只读
+
+`readCommunityHelpPosts()` 读 B 的本机存档 → 校验每条记录 → 返回 `{ status: 'ready' | 'missing' | 'error', posts, warnings, savedAt }`，坏记录进 `warnings` 而不是整体失败。
+`mapCommunityHelpPostToIntake()` 把帖子映射成受理输入（标题→标签、正文→摘要并按 240 字截断、帖子 ID→`sourcePostId`）。
+登记时按 `sourcePostId` 去重：已登记则提示已有记录 ID，不重复创建；摘要/标签完全重复则进入人工复核。
 
 ## 3. 设计 Token
 
-定义于 `src/index.css`：`--text-body / --text-title / --text-small / --tap-min / --focus-ring / --radius-card / --ease-out`。
-新增视觉元素一律引用 Token，不再硬编码字号与圆角。
+- B 端：`src/index.css`（Tailwind 4 `@theme`）——`--text-body / --text-title / --text-small / --tap-min / --focus-ring / --radius-card / --ease-out`。
+- A+ 端：`src/aplus/styles.css`（沿用 mvp 原生 CSS，787 行类名与令牌未改）——`--fs-* / --sp-* / --r-* / --tap`。
+
+两套 Token 互不引用：A+ 不加载 Tailwind，B 不加载 A+ 的样式表。
 
 ## 4. 可扩展点
 
 | 需求 | 建议改法 |
-| --- | --- |
-| 接后端 API | 在 `context/AppContext.tsx` 内替换数据来源为异步请求，保持对外 action 签名不变 |
-| 换内容安全服务 | 仅替换 `utils/moderation.ts` 实现 |
-| 新增发布类型 | `types/index.ts` 扩展 `PostCategory`，`PublishModal` 增加一个模式 |
-| 新增弹层 | 新建组件 + 在 `App.tsx` 的 `SubPageType` 中登记 |
-| 多语言 | 抽离文案常量，当前全站文案集中在组件内中文字符串 |
+|---|---|
+| 接后端 API | 替换 `data/*/store.ts` 的持久化函数（`writeSnapshot` / `loadInitialState`），保持 store 对外字段与方法名不变 |
+| 换内容安全服务 | 替换 `utils/moderation.ts` 的 `moderateContent` 实现；A+ 的敏感信息拦截在 `data/intake/intake.ts` |
+| 新增发布类型 | `data/community/types.ts` 扩展 `POST_MODES` + `PublishModal` 增加模式 + `selectors/community.ts` 补映射 |
+| 新增 A+ 弹层 | 新建组件 + 在 `aplus/workbench.ts` 加 `show*` 与 `open*/close` + 在 `App.tsx` 挂载 |
+| 新增 A+ 筛选 | `filter-preference.ts` 的 `INTAKE_FILTERS` + `workbench.ts` 的 `filteredCases` 分支 |
+| 多语言 | 文案目前集中在组件与 `presentation.ts`，可抽为字典 |
 
 ## 5. 已知边界
 
-- 数据为本机合成，未接入真实短信、地图、对象存储与内容安全云服务；
-- 时间币仅记账，不含任何支付、兑现与转让能力；
-- 语音朗读使用浏览器 Web Speech API，个别浏览器无语音包时自动降级为纯文字。
+- 无后端、无真实通知、无上传/定位/支付；所有状态在当前浏览器。
+- A+ 全树重渲染（单版本号订阅）；记录上千时需改细粒度。
+- 仅在 Chromium 验证；未测微信 X5 / Safari。
+- B 端坏档恢复弱于 A+；A+ 未移植 `OfflineNotice`。
+- 完整清单见 `docs/delivery/gap-report.md`。

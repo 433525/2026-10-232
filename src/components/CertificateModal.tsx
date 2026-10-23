@@ -120,10 +120,10 @@ export const CertificateModal: React.FC = () => {
             {/* Certificate Body */}
             <div className="space-y-4 text-sm sm:text-base leading-relaxed text-slate-700 font-serif pt-2">
               <p className="indent-8">
-                兹证明 <strong className="text-slate-950 font-sans text-lg underline decoration-amber-500 underline-offset-4 font-bold">{currentUser.name}</strong> 同志（身份证号：<span className="font-mono text-slate-900">{currentUser.idCardMasked || '3201061994****6618'}</span>），热心践行邻里互助精神，积极参与翠湖花园社区“时间银行·银龄守护”志愿服务行动。
+                兹证明 <strong className="text-slate-950 font-sans text-lg underline decoration-amber-500 underline-offset-4 font-bold">{currentUser.name}</strong> 参与了梧桐里（虚构）社区“时间银行·银龄守护”<strong>本机合成演练</strong>。本人名称、服务次数与时长均为虚构演示数据，不构成任何真实的志愿服务记录或证明。
               </p>
               <p className="indent-8">
-                截至目前，该同志已累计完成社区陪同就医、慢病照护、家务修缮等助老服务 <strong className="text-emerald-700 font-sans text-lg font-bold">{currentUser.completedTasks || 68}</strong> 次，经街道社区互助监督委员会审核认证，有效志愿服务时长累计达：
+                截至目前，该演练账号在本机记录中累计完成陪医、照护、修缮等演练任务 <strong className="text-emerald-700 font-sans text-lg font-bold">{currentUser.completedTasks || 68}</strong> 次；以下时长按本机演练规则统计，未经任何机构审核或认证：
               </p>
               
               <div className="text-center py-2">
@@ -153,24 +153,24 @@ export const CertificateModal: React.FC = () => {
                   <div className="font-mono text-slate-800 font-bold">{certNo}</div>
                   <div className="flex items-center gap-1 text-emerald-700">
                     <CheckCircle className="w-3 h-3" />
-                    <span>官方防伪编码已上链备案</span>
+                    <span>演练编号，仅用于本机核对</span>
                   </div>
-                  <div>扫码查验服务真伪与明细</div>
+                  <div>二维码仅用于版式演示，不连接任何核验服务</div>
                 </div>
               </div>
 
               {/* Official Seal Mock */}
               <div className="relative text-center sm:text-right">
                 <div className="text-xs text-slate-600 space-y-1">
-                  <div className="font-bold text-slate-800">翠湖花园社区志愿服务工作站</div>
-                  <div className="font-bold text-slate-800">翠湖社区新时代文明实践站</div>
+                  <div className="font-bold text-slate-800">社区服务演练项目组（虚构）</div>
+                  <div className="font-bold text-slate-800">合成数据 · 非真实证明</div>
                   <div className="text-slate-500 font-mono">{issueDate}</div>
                 </div>
 
                 {/* Red Circular Stamp Graphic */}
                 <div className="sm:absolute -top-3 -right-2 w-20 h-20 rounded-full border-2 border-red-600/80 text-red-600 flex flex-col items-center justify-center text-[8px] font-bold rotate-[-12deg] opacity-85 select-none pointer-events-none mx-auto mt-2 sm:mt-0 shadow-xs">
-                  <div className="text-[7px]">★ 社区工作站 ★</div>
-                  <div className="text-[9px] my-0.5">志愿服务审核专用</div>
+                  <div className="text-[7px]">★ 演练项目组 ★</div>
+                  <div className="text-[9px] my-0.5">仅用于版式演示</div>
                   <div className="text-[7px]">2026.10.22</div>
                 </div>
               </div>

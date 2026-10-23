@@ -32,10 +32,10 @@ export const CommunityQrModal: React.FC = () => {
 
         <div className="space-y-1">
           <h3 className="text-lg font-bold text-slate-900">
-            翠湖花园社区邻里互助微信群
+            梧桐里（虚构）邻里互助演练群
           </h3>
           <p className="text-xs text-slate-500">
-            扫码加入本社区官方互助交流群，线下帮扶随时对接
+            本图为版式演示，不对应任何真实群聊、线下渠道或工作人员
           </p>
         </div>
 
@@ -45,8 +45,8 @@ export const CommunityQrModal: React.FC = () => {
             <QrCode className="w-40 h-40 text-slate-900" />
             <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
               <Users className="w-8 h-8 text-emerald-600 mb-1" />
-              <span className="text-xs font-bold text-slate-800">翠湖社区1-4期互助群</span>
-              <span className="text-[10px] text-slate-400">群主：网格长王芳</span>
+              <span className="text-xs font-bold text-slate-800">演练模拟群（虚构）</span>
+              <span className="text-[10px] text-slate-400">负责人：演练-受理席-01</span>
             </div>
           </div>
           <div className="flex items-center justify-center gap-1 text-[11px] text-emerald-700 font-medium">

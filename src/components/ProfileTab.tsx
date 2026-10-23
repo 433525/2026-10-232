@@ -129,7 +129,7 @@ export const ProfileTab: React.FC = () => {
               {currentUser.timeCoins}
             </div>
             <div className="text-[11px] text-amber-100 mt-0.5">
-              时间币可用余额
+              未结算时长（币）
             </div>
           </div>
 
@@ -138,7 +138,7 @@ export const ProfileTab: React.FC = () => {
               {currentUser.volunteerHours}
             </div>
             <div className="text-[11px] text-amber-100 mt-0.5">
-              累计志愿学时(h)
+              未结算学时(h)
             </div>
           </div>
 
@@ -272,7 +272,7 @@ export const ProfileTab: React.FC = () => {
             <span>查验/下载个人志愿服务电子证明</span>
           </div>
           <span className="text-xs text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-            <span>官方证书</span>
+            <span>演练证明</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </span>
         </button>
@@ -347,7 +347,7 @@ export const ProfileTab: React.FC = () => {
               <p><strong>1. 纯公益储蓄原则：</strong>时间币遵循“低龄存时间、高龄换服务”纯公益原则，严禁买卖、非法套现或转作商业用途。</p>
               <p><strong>2. 时长换算：</strong>标准互助服务 1 小时对应记入 1 个时间币；不足 1 小时按服务类型阶梯核定。</p>
               <p><strong>3. 存证与结算：</strong>服务完成后，须由长者/家属与志愿者双方完成在线确认或拍照签核，系统将生成不可篡改的账本流水号。</p>
-              <p><strong>4. 调解与仲裁：</strong>如遇爽约、服务质量争议，可向社区互助监督委员会提交申诉工单。</p>
+              <p><strong>4. 调解与仲裁：</strong>本原型没有真实申诉渠道。演练中的争议可在详情页提交“演示投诉”，由演示角色在自己的浏览器内记录；不会提交给任何机构，也不会有外部回复。</p>
             </div>
           </div>
         </div>
@@ -373,10 +373,10 @@ export const ProfileTab: React.FC = () => {
                     <p className="text-[10px] text-slate-400 font-mono mt-0.5">{tx.txHash} · {tx.createdAt}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`font-bold text-sm ${tx.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {tx.amount > 0 ? `+${tx.amount}` : tx.amount} 币
+                    <div className="font-bold text-sm text-emerald-600">
+                      +{tx.amount} 分钟
                     </div>
-                    <div className="text-[10px] text-slate-400">结余: {tx.balanceAfter} 币</div>
+                    <div className="text-[10px] text-slate-400">未结算 · 不可兑现</div>
                   </div>
                 </div>
               ))}

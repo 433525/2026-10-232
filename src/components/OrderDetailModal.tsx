@@ -222,11 +222,12 @@ export const OrderDetailModal: React.FC = () => {
                 求助居民信息
               </div>
               <div className="flex items-center gap-2.5">
-                <img 
-                  src={order.userAvatar} 
-                  alt={order.userName} 
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500"
-                />
+                <div
+                  aria-hidden="true"
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-emerald-500 shrink-0"
+                >
+                  {order.userName.slice(0, 1)}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-slate-800 text-xs sm:text-sm truncate">
                     {order.userName}
@@ -245,20 +246,21 @@ export const OrderDetailModal: React.FC = () => {
               </div>
               {order.volunteerName ? (
                 <div className="flex items-center gap-2.5">
-                  <img 
-                    src={order.volunteerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'} 
-                    alt={order.volunteerName} 
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-500"
-                  />
+                  <div
+                    aria-hidden="true"
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white font-bold flex items-center justify-center ring-2 ring-amber-500 shrink-0"
+                  >
+                    {order.volunteerName.slice(0, 1)}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1 font-bold text-slate-800 text-xs sm:text-sm truncate">
                       <span>{order.volunteerName}</span>
                       <span className="text-[10px] text-amber-600 bg-amber-50 px-1 py-0.2 rounded">
-                        ★ {order.volunteerRating || 5.0}
+                        {order.volunteerRating ? `★ ${order.volunteerRating}` : '暂无评分（演练）'}
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-500 font-mono">
-                      {order.volunteerPhone || '136****5510'}
+                      {order.volunteerPhone || '未提供（演练不采集手机号）'}
                     </div>
                   </div>
                 </div>
@@ -340,7 +342,7 @@ export const OrderDetailModal: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
               >
                 <Clock className="w-4 h-4" />
-                <span>到达地点 · 拍照签到</span>
+                <span>上门签到（本机记录）</span>
               </button>
             )}
 
@@ -351,7 +353,7 @@ export const OrderDetailModal: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>确认服务完成并结算时长</span>
+                <span>双方确认完成（本机演练，不结算）</span>
               </button>
             )}
           </div>

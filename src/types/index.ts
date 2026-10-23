@@ -52,7 +52,7 @@ export interface HelpOrder {
   categoryLabel: string;
   title: string;
   description: string;
-  locationArea: string;       // 翠湖花苑3期 (公开展示区)
+  locationArea: string;       // 梧桐里3期（虚构，公开展示区）
   locationDetail: string;     // 8号楼2单元601 (接单后凭证可见)
   isUrgent: boolean;
   dateStr: string;

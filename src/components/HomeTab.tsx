@@ -138,7 +138,7 @@ export const HomeTab: React.FC = () => {
             <span>核心便民互助入口</span>
           </h3>
           <span className="text-[11px] text-emerald-700 font-medium">
-            翠湖互助站 24H 服务
+            梧桐里互助站 24H（虚构）
           </span>
         </div>
 
@@ -232,7 +232,7 @@ export const HomeTab: React.FC = () => {
               志愿证明
             </span>
             <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              下载官方证书
+              下载演练证明
             </span>
           </button>
 

@@ -19,7 +19,7 @@ import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
 import { SmartImage } from './SmartImage';
 import { useDialog } from '../hooks/useDialog';
-import { LEADERBOARD_TOP5 } from '../data/mockData';
+import { DEMO_LEADERBOARD as LEADERBOARD_TOP5 } from '../data/community/content';
 
 export const CommunityTab: React.FC = () => {
   const { 
@@ -145,7 +145,7 @@ export const CommunityTab: React.FC = () => {
           </div>
           <div className="min-w-0">
             <p className="text-xs sm:text-sm font-bold text-slate-800 truncate group-hover:text-emerald-800">
-              翠湖花园社区 1-4 期邻里微信互助群入口
+              梧桐里（虚构）1-4 期邻里互助群入口
             </p>
             <p className="text-[11px] text-slate-500 truncate">
               网格员在线 · 线下帮扶随时对接 · 邻里急事相助
@@ -193,7 +193,7 @@ export const CommunityTab: React.FC = () => {
             {[
               { key: 'all', label: '全部' },
               { key: 'community', label: '本社区' },
-              { key: 'official', label: '官方发布' },
+              { key: 'official', label: '项目组发布' },
             ].map(f => (
               <button
                 key={f.key}
@@ -236,7 +236,7 @@ export const CommunityTab: React.FC = () => {
                     {post.isOfficial && (
                       <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-purple-100 text-purple-700 flex items-center gap-0.5">
                         <ShieldCheck className="w-2.5 h-2.5" />
-                        官方认证
+                        项目组标注
                       </span>
                     )}
                     <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-slate-100 text-slate-600">
@@ -300,7 +300,7 @@ export const CommunityTab: React.FC = () => {
                     <span>活动时间：{post.activityDate || '周六 09:30'}</span>
                   </div>
                   <div className="text-[11px] text-purple-700">
-                    已报名 <strong>{post.activityEnrolledCount}</strong> / {post.activityMaxCount} 人 · 计入2小时志愿时长
+                    已报名 <strong>{post.activityEnrolledCount}</strong> / {post.activityMaxCount} 人 · 仅本机记录，不计时长
                   </div>
                 </div>
                 <button
@@ -428,7 +428,7 @@ export const CommunityTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Trophy className="w-6 h-6 text-amber-500" />
                 <h3 className="font-bold text-base text-slate-900">
-                  翠湖社区月度时间币英雄榜 TOP 5
+                  互助演练 · 月度参与榜 TOP 5（合成数据）
                 </h3>
               </div>
               <button
@@ -459,7 +459,12 @@ export const CommunityTab: React.FC = () => {
                     }`}>
                       {item.rank}
                     </span>
-                    <img src={item.avatar} alt={item.name} className="w-9 h-9 rounded-full object-cover" />
+                    <div
+                      aria-hidden="true"
+                      className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0"
+                    >
+                      {item.name.slice(0, 1)}
+                    </div>
                     <div>
                       <div className="font-bold text-slate-800 text-xs sm:text-sm">{item.name}</div>
                       <div className="text-[10px] text-amber-800">{item.badge}</div>
@@ -474,7 +479,7 @@ export const CommunityTab: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-slate-400 text-center">
-              榜单每月1日自动结算 · 时长上链存证可查 · 严禁刷单
+              本榜为虚构演练展示，非真实统计；时间币只记账、不结算、不上链、不可兑现。
             </p>
           </div>
         </div>

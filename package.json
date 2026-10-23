@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check:dual": "node tools/check-dual-entry.mjs",
+    "check:aplus": "node tools/check-aplus-flow.mjs",
+    "check:community": "node tools/check-community-flow.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
