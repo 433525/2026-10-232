@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   设计 Token（对齐 community-service-mvp 的 token 基线，并补齐品牌层）
+   ========================================================================== */
+:root {
+  --text-body: 14px;
+  --text-title: 17px;
+  --text-small: 11px;
+  --tap-min: 44px;
+  --focus-ring: 2px solid #176c69;
+  --radius-card: 16px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --brand-ink: #0f3d38;
+  --brand-jade: #0d9488;
+  --brand-amber: #f59e0b;
+}
+
+@layer base {
+  html {
+    font-family: 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'PingFang SC', 'Microsoft YaHei', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    font-size: var(--text-body);
+    background-color: #f1f5f9;
+    overflow-wrap: anywhere;
+  }
+
+  /* 键盘可达性：焦点环统一为实色描边（可键盘操作的控件一律可见） */
+  :focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* 移动端表单控件字号不低于 16px，避免 iOS 聚焦自动放大 */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+/* 触控热区下限：主要可点击元素不小于 44px */
+.tap-min {
+  min-height: var(--tap-min);
+}
+
+/* 滚动显现（克制的入场，遵循“动效为功能服务”） */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.55s var(--ease-out), transform 0.55s var(--ease-out);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* 品牌细颗粒质感：让白底不再是纯白 */
+.grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: radial-gradient(rgba(15, 61, 56, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.42);
+}
+
+/* iOS 安全区 */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* 适老化大字模式 */
+.elderly-mode-active {
+  font-size: 1.125rem !important;
+  line-height: 1.75 !important;
+}
+
+.elderly-mode-active button,
+.elderly-mode-active input,
+.elderly-mode-active textarea {
+  font-size: 1.05rem !important;
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.92;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 数字滚动渐入 */
+@keyframes count-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.count-pop {
+  animation: count-pop 0.5s var(--ease-out) both;
+}
+
+/* 尊重系统「减少动态效果」设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
