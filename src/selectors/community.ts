@@ -241,7 +241,19 @@ function authorName(author: FictionalAuthor): string {
   return author.name;
 }
 
-export function buildOrder(post: CommunityPost): HelpOrder {
+/**
+ * 信息流与订单里的 `userId` / `volunteerId` 是**领域层**的作者 id；组件却拿
+ * `currentUser.id`（视图身份 id）做相等比较。演练里「我」在数据层固定是
+ * `SYNTHETIC_DEMO_AUTHOR`，在视图层按 membership 有三个 id，两边直接比会永假，
+ * 于是「我的订单」为空、接单后也看不到「上门签到」。这里在选择器把本人投影成
+ * 当前视图 id，数据层与组件都不动（需求 §8.1：只允许 selectors 做变形）。
+ */
+function viewAuthorId(authorId: string, viewerId?: string): string {
+  if (!viewerId) return authorId;
+  return authorId === SYNTHETIC_DEMO_AUTHOR.id ? viewerId : authorId;
+}
+
+export function buildOrder(post: CommunityPost, viewerId?: string): HelpOrder {
   const { category, label } = mapCategory(post);
   const minutes = parseDurationMinutes(post.duration);
   const participates = viewerParticipates(post);
@@ -252,7 +264,7 @@ export function buildOrder(post: CommunityPost): HelpOrder {
 
   return {
     id: post.id,
-    userId: post.author.id,
+    userId: viewAuthorId(post.author.id, viewerId),
     userName: authorName(post.author),
     userAvatar: '',
     userPhoneMasked: NO_PHONE_TEXT,
@@ -275,7 +287,11 @@ export function buildOrder(post: CommunityPost): HelpOrder {
     medicalNotes: participates ? post.specialNote : undefined,
     consentSensitive: Boolean(post.specialNote),
     status: orderStatusOf(post),
-    volunteerId: post.acceptedByMe ? SYNTHETIC_DEMO_AUTHOR.id : acceptedByCounterpart ? 'SYNTH-AUTHOR-002' : undefined,
+    volunteerId: post.acceptedByMe
+      ? viewAuthorId(SYNTHETIC_DEMO_AUTHOR.id, viewerId)
+      : acceptedByCounterpart
+        ? 'SYNTH-AUTHOR-002'
+        : undefined,
     volunteerName: post.acceptedByMe
       ? MEMBERSHIP_VIEW.member.name
       : acceptedByCounterpart
@@ -298,11 +314,11 @@ export function buildOrder(post: CommunityPost): HelpOrder {
 }
 
 /** 接单大厅与「我的订单」都从这里取；未审与已驳回不进大厅。 */
-export function buildOrders(state: CommunityState): HelpOrder[] {
+export function buildOrders(state: CommunityState, viewerId?: string): HelpOrder[] {
   return state.posts
     .filter((post) => post.mode === 'help')
     .filter((post) => post.moderation !== 'hidden')
-    .map(buildOrder)
+    .map((post) => buildOrder(post, viewerId))
     .sort((a, b) => {
       if (a.status === 'published' && b.status !== 'published') return -1;
       if (b.status === 'published' && a.status !== 'published') return 1;
@@ -352,14 +368,14 @@ function buildComment(
   };
 }
 
-export function buildPost(post: CommunityPost, currentUserName: string): ViewPost {
+export function buildPost(post: CommunityPost, currentUserName: string, viewerId?: string): ViewPost {
   const category = postCategoryOf(post);
   const anonymous = post.anonymous === true;
   const isOrganization = post.author.id === SYNTHETIC_TEAM_AUTHOR_ID;
 
   return {
     id: post.id,
-    userId: post.author.id,
+    userId: viewAuthorId(post.author.id, viewerId),
     // 匿名仅前台匿名：后台（审核/日志）仍能定位作者，见 A+ 与 AdminCenter。
     userName: anonymous ? '匿名邻里（演练）' : authorName(post.author),
     userAvatar: '',
@@ -396,10 +412,10 @@ export function buildPost(post: CommunityPost, currentUserName: string): ViewPos
  * 信息流：只有审核通过、且未关闭“同步到社区”的内容会出现。
  * `includeUnapproved` 仅供审核后台使用（AdminCenter 自己会再筛一次）。
  */
-export function buildPosts(state: CommunityState, currentUserName: string): ViewPost[] {
+export function buildPosts(state: CommunityState, currentUserName: string, viewerId?: string): ViewPost[] {
   return [...state.posts]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .map((post) => buildPost(post, currentUserName))
+    .map((post) => buildPost(post, currentUserName, viewerId))
     .filter((post) => post.status === 'approved');
 }
 
@@ -591,8 +607,8 @@ export function projectCommunity(
   const currentUser = users.find((user) => user.id === MEMBERSHIP_USER_IDS[membership]) ?? users[1];
   return {
     users,
-    orders: buildOrders(state),
-    posts: buildPosts(state, currentUser.name),
+    orders: buildOrders(state, currentUser.id),
+    posts: buildPosts(state, currentUser.name, currentUser.id),
     messages: buildMessages(state),
     chatMessages: buildChatMessages(state),
     timeLedger: buildTimeLedger(state, currentUser.id),

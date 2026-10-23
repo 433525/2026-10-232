@@ -32,9 +32,11 @@ npx vite preview --port 5180 --strictPort
 npm run check:dual        # 27 项：双入口 + 五档宽度 + 弹层焦点
 npm run check:aplus       # 24 项：A+ 主流程 + 去重 + 备份 + 持久化
 npm run check:community   # 11 项：实名拦截 + 先审后发 + 跨入口读取
+npm run check:acceptance  # 27 项：接单→签到→完成→账本、举报入口与处置、病史可见性、高风险拦截
 ```
 
-脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起 headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
+共 **89 项**，全部通过。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
+headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 
 ## 二、演示 vs 生产
 
@@ -91,6 +93,7 @@ npm run check:community   # 11 项：实名拦截 + 先审后发 + 跨入口读�
 - **备份「导入」的文件选择未自动化**：导出与刷新持久化已覆盖，导入靠手工走查。
 - **A+ 全树重渲染**：`useSyncExternalStore` 订阅单一版本号，记录量上千时需改为按字段订阅。
 - **B 端坏档恢复弱于 A+**：A+ 有「下载无法读取的旧存档再重置」，B 只有重置。
+- **举报只做到帖子 / 订单两级**：评论级举报需要先给 `ComplaintTicket` 加 targetType，暂借父帖提交。
 - 其它缺口逐条列在 [双向缺口报告](docs/delivery/gap-report.md)。
 
 ## 六、合规声明
@@ -109,7 +112,7 @@ npm run check:community   # 11 项：实名拦截 + 先审后发 + 跨入口读�
 | [组件 ↔ 数据源映射表](docs/delivery/component-data-map.md) | 每个界面读哪个字段、点哪个方法 |
 | [改动清单](docs/delivery/change-list.md) | 新增 / 修改 / 删除 / 修复四类 |
 | [双向缺口报告](docs/delivery/gap-report.md) | B↔A+ 缺口、需求未实现项、技术债 |
-| [验收记录](docs/delivery/acceptance.md) | 62 项自动化 + 十条合规逐条验证 |
+| [验收记录](docs/delivery/acceptance.md) | 89 项自动化 + 十条合规逐条验证 |
 | [架构说明](docs/ARCHITECTURE.md) | 分层、状态流、扩展点 |
 | [阶段调研](docs/research/) | P1–P5 的开源候选与取舍 |
 

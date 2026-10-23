@@ -71,7 +71,18 @@ export async function launchChrome({ port = 9333, width = 1440, height = 900 } =
     async close() {
       child.kill()
       await delay(200)
-      rmSync(profile, { recursive: true, force: true })
+      // Windows 上 Chrome 退出时会短暂占用 profile 里的文件（Crashpad 等），
+      // 直接 rmSync 会抛 EBUSY/EPERM 把整轮验收判成失败。清理属收尾动作，
+      // 失败只重试、不改变断言结果。
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          rmSync(profile, { recursive: true, force: true })
+          return
+        } catch {
+          await delay(250)
+        }
+      }
+      console.warn(`[cdp] 临时 profile 未能清理，可手工删除：${profile}`)
     },
   }
 }

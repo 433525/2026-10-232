@@ -231,7 +231,7 @@ export const ProfileTab: React.FC = () => {
                       order.status === 'accepted' ? 'bg-amber-100 text-amber-800' :
                       'bg-slate-200 text-slate-700'
                     }`}>
-                      {order.status === 'completed' ? '已完成结算' :
+                      {order.status === 'completed' ? '已完成（未结算）' :
                        order.status === 'in_progress' ? '服务进行中' :
                        order.status === 'accepted' ? '待上门服务' : '接单大厅公示中'}
                     </span>

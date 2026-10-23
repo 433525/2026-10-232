@@ -12,7 +12,8 @@ import {
   MessageSquare, 
   CheckCircle2, 
   Sparkles,
-  Lock
+  Lock,
+  Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
@@ -30,7 +31,8 @@ export const OrderDetailModal: React.FC = () => {
     completeOrder, 
     cancelOrder,
     setActiveTab,
-    elderlyMode 
+    elderlyMode,
+    submitComplaint
   } = useApp();
 
   const [ratingScore, setRatingScore] = useState(5);
@@ -356,6 +358,23 @@ export const OrderDetailModal: React.FC = () => {
                 <span>双方确认完成（本机演练，不结算）</span>
               </button>
             )}
+
+            {/* 举报入口：订单也是 UGC，同样必须可举报（R7） */}
+            <button
+              onClick={() => {
+                sound.playTap();
+                submitComplaint({
+                  orderId: order.id,
+                  orderTitle: order.title,
+                  reason: '接单大厅内容举报（演练）',
+                  detail: '对当前查看的求助订单发起举报；只写本机记录，不通知任何机构。',
+                });
+              }}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5"
+            >
+              <Flag className="w-4 h-4" />
+              <span>举报该内容</span>
+            </button>
           </div>
         </div>
 
@@ -410,7 +429,7 @@ export const OrderDetailModal: React.FC = () => {
                   }}
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
                 >
-                  提交确认并入账 {order.timeCoinReward} 币
+                  提交确认并记账（未结算 {order.timeCoinReward} 币）
                 </button>
               </div>
             </div>

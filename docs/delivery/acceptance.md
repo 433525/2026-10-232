@@ -24,15 +24,16 @@ dist/assets/aplus-*.js         172.34 kB │ gzip 42.52 kB
 dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 ```
 
-## 二、自动化验收（62 项，全部通过）
+## 二、自动化验收（89 项，全部通过）
 
 | 脚本 | 结果 | 覆盖 |
 |---|---|---|
 | `npm run check:dual` | **27/27** | 双入口加载、控制台零异常、两端 320/390/768/1024/1440 无横向溢出、A+ 弹层打开/Esc 关闭/焦点归还、`data-autofocus` 优先级、社区桥空态 |
 | `npm run check:aplus` | **24/24** | 新建记录、虚构确认门禁、重复检测→人工复核、检查点拦截→解锁、状态流转、备份文本合法 JSON、刷新后持久化 |
 | `npm run check:community` | **11/11** | 实名前置拦截、拦截时不写存档、身份切换、成员发布写入存档、先审后发（待审不进公开流）、A+ 读取 B 的存档 |
+| `npm run check:acceptance` | **27/27** | §9 前三个脚本漏掉的主链路：接单→签到→确认→账本、病史可见性、每帖举报入口与落点、举报处置与留痕、A+ 高风险拦截 |
 
-机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow}/report.json`。
+机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance}/report.json`。
 截图（不入库，本地复现）：`docs/evidence/dual-entry/*.png`。
 
 关键结论摘录：
@@ -49,10 +50,10 @@ dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 |---|---|---|---|---|
 | 1 | **先审后发** | `store.publishPost` 写 `moderation:'pending'`；`visiblePosts` 只取 `approved` | `check:community` 发布后断言公开信息流不含该标题；`check:aplus` 断言新记录自动选中 | ✅ |
 | 2 | **实名前置拦截** | `AppContext` 发布入口校验 `membership` | `check:community` 访客提交被拦截、存档未写入 | ✅ |
-| 3 | **敏感信息最小化 / 接单后可见** | 不采集证件号、门牌号、病史；`types` 仅有粗粒度 `location` | 全仓扫描：`身份证`/`idCard` 仅出现在「不采集」说明；无 18 位号码 | ✅ |
+| 3 | **敏感信息最小化 / 接单后可见** | 选择器 `viewerParticipates()` 门控 `medicalNotes`；未接单只下发小区级 `locationArea` | `check:acceptance` 断言「接单前详情无病史文本 → 接单后同一订单可见」，并断言接单前有脱敏说明 | ✅ |
 | 4 | **紧急求助非急救通道** | `SosModal` 明示「不是急救通道、非 24 小时值守」；120/110 为纯文本「请手动拨打」 | 全仓 `href="tel:` 计数 **0**；`check:dual` 控制台无异常 | ✅ |
 | 5 | **时间币仅记账、不可兑现转让** | `LEDGER_ENTRY_STATUS='unsettled'`；「no action in the store settles them」 | 代码评审：store 无结算动作；界面文案标注「未结算」 | ✅ |
-| 6 | **UGC 举报入口与留痕** | `reportContent` → `reports` + `auditLog('create-report')`；`resolveReport` 写结论 | 代码评审 + `AdminCenter` 举报队列 | ✅ |
+| 6 | **UGC 举报入口与留痕** | `CommunityTab` 每帖、`OrderDetailModal` 每单均带举报按钮 → `submitComplaint({ orderId })` → `reports` + `auditLog('create-report')`；后台处置写 `resolution` 并回写站内消息 | `check:acceptance`：断言信息流举报按钮数 > 0、举报落点等于所点的那条（非固定首条）、后台处置为 `resolved`、站内消息 6 → 7、`resolve-report` 审计 +1 | ✅ |
 | 7 | **匿名仅前台匿名** | `selectors/community.ts`：展示名替换为「匿名邻里（演练）」，`post.author` 保留 | 代码评审（含注释说明后台仍可定位） | ✅ |
 | 8 | **全站 noindex + robots.txt** | 两份 HTML 的 `meta robots=noindex,nofollow,noarchive`；`public/robots.txt` `Disallow: /` | `check:dual` 加载两入口；构建产物含 `robots.txt` | ✅ |
 | 9 | **仅自制/开源可商用素材、无外部 CDN** | 全仓无外部图片/字体/CDN 引用；头像为空串→渐变占位；图标为内联 SVG | `grep https?://` 仅命中注释；`@font-face` 0 处；字体为系统栈 | ✅ |
@@ -74,6 +75,29 @@ dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 | Firefox / Safari / 微信 X5 | 仅 Chromium | T3 要求，需真机 |
 | A+ 弹层内部滚动（320px） | 仅验证无横向溢出 | 逐弹层补 |
 | 视觉像素比对 | 未建立基线 | 参考 mvp 的 visual-baseline 方案 |
+| 评论级举报 | `ComplaintTicket` 无 targetType 字段 | 先扩契约再接 |
+
+### 5.1 「接单 → 签到 → 完成 → 账本」为何晚了半轮
+
+首轮 62 项里没有任何一条走完履约链路，等于**没测到就宣称通过**。第二轮补
+`check:acceptance` 时立刻暴露三处断链（详见 `gap-report.md` 第七节）：本人 id 投影、
+代确认动作未接线、举报落点兜底取首条。修完后链路与账本才真正可验收。
+
+结论：**验收项要按状态机的边写，不能按页面写**——页面能打开不代表边能走通。
+
+## 五之二、环境说明：低内存机器上的构建
+
+本轮执行的机器可用提交内存一度只剩 0.2 GB，`tsc` 与 `vite build` 都会以
+`Fatal process out of memory: Zone` 失败，这与代码质量无关。复现时按顺序处理：
+
+```bash
+node -e "require('os').freemem()"          # 确认可用内存
+NODE_OPTIONS=--max-old-space-size=1024 node node_modules/typescript/lib/tsc.js --noEmit
+NODE_OPTIONS=--max-old-space-size=1200 npm run build
+# 极低内存下可先跑 --minify false 验证产物可用，再等内存恢复跑正式构建
+```
+
+约束堆上限能让 GC 提前介入，反而比默认 4 GB 目标更容易通过。
 
 ## 六、如何复现
 
@@ -85,6 +109,7 @@ npx vite preview --port 5180 --strictPort   # 另开终端
 npm run check:dual
 npm run check:aplus
 npm run check:community
+npm run check:acceptance
 ```
 
 脚本会自动拉起 headless Chromium（可用 `CHROME_PATH` 指定浏览器），每次使用全新的临时用户目录，因此**不依赖既有 localStorage**。

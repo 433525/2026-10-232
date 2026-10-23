@@ -105,3 +105,19 @@
 | 程序化 `.click()` 不聚焦按钮，导致「Esc 归还焦点」测成 `BODY` | 验收脚本改为先 `focus()` 再 `click()`，并比对同一元素引用；实现侧未改（真实鼠标点击本就会聚焦） |
 | 两个入口共用单一 HTML 外壳会串标题与兜底文案 | 每个入口各写一份 `noscript` / `noindex` / 标题 |
 | `/favicon.ico` 404 污染控制台断言 | 两个入口各加自制内联 SVG 图标（不使用外部素材） |
+
+### 4.1 第二次验收补齐（2026-10-23 晚）
+
+补测 §9 的履约链路后暴露并修复三处断链，另修正两处误导性文案。
+逐条根因见 `docs/delivery/gap-report.md` 第七节。
+
+| 文件 | 改动 | 类型 |
+|---|---|---|
+| `tools/check-acceptance.mjs` | 新增 27 项验收：接单→签到→完成→账本、病史可见性、每帖举报入口与落点、举报处置与留痕、A+ 高风险拦截 | 新增 |
+| `package.json` | 新增 `check:acceptance` 脚本 | 修改 |
+| `src/selectors/community.ts` | 新增 `viewAuthorId()`；`buildOrder` / `buildPost` 接受 `viewerId`，把本人作者 id 投影成当前视图身份 id；`buildOrders` / `buildPosts` 透传 | 修复 |
+| `src/context/AppContext.tsx` | `completeOrder` 在发布者确认失败时回落到 `counterpartConfirmOrderCompletion`（此前该动作是死代码） | 修复 |
+| `src/components/CommunityTab.tsx` | 信息流每条帖子增加「举报」按钮，传当前 `post.id` | 修复 |
+| `src/components/OrderDetailModal.tsx` | 订单详情增加「举报该内容」；完成按钮「入账」改为「记账（未结算）」 | 修复 |
+| `src/components/ProfileTab.tsx` | 订单状态「已完成结算」→「已完成（未结算）」 | 修复 |
+| `docs/delivery/*.md`、`README.md` | 验收数 62 → 89、补合规章节证据、补低内存构建说明、补两类新缺口 | 修改 |

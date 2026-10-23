@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "check:dual": "node tools/check-dual-entry.mjs",
     "check:aplus": "node tools/check-aplus-flow.mjs",
-    "check:community": "node tools/check-community-flow.mjs"
+    "check:community": "node tools/check-community-flow.mjs",
+    "check:acceptance": "node tools/check-acceptance.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

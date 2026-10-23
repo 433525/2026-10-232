@@ -1,0 +1,143 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-10-23T15:03:45.762Z",
+  "total": 27,
+  "passed": 27,
+  "results": [
+    {
+      "name": "可切换到已实名演练成员",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "接单大厅可打开订单详情",
+      "ok": true,
+      "detail": "跳转到主要内容 演练社区·梧桐里（虚构） 互助演练站 搜索 关怀模式 小程序视图 SOS 演练用户·我（虚构） 搜索服务类型、附近志愿者、紧急求助... 一键直达 时间银行规则 时间银行·邻里守望互助（演练规则） 时长只记账、不兑现、不可转让；本页展示的是演示规则说明 查看规则 志愿招募 独居长者“暖心敲门”志愿行动（合成招募） 每周两次入户问安，关注慢病饮食与燃气用电安全 查看招募 养老科普 居"
+    },
+    {
+      "name": "病史在接单前不可见（R6）",
+      "ok": true,
+      "detail": "hasNote=false"
+    },
+    {
+      "name": "接单前给出脱敏说明",
+      "ok": true,
+      "detail": "masked=true"
+    },
+    {
+      "name": "可认领订单",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "认领后可在「我认领的志愿」重新打开详情",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "接单后病史才可见（R6 最小化）",
+      "ok": true,
+      "detail": "hasNote=true"
+    },
+    {
+      "name": "接单后出现上门签到入口",
+      "ok": true,
+      "detail": "hasClockIn=true"
+    },
+    {
+      "name": "上门签到记录为 clock-in 事件",
+      "ok": true,
+      "detail": "event=true"
+    },
+    {
+      "name": "签到后状态进入服务中",
+      "ok": true,
+      "detail": "inProgress=true"
+    },
+    {
+      "name": "双方确认完成弹层可提交",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "完成后账本新增一条记录",
+      "ok": true,
+      "detail": "2 → 3"
+    },
+    {
+      "name": "新增账本条目固定为未结算",
+      "ok": true,
+      "detail": "status=unsettled"
+    },
+    {
+      "name": "订单落到 completed-local-demo",
+      "ok": true,
+      "detail": "orderStatus=completed-local-demo"
+    },
+    {
+      "name": "信息流每条 UGC 都有举报入口",
+      "ok": true,
+      "detail": "reportButtons=4"
+    },
+    {
+      "name": "点击举报写入本机 reports",
+      "ok": true,
+      "detail": "0 → 1"
+    },
+    {
+      "name": "举报目标是所点的那条内容而非固定首条",
+      "ok": true,
+      "detail": "target=SYNTH-POST-002"
+    },
+    {
+      "name": "举报初始状态为待处理",
+      "ok": true,
+      "detail": "status=pending"
+    },
+    {
+      "name": "审核后台可打开举报处置页",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "举报可被处置为已处理/已驳回",
+      "ok": true,
+      "detail": "status=resolved"
+    },
+    {
+      "name": "处置结论写入举报记录（留痕）",
+      "ok": true,
+      "detail": "已核实并下架相关内容（演练处置）"
+    },
+    {
+      "name": "处置结果以站内消息通知举报人",
+      "ok": true,
+      "detail": "6 → 7"
+    },
+    {
+      "name": "处置动作写入审计日志",
+      "ok": true,
+      "detail": "audit=1"
+    },
+    {
+      "name": "A+ 新建弹层含高风险选项",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "高风险登记后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "高风险登记后停止常规初筛",
+      "ok": true,
+      "detail": "snippet=跳到主内容 邻 邻里服务台 COMMUNITY OPERATIONS A+ 内部演练原型 ▦ 登记队列 相关入口 ◎ 社区演练 ↗ 受控演练空间 所有记录均为虚构场景。此页面不接收居民申请，也不发送联系或服务通知。 演 演示 · 受理席 仅供流程演练 社区服务 / A+ 登记队列 合成数据演练 角色 演示 · 受理席 演示 · 复核席 演示 · 转介席 i A+ · INTERNAL INTAKE 受控登记队列 登记、分诊与人工跟进演练。服务类型暂记为「待判定 / 未分类」。"
+    },
+    {
+      "name": "全流程无控制台异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

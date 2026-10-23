@@ -349,7 +349,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast(requested.errors[0] ?? '发起完成申请失败');
         return;
       }
-      const confirmed = store.confirmOrderCompletion(orderId);
+      // 第二步的确认方取决于本机身份：
+      // - 本人是求助发布者时，由本人确认（confirmOrderCompletion）；
+      // - 本人是接单者时，求助方是合成角色，只能由本机代其确认
+      //   （counterpartConfirmOrderCompletion，事件来源标记 synthetic-counterpart）。
+      //   之前只调前者，接单者会卡在「等待确认」且账本永远不新增，验收链路断在这里。
+      const byAuthor = store.confirmOrderCompletion(orderId);
+      const confirmed = byAuthor.ok ? byAuthor : store.counterpartConfirmOrderCompletion(orderId);
       if (!confirmed.ok) {
         toast(confirmed.errors[0] ?? '确认完成失败');
         return;
@@ -358,7 +364,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         store.submitOrderFeedback(orderId, ratingScore, ratingComment.trim());
       }
       sound.playSuccess();
-      toast('已完成双方确认（本机演练），时间账本新增一条「未结算」记录。', 'success');
+      toast(
+        byAuthor.ok
+          ? '已完成双方确认（本机演练），时间账本新增一条「未结算」记录。'
+          : '已记录你方完成申请，并由合成求助方代确认（本机演练）；账本新增一条「未结算」记录。',
+        'success',
+      );
     },
     [store],
   );

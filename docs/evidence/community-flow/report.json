@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-23T14:11:51.393Z",
-  "title": "演练-求助-mvl1tg8v",
+  "checkedAt": "2026-10-23T15:01:40.520Z",
+  "title": "演练-求助-mvl3lio1",
   "total": 11,
   "passed": 11,
   "results": [
@@ -38,7 +38,7 @@
     {
       "name": "社区信息流已渲染内容",
       "ok": true,
-      "detail": "textLength=1451"
+      "detail": "textLength=1463"
     },
     {
       "name": "待审内容不出现在公开信息流",
@@ -53,7 +53,7 @@
     {
       "name": "A+ 读到 B 写入的存档（不再提示未找到）",
       "ok": true,
-      "detail": "已读取 1 条合成求助 · 存档保存于 10/23 22:11"
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/23 23:01"
     },
     {
       "name": "B 主链路无控制台异常",

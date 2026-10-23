@@ -68,3 +68,26 @@
 ## 六、结论
 
 当前交付是一个**边界清楚的合成演练原型**：核心流程（发布 → 先审后发 → 接单/受理 → 双方确认 → 只读记账）可完整走通，合规红线以「拦截 + 提示 + 留痕 + 明确声明」的方式落地，**但没有任何生产能力**。任何「已实现」的表述都应理解为「在本机合成数据上可演示」。
+
+## 七、本轮修复的阻断性缺陷（第二次验收补齐）
+
+首轮验收只覆盖「发布 → 待审 → 跨端读取」，没有走「接单 → 签到 → 完成 → 账本」，
+因此以下三处断链在上一次交付里是**带着缺陷通过**的。本轮补测后修复：
+
+| # | 缺陷 | 根因 | 修复位置 |
+|---|---|---|---|
+| 1 | 接单后**永远看不到「上门签到」**，我的订单恒为空，账本永不新增 | 选择器把 `userId` / `volunteerId` 直接透出领域层的 `SYNTH-DEMO-USER`，而组件拿 `currentUser.id`（`view-user-member`）做相等比较，两边永假 | `src/selectors/community.ts`：新增 `viewAuthorId()`，把本人投影成当前视图 id（只在 selectors 变形，数据层与组件零改动） |
+| 2 | 「双方确认完成」只跑了第一步，订单停在 `completion-requested` | `completeOrder` 只调 `confirmOrderCompletion`，而该动作要求「求助发布者」；本机接单者是**接单方**，必然失败。store 里本就有 `counterpartConfirmOrderCompletion`（合成求助方代确认），但从未被 UI 调用，是死代码 | `src/context/AppContext.tsx`：先试发布者确认，失败则回落到代确认，并按实际路径给出不同 toast |
+| 3 | 举报只能在「消息 → 投诉反馈」提交，且落点固定为 `posts[0]` | 信息流卡片没有举报入口；`submitComplaint` 在缺 `orderId` 时兜底取 `store.posts.value[0]` | `CommunityTab.tsx` 每帖加举报按钮、`OrderDetailModal.tsx` 加订单举报，均传入当前内容 id |
+
+同时修正两处与「时间币只记账、不结算」相矛盾的文案：
+订单详情提交按钮「提交确认并入账 N 币」→「提交确认并记账（未结算 N 币）」；
+我的订单状态「已完成结算」→「已完成（未结算）」。
+
+### 仍未闭合（如实登记）
+
+- **评论级举报**：`store.reportContent` 支持 `targetType: 'comment'`，但 `submitComplaint` 的
+  `ComplaintTicket` 没有 targetType 字段，本轮只做到「帖子 / 订单」两级。评论暂借父帖举报。
+- **单条处置输入框共享**：`AdminCenter` 的「处置结论」用同一个 `complaintReplyText` 状态，
+  多条待处理工单会同步回显。不影响落库，属交互瑕疵。
+- 备份导入（文件选择）仍未自动化；坏档恢复 B 端仍弱于 A+。

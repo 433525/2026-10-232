@@ -12,7 +12,8 @@ import {
   Gift, 
   Calendar,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
@@ -31,7 +32,8 @@ export const CommunityTab: React.FC = () => {
     enrollActivity, 
     setActiveSubPage, 
     announcements, 
-    elderlyMode 
+    elderlyMode,
+    submitComplaint
   } = useApp();
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -365,14 +367,32 @@ export const CommunityTab: React.FC = () => {
                 </button>
               </div>
 
-              {/* Share */}
-              <button
-                onClick={() => handleShare(post.title || post.content)}
-                className="flex items-center gap-1 hover:text-slate-800 transition-colors"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>转发</span>
-              </button>
+              {/* Share + Report：每条 UGC 都有举报入口（R7），举报写入本机 reports 并留痕 */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleShare(post.title || post.content)}
+                  className="flex items-center gap-1 hover:text-slate-800 transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>转发</span>
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playTap();
+                    submitComplaint({
+                      orderId: post.id,
+                      orderTitle: post.title || post.content.slice(0, 24),
+                      reason: '信息流内容举报（演练）',
+                      detail: '在社区信息流对指定内容发起举报；只写本机记录，不通知任何机构。',
+                    });
+                  }}
+                  aria-label={`举报这条内容：${post.title || post.content.slice(0, 16)}`}
+                  className="flex items-center gap-1 hover:text-rose-600 transition-colors"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>举报</span>
+                </button>
+              </div>
             </div>
 
             {/* Expandable Comment Section */}
