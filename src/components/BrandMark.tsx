@@ -8,7 +8,7 @@ interface BrandMarkProps {
 }
 
 /**
- * 翠湖社区「时间银行」品牌标识 —— 手绘矢量（非位图）。
+ * 梧桐里（虚构）「时间银行」演练标识 —— 手绘矢量（非位图），不使用任何外部素材。
  *
  * 造型语义：外圈 = 社区守望的圆满；沙漏 = 可储蓄的时间；
  * 下方托举弧 = 双手相托的邻里互助；顶端星芒 = 时间币的微光。
@@ -29,7 +29,7 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label="翠湖社区时间银行标识"
+      aria-label="梧桐里社区互助演练标识"
       className={className}
     >
       <defs>

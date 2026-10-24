@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   ChevronRight, 
   ShieldCheck, 
-  PhoneCall
+  PhoneCall,
+  Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
@@ -44,21 +45,35 @@ export const MessagesTab: React.FC = () => {
   }, [chatMessages, activeTab]);
 
   const systemMessages = messages.filter(m => m.type === 'system');
+  // 会话来自 mvp 的 order 线程；没有数据时给空态，而不是回落到假订单号。
+  const activeConversationId = chatMessages[0]?.conversationId ?? null;
+  const activeChatMessages = activeConversationId
+    ? chatMessages.filter((chat) => chat.conversationId === activeConversationId)
+    : [];
   const orderMessages = messages.filter(m => m.type === 'order');
 
   const handleSendText = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    sendChatMessage('order_1002', chatInput.trim(), 'text');
+    if (!activeConversationId) {
+      toast('当前没有可留言的订单会话。');
+      return;
+    }
+    sendChatMessage(activeConversationId, chatInput.trim(), 'text');
     setChatInput('');
   };
 
   const handleSendQuickReply = (text: string) => {
-    sendChatMessage('order_1002', text, 'text');
+    if (!activeConversationId) {
+      toast('当前没有可留言的订单会话。');
+      return;
+    }
+    sendChatMessage(activeConversationId, text, 'text');
   };
 
-  const handleSendLocation = () => {
-    sendChatMessage('order_1002', '当前位置：翠湖花园3期8号楼单元门前', 'location');
+  // 定位与图片都不在本轮范围（§1.4）：按钮保留但禁用，并说明原因。
+  const explainUnavailable = (feature: string) => {
+    toast(`${feature}不在本轮演示范围：没有定位授权、没有对象存储，也不会采集门牌号。`);
   };
 
   const handleCreateComplaint = (e: React.FormEvent) => {
@@ -74,7 +89,7 @@ export const MessagesTab: React.FC = () => {
     });
     setComplaintDetail('');
     setShowComplaintForm(false);
-    toast('投诉申诉工单已提交！社区网格长将在2小时内进行核查处理', 'success');
+    toast('举报已记录在本机演练中（未通知任何机构）', 'success');
   };
 
   return (
@@ -118,7 +133,7 @@ export const MessagesTab: React.FC = () => {
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span>官方通知</span>
+          <span>系统通知</span>
         </button>
 
         <button
@@ -193,51 +208,59 @@ export const MessagesTab: React.FC = () => {
           {/* Chat Target Header */}
           <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
-              <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" 
-                alt="志愿者" 
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500"
-              />
+              <div
+                aria-hidden="true"
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-emerald-500 shrink-0"
+              >
+                邻
+              </div>
               <div>
                 <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
-                  <span>陈明 (五星金牌志愿者)</span>
-                  <span className="text-[10px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.2 rounded">
-                    在线接单中
+                  <span>订单内留言（演练）</span>
+                  <span className="text-[10px] bg-amber-500/30 text-amber-200 px-1.5 py-0.2 rounded">
+                    非实时
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  关联订单：【帮忙更换卧室顶灯及阳台窗帘擦拭】
+                  会话：{activeConversationId ?? '暂无订单会话'}
                 </div>
               </div>
             </div>
 
-            <a
-              href="tel:13612345510"
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-emerald-400 transition-colors"
-              title="拨打志愿者电话"
+            <span
+              className="px-2 py-1 rounded-lg bg-white/10 text-slate-300 text-[10px] font-bold"
+              title="演练不采集手机号，无法拨打"
             >
-              <PhoneCall className="w-4 h-4" />
-            </a>
+              <PhoneCall className="w-4 h-4 inline" />
+            </span>
           </div>
 
           {/* Chat Messages Body */}
           <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-50">
             <div className="text-center">
               <span className="text-[10px] text-slate-400 bg-white/80 px-2 py-0.5 rounded-full border shadow-2xs">
-                订单已安全加密存证 · 支持文字、位置与实拍
+                留言只保存在本机浏览器 · 未加密、未上传、不会通知任何人
               </span>
             </div>
 
-            {chatMessages.map((chat) => (
+            {activeChatMessages.length === 0 && (
+              <p className="text-center text-[11px] text-slate-400 py-6">
+                暂无订单留言。先在「接单大厅」认领一条求助，或由发布者模拟接单后即可留言。
+              </p>
+            )}
+            {activeChatMessages.map((chat) => (
               <div
                 key={chat.id}
                 className={`flex items-start gap-2 ${chat.isMe ? 'flex-row-reverse' : ''}`}
               >
-                <img 
-                  src={chat.senderAvatar} 
-                  alt={chat.senderName} 
-                  className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-slate-200"
-                />
+                <div
+                  aria-hidden="true"
+                  className={`w-8 h-8 rounded-full shrink-0 mt-0.5 ring-1 ring-slate-200 flex items-center justify-center text-[11px] font-bold text-white ${
+                    chat.isMe ? 'bg-emerald-600' : 'bg-slate-400'
+                  }`}
+                >
+                  {chat.isMe ? '我' : '邻'}
+                </div>
                 <div className={`space-y-1 max-w-[78%] ${chat.isMe ? 'items-end' : 'items-start'}`}>
                   <div className={`text-[10px] text-slate-400 ${chat.isMe ? 'text-right' : ''}`}>
                     {chat.senderName} · {chat.timestamp}
@@ -261,6 +284,27 @@ export const MessagesTab: React.FC = () => {
                     }`}>
                       {chat.text}
                     </div>
+                  )}
+
+                  {/* 留言也是 UGC：只对对方的留言给举报入口（R7）。目标为 message，不是父帖。 */}
+                  {!chat.isMe && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playTap();
+                        submitComplaint({
+                          targetType: 'message',
+                          targetId: chat.id,
+                          orderTitle: `留言：${chat.text.slice(0, 14)}`,
+                          reason: '订单留言举报（演练）',
+                          detail: '在订单留言中举报单条留言；只写本机记录，不通知任何机构。',
+                        });
+                      }}
+                      aria-label={`举报这条留言：${chat.text.slice(0, 12)}`}
+                      className="text-[10px] text-slate-400 hover:text-rose-600 inline-flex items-center gap-1 px-1 py-1"
+                    >
+                      <Flag className="w-3 h-3" /> 举报
+                    </button>
                   )}
                 </div>
               </div>
@@ -291,17 +335,17 @@ export const MessagesTab: React.FC = () => {
           <form onSubmit={handleSendText} className="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={handleSendLocation}
-              className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-slate-100 transition-colors"
-              title="发送实时位置"
+              onClick={() => explainUnavailable('发送定位')}
+              className="p-2 rounded-xl text-slate-300 hover:bg-slate-100 transition-colors"
+              title="本轮不含定位"
             >
               <MapPin className="w-5 h-5" />
             </button>
             <button
               type="button"
-              onClick={() => toast('已自动选取现场照片并完成压缩、清除定位信息后发送', 'success')}
-              className="p-2 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-slate-100 transition-colors"
-              title="发送照片"
+              onClick={() => explainUnavailable('发送图片')}
+              className="p-2 rounded-xl text-slate-300 hover:bg-slate-100 transition-colors"
+              title="本轮不含图片上传"
             >
               <ImageIcon className="w-5 h-5" />
             </button>
@@ -325,7 +369,7 @@ export const MessagesTab: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: 系统官方通知 */}
+      {/* Tab 3: 系统通知 */}
       {activeTab === 'system' && (
         <div className="space-y-3">
           {systemMessages.map((msg) => (
@@ -352,7 +396,7 @@ export const MessagesTab: React.FC = () => {
                 遇到服务纠纷或不合规行为？
               </h3>
               <p className="text-[11px] text-amber-800 mt-0.5">
-                可向社区网格仲裁委员会提交工单，网格长将在2小时内响应核实。
+                可对具体内容提交举报；本演示只写本机记录，不会通知任何机构，也没有处置时限承诺。
               </p>
             </div>
             <button
@@ -403,7 +447,7 @@ export const MessagesTab: React.FC = () => {
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-xs"
                 >
-                  确认提交网格长
+                  确认提交演练复核
                 </button>
               </div>
             </form>
@@ -431,7 +475,7 @@ export const MessagesTab: React.FC = () => {
                   <div className="p-2.5 rounded-xl bg-emerald-50 text-xs text-emerald-900 border border-emerald-200 space-y-1">
                     <p className="font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                      网格长调解办结记录 ({item.handlerName})：
+                      演练复核办结记录 ({item.handlerName})：
                     </p>
                     <p>{item.resolutionNote}</p>
                   </div>

@@ -52,7 +52,7 @@ export interface HelpOrder {
   categoryLabel: string;
   title: string;
   description: string;
-  locationArea: string;       // 翠湖花苑3期 (公开展示区)
+  locationArea: string;       // 梧桐里3期（虚构，公开展示区）
   locationDetail: string;     // 8号楼2单元601 (接单后凭证可见)
   isUrgent: boolean;
   dateStr: string;
@@ -220,6 +220,13 @@ export interface ComplaintTicket {
   orderId?: string;
   orderTitle?: string;
   targetUser?: string;
+  /**
+   * 追加能力（可选，不改变既有签名）：举报目标。
+   * 232 原视图只有 orderId，无法表达「评论/留言」级举报；R7 要求每条 UGC 可举报，
+   * 因此补上目标类型与目标 id，缺省时按 post 处理。
+   */
+  targetType?: 'post' | 'comment' | 'message';
+  targetId?: string;
   reason: string;
   detail: string;
   evidencePhotos: string[];

@@ -12,14 +12,15 @@ import {
   Gift, 
   Calendar,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
 import { SmartImage } from './SmartImage';
 import { useDialog } from '../hooks/useDialog';
-import { LEADERBOARD_TOP5 } from '../data/mockData';
+import { DEMO_LEADERBOARD as LEADERBOARD_TOP5 } from '../data/community/content';
 
 export const CommunityTab: React.FC = () => {
   const { 
@@ -31,7 +32,8 @@ export const CommunityTab: React.FC = () => {
     enrollActivity, 
     setActiveSubPage, 
     announcements, 
-    elderlyMode 
+    elderlyMode,
+    submitComplaint
   } = useApp();
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -145,10 +147,10 @@ export const CommunityTab: React.FC = () => {
           </div>
           <div className="min-w-0">
             <p className="text-xs sm:text-sm font-bold text-slate-800 truncate group-hover:text-emerald-800">
-              翠湖花园社区 1-4 期邻里微信互助群入口
+              梧桐里（虚构）1-4 期邻里互助群入口
             </p>
             <p className="text-[11px] text-slate-500 truncate">
-              网格员在线 · 线下帮扶随时对接 · 邻里急事相助
+              项目组值班 · 线下互助随时对接 · 邻里急事相助
             </p>
           </div>
         </div>
@@ -193,7 +195,7 @@ export const CommunityTab: React.FC = () => {
             {[
               { key: 'all', label: '全部' },
               { key: 'community', label: '本社区' },
-              { key: 'official', label: '官方发布' },
+              { key: 'official', label: '项目组发布' },
             ].map(f => (
               <button
                 key={f.key}
@@ -236,7 +238,7 @@ export const CommunityTab: React.FC = () => {
                     {post.isOfficial && (
                       <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-purple-100 text-purple-700 flex items-center gap-0.5">
                         <ShieldCheck className="w-2.5 h-2.5" />
-                        官方认证
+                        项目组标注
                       </span>
                     )}
                     <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-slate-100 text-slate-600">
@@ -300,7 +302,7 @@ export const CommunityTab: React.FC = () => {
                     <span>活动时间：{post.activityDate || '周六 09:30'}</span>
                   </div>
                   <div className="text-[11px] text-purple-700">
-                    已报名 <strong>{post.activityEnrolledCount}</strong> / {post.activityMaxCount} 人 · 计入2小时志愿时长
+                    已报名 <strong>{post.activityEnrolledCount}</strong> / {post.activityMaxCount} 人 · 仅本机记录，不计时长
                   </div>
                 </div>
                 <button
@@ -347,6 +349,8 @@ export const CommunityTab: React.FC = () => {
                     sound.playTap();
                     setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id);
                   }}
+                  aria-label={`${activeCommentPostId === post.id ? '收起' : '查看'}评论（${post.comments.length} 条）`}
+                  aria-expanded={activeCommentPostId === post.id}
                   className="flex items-center gap-1 hover:text-emerald-700 transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -365,14 +369,34 @@ export const CommunityTab: React.FC = () => {
                 </button>
               </div>
 
-              {/* Share */}
-              <button
-                onClick={() => handleShare(post.title || post.content)}
-                className="flex items-center gap-1 hover:text-slate-800 transition-colors"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>转发</span>
-              </button>
+              {/* Share + Report：每条 UGC 都有举报入口（R7），举报写入本机 reports 并留痕 */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleShare(post.title || post.content)}
+                  className="flex items-center gap-1 hover:text-slate-800 transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>转发</span>
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playTap();
+                    submitComplaint({
+                      targetType: 'post',
+                      targetId: post.id,
+                      orderId: post.id,
+                      orderTitle: post.title || post.content.slice(0, 24),
+                      reason: '信息流内容举报（演练）',
+                      detail: '在社区信息流对指定内容发起举报；只写本机记录，不通知任何机构。',
+                    });
+                  }}
+                  aria-label={`举报这条内容：${post.title || post.content.slice(0, 16)}`}
+                  className="flex items-center gap-1 hover:text-rose-600 transition-colors"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>举报</span>
+                </button>
+              </div>
             </div>
 
             {/* Expandable Comment Section */}
@@ -407,7 +431,28 @@ export const CommunityTab: React.FC = () => {
                       <div key={c.id} className="p-2 rounded-lg bg-slate-50 text-xs space-y-1">
                         <div className="flex items-center justify-between text-slate-500">
                           <span className="font-bold text-slate-800">{c.userName}</span>
-                          <span className="text-[10px] text-slate-400">{c.createdAt}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400">{c.createdAt}</span>
+                            {/* 评论也是 UGC：举报目标为 comment，不是父帖（R7） */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playTap();
+                                submitComplaint({
+                                  targetType: 'comment',
+                                  targetId: c.id,
+                                  orderTitle: `评论：${c.content.slice(0, 14)}`,
+                                  reason: '评论区内容举报（演练）',
+                                  detail: '在信息流对单条评论发起举报；只写本机记录，不通知任何机构。',
+                                });
+                              }}
+                              aria-label={`举报 ${c.userName} 的这条评论`}
+                              title="举报这条评论"
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <Flag className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-slate-700">{c.content}</p>
                       </div>
@@ -428,7 +473,7 @@ export const CommunityTab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Trophy className="w-6 h-6 text-amber-500" />
                 <h3 className="font-bold text-base text-slate-900">
-                  翠湖社区月度时间币英雄榜 TOP 5
+                  互助演练 · 月度参与榜 TOP 5（合成数据）
                 </h3>
               </div>
               <button
@@ -459,7 +504,12 @@ export const CommunityTab: React.FC = () => {
                     }`}>
                       {item.rank}
                     </span>
-                    <img src={item.avatar} alt={item.name} className="w-9 h-9 rounded-full object-cover" />
+                    <div
+                      aria-hidden="true"
+                      className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold text-xs flex items-center justify-center shrink-0"
+                    >
+                      {item.name.slice(0, 1)}
+                    </div>
                     <div>
                       <div className="font-bold text-slate-800 text-xs sm:text-sm">{item.name}</div>
                       <div className="text-[10px] text-amber-800">{item.badge}</div>
@@ -474,7 +524,7 @@ export const CommunityTab: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-slate-400 text-center">
-              榜单每月1日自动结算 · 时长上链存证可查 · 严禁刷单
+              本榜为虚构演练展示，非真实统计；时间币只记账、不结算、不上链、不可兑现。
             </p>
           </div>
         </div>

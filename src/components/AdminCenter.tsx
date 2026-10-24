@@ -6,11 +6,13 @@ import {
   AlertTriangle, 
   Coins, 
   FileText, 
-  Users
+  Users,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
+import { StoragePanel } from './StoragePanel';
 
 export const AdminCenter: React.FC = () => {
   const { 
@@ -21,17 +23,21 @@ export const AdminCenter: React.FC = () => {
     users, 
     timeLedger, 
     adminApprovePost, 
-    adminRejectPost, 
+    adminRejectPostWithReason, 
     adminResolveComplaint, 
     adminAdjustTimeCoin, 
     setActiveSubPage 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'audit' | 'complaints' | 'ledger' | 'users'>('audit');
+  const [activeTab, setActiveTab] = useState<'audit' | 'complaints' | 'ledger' | 'users' | 'storage'>('audit');
   const [selectedUserForCoin, setSelectedUserForCoin] = useState<string>(users[0].id);
   const [adjustCoinAmount, setAdjustCoinAmount] = useState<number>(5);
   const [adjustCoinReason, setAdjustCoinReason] = useState<string>('年度邻里互助模范特别奖励');
-  const [complaintReplyText, setComplaintReplyText] = useState<string>('网格员已与双方沟通，达成和解并恢复信誉。');
+  // 按工单 id 存草稿：共用一份字符串会让多条待处理工单同步回显同一段处置结论。
+  const [complaintReplies, setComplaintReplies] = useState<Record<string, string>>({});
+  const complaintReplyOf = (id: string) => complaintReplies[id] ?? '已核对本机演练记录，按互助规则完成处置。';
+  // 驳回必须给理由（R7）：按帖子 id 存草稿，未填理由时按钮禁用。
+  const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
   const pendingPosts = posts.filter(p => p.status === 'pending');
   const pendingOrders = orders.filter(o => o.status === 'pending_audit');
@@ -48,14 +54,14 @@ export const AdminCenter: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-bold text-base sm:text-lg">
-                  翠湖社区智慧网格 · 管理后台与内容合规风控台
+                  内容审核与举报处置（演练后台）
                 </h2>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">
                   当前操作员: {currentUser.name}
                 </span>
               </div>
               <p className="text-xs text-purple-200">
-                先审后发 · 敏感信息脱敏 · 时间银行账本双向审计 · 投诉工单闭环
+                先审后发 · 驳回必须填理由 · 举报处置留痕 · 时间账本只读
               </p>
             </div>
           </div>
@@ -82,7 +88,7 @@ export const AdminCenter: React.FC = () => {
             }`}
           >
             <FileText className="w-4 h-4 text-purple-600" />
-            <span>内容审核队列 ({pendingPosts.length + pendingOrders.length})</span>
+            <span>内容审核队列（{pendingPosts.length + pendingOrders.length}）</span>
           </button>
 
           <button
@@ -95,7 +101,7 @@ export const AdminCenter: React.FC = () => {
             }`}
           >
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>投诉维权工单 ({complaints.filter(c => c.status === 'pending').length})</span>
+            <span>举报处置工单（{complaints.filter(c => c.status === 'pending').length}）</span>
           </button>
 
           <button
@@ -108,7 +114,7 @@ export const AdminCenter: React.FC = () => {
             }`}
           >
             <Coins className="w-4 h-4 text-amber-500" />
-            <span>时间币账本与人工调账</span>
+            <span>时间账本（只读·未结算）</span>
           </button>
 
           <button
@@ -121,7 +127,20 @@ export const AdminCenter: React.FC = () => {
             }`}
           >
             <Users className="w-4 h-4 text-blue-600" />
-            <span>实名住户与志愿者名册</span>
+            <span>演练身份与志愿者</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playTap();
+              setActiveTab('storage');
+            }}
+            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'storage' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
+            }`}
+          >
+            <Database className="w-4 h-4 text-slate-600" />
+            <span>存档与恢复</span>
           </button>
         </div>
 
@@ -132,10 +151,10 @@ export const AdminCenter: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">
-                  待审信息流与需求列表（先审后发合规机制）
+                  待审内容与求助单（先审后发）
                 </h3>
                 <span className="text-xs text-slate-500">
-                  敏感词拦截与图片安全校验已自动执行
+                  审核结论会写入审核日志；驳回必须填写理由
                 </span>
               </div>
 
@@ -143,7 +162,7 @@ export const AdminCenter: React.FC = () => {
                 <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
                   <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
                   <p className="text-sm font-bold text-slate-700">当前没有积压的待审核内容</p>
-                  <p className="text-xs text-slate-400 mt-1">所有用户发布的动态与订单均已核验完成</p>
+                  <p className="text-xs text-slate-400 mt-1">等待新的发布提交；先审后发不会跳过队列</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -151,25 +170,41 @@ export const AdminCenter: React.FC = () => {
                     <div key={post.id} className="p-4 rounded-xl border border-purple-200 bg-purple-50/30 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
-                          社区动态审核 · {post.categoryLabel}
+                          待审内容 · {post.categoryLabel}
                         </span>
                         <span className="text-xs text-slate-400 font-mono">{post.createdAt}</span>
                       </div>
                       <p className="text-xs sm:text-sm font-bold text-slate-800">{post.title || '动态分享'}</p>
                       <p className="text-xs text-slate-600">{post.content}</p>
-                      <div className="flex justify-end gap-2 pt-2 border-t border-purple-100">
-                        <button
-                          onClick={() => adminRejectPost(post.id)}
-                          className="px-3 py-1.5 rounded-lg border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50"
-                        >
-                          驳回违规内容
-                        </button>
-                        <button
-                          onClick={() => adminApprovePost(post.id)}
-                          className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
-                        >
-                          审核通过并公开
-                        </button>
+                      <div className="space-y-2 pt-2 border-t border-purple-100">
+                        <label className="block text-[11px] font-semibold text-slate-500" htmlFor={`reject-${post.id}`}>
+                          驳回理由（必填，会写入审核日志并通知发布者）
+                        </label>
+                        <input
+                          id={`reject-${post.id}`}
+                          type="text"
+                          value={rejectReasons[post.id] ?? ''}
+                          onChange={(e) =>
+                            setRejectReasons((prev) => ({ ...prev, [post.id]: e.target.value }))
+                          }
+                          placeholder="例如：包含未脱敏的联系方式 / 与互助无关的推广内容"
+                          className="w-full p-2 rounded-lg border border-slate-200 text-xs text-slate-800 focus:ring-2 focus:ring-purple-500 outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => adminRejectPostWithReason(post.id, rejectReasons[post.id] ?? '')}
+                            disabled={!((rejectReasons[post.id] ?? '').trim())}
+                            className="px-3 py-1.5 rounded-lg border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed min-h-[36px]"
+                          >
+                            驳回并记录理由
+                          </button>
+                          <button
+                            onClick={() => adminApprovePost(post.id)}
+                            className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs min-h-[36px]"
+                          >
+                            审核通过并公开
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -183,7 +218,7 @@ export const AdminCenter: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-800">
-                  居民纠纷与服务质量投诉处理
+                  举报与处置（每条 UGC 都可举报，处置结果写入站内消息）
                 </h3>
               </div>
 
@@ -201,26 +236,32 @@ export const AdminCenter: React.FC = () => {
                   </div>
 
                   <div className="text-xs sm:text-sm text-slate-700 space-y-1">
-                    <p><strong>投诉人：</strong>{ticket.userName} | <strong>关联订单：</strong>{ticket.orderTitle}</p>
-                    <p><strong>投诉事由：</strong>{ticket.reason}</p>
+                    <p>
+                      <strong>举报人：</strong>{ticket.userName} | <strong>被举报内容：</strong>
+                      {ticket.orderTitle ?? ticket.targetUser ?? '演练内容'}
+                      {ticket.targetId ? (
+                        <span className="text-slate-400 font-mono">（{ticket.targetId}）</span>
+                      ) : null}
+                    </p>
+                    <p><strong>举报原因：</strong>{ticket.reason}</p>
                     <p className="p-2.5 rounded-lg bg-slate-50 border text-slate-600">{ticket.detail}</p>
                   </div>
 
                   {ticket.status === 'pending' ? (
                     <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <label className="text-xs text-slate-500 font-semibold">网格长调解处理结果记录（留痕存证）：</label>
+                      <label className="text-xs text-slate-500 font-semibold">处置结论（写入举报记录，留痕）：</label>
                       <input
                         type="text"
-                        value={complaintReplyText}
-                        onChange={(e) => setComplaintReplyText(e.target.value)}
+                        value={complaintReplyOf(ticket.id)}
+                        onChange={(e) => setComplaintReplies((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
                         className="w-full p-2 text-xs border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                       <div className="flex justify-end">
                         <button
-                          onClick={() => adminResolveComplaint(ticket.id, complaintReplyText)}
+                          onClick={() => adminResolveComplaint(ticket.id, complaintReplyOf(ticket.id))}
                           className="px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs"
                         >
-                          确认办结并推送给居民
+                          确认办结（只写本机站内消息）
                         </button>
                       </div>
                     </div>
@@ -242,7 +283,7 @@ export const AdminCenter: React.FC = () => {
               <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-3">
                 <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                   <Coins className="w-4 h-4 text-amber-600" />
-                  <span>管理员人工核发/扣减时间币（严格留痕）</span>
+                  <span>人工调账（本演示禁用：账本只读）</span>
                 </h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -280,15 +321,23 @@ export const AdminCenter: React.FC = () => {
                   </div>
                 </div>
 
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  时间账本在演示环境里是只读的：不存在结算、兑现或转让，也不伪造管理员流水（R18 / T11）。
+                  生产环境若保留人工调账，必须双人复核 + 独立操作日志。
+                </p>
+
                 <div className="flex justify-end pt-1">
                   <button
                     onClick={() => {
+                      // 保留入口但禁用：让「缺能力」可见，而不是把 UI 删掉（需求 §8.4）。
                       adminAdjustTimeCoin(selectedUserForCoin, adjustCoinAmount, adjustCoinReason);
-                      toast('时间币账本已更新，幂等流水已记入审计数据库', 'success');
+                      toast('演练数据只读：时间账本不支持调账、兑现或转让。');
                     }}
-                    className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
+                    aria-disabled="true"
+                    title="演示环境账本只读"
+                    className="px-4 py-1.5 rounded-lg bg-slate-300 text-slate-600 text-xs font-bold shadow-none cursor-not-allowed"
                   >
-                    执行双人复核调账
+                    调账不可用（演练只读）
                   </button>
                 </div>
               </div>
@@ -296,7 +345,7 @@ export const AdminCenter: React.FC = () => {
               {/* Ledger Table */}
               <div className="space-y-2">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  全社区时间银行不可篡改流水记录
+                  本机演练时间记录（只读 · 全部未结算）
                 </h4>
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
                   <table className="w-full text-left text-xs">
@@ -304,7 +353,7 @@ export const AdminCenter: React.FC = () => {
                       <tr>
                         <th className="p-2.5">交易流水号</th>
                         <th className="p-2.5">事项说明</th>
-                        <th className="p-2.5">变动币值</th>
+                        <th className="p-2.5">变动分钟数</th>
                         <th className="p-2.5">交易时间</th>
                       </tr>
                     </thead>
@@ -314,7 +363,7 @@ export const AdminCenter: React.FC = () => {
                           <td className="p-2.5 font-mono text-slate-500">{tx.txHash}</td>
                           <td className="p-2.5 text-slate-800">{tx.description}</td>
                           <td className={`p-2.5 font-bold ${tx.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {tx.amount > 0 ? `+${tx.amount}` : tx.amount} 币
+                            {tx.amount > 0 ? `+${tx.amount}` : tx.amount} 分钟
                           </td>
                           <td className="p-2.5 text-slate-400">{tx.createdAt}</td>
                         </tr>
@@ -330,12 +379,17 @@ export const AdminCenter: React.FC = () => {
           {activeTab === 'users' && (
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-slate-800">
-                本社区登记居民与认证志愿者名册
+                演练身份与派生志愿者（无真实手机号/身份证）
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {users.map(u => (
                   <div key={u.id} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center gap-3">
-                    <img src={u.avatar} alt={u.name} className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-400" />
+                    <div
+                      aria-hidden="true"
+                      className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-purple-400 shrink-0"
+                    >
+                      {u.nickname.slice(0, 1)}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-800 text-sm truncate">{u.name}</span>
@@ -344,10 +398,10 @@ export const AdminCenter: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 truncate mt-0.5">
-                        {u.address} | 余额: <strong>{u.timeCoins}</strong> 币
+                        {u.address} | 未结算: <strong>{u.timeCoins}</strong> 币
                       </p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        身份证: {u.idCardMasked || '已加密核验'}
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        身份信息：演练不采集（无身份证号、无手机号）
                       </p>
                     </div>
                   </div>
@@ -355,6 +409,9 @@ export const AdminCenter: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* 5. 存档与恢复（§7 存储契约：坏档必须可自愈） */}
+          {activeTab === 'storage' && <StoragePanel />}
         </div>
       </div>
     </div>

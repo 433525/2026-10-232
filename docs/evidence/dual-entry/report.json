@@ -1,0 +1,143 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-10-24T02:40:51.660Z",
+  "total": 27,
+  "passed": 27,
+  "results": [
+    {
+      "name": "B 端渲染出内容",
+      "ok": true,
+      "detail": "textLength=1229"
+    },
+    {
+      "name": "B 端五栏导航存在",
+      "ok": true,
+      "detail": "navCount=5"
+    },
+    {
+      "name": "B 端无 tel: 链接",
+      "ok": true,
+      "detail": "count=0"
+    },
+    {
+      "name": "B 端 320px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B 端 390px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B 端 768px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B 端 1024px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B 端 1440px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B 端控制台无异常",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端启动非白屏",
+      "ok": true,
+      "detail": "textLength=2014"
+    },
+    {
+      "name": "A+ 队列有记录",
+      "ok": true,
+      "detail": "queueItems=5"
+    },
+    {
+      "name": "A+ 指标卡 4 张",
+      "ok": true,
+      "detail": "metrics=4"
+    },
+    {
+      "name": "A+ 选中记录后详情可见",
+      "ok": true,
+      "detail": "id=SYNTH-001 · 演练-001"
+    },
+    {
+      "name": "A+ 状态弹层打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 弹层初始焦点在弹层内",
+      "ok": true,
+      "detail": "focus=SELECT#action-select"
+    },
+    {
+      "name": "A+ Esc 关闭弹层",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ Esc 后焦点归还触发按钮",
+      "ok": true,
+      "detail": "focus=BUTTON.button primary"
+    },
+    {
+      "name": "A+ 使用说明打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 初始焦点优先 data-autofocus",
+      "ok": true,
+      "detail": "focus=知道了"
+    },
+    {
+      "name": "A+ 社区桥可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 社区桥给出确定状态（空态不白屏）",
+      "ok": true,
+      "detail": "status=未找到社区演练存档 posts=0"
+    },
+    {
+      "name": "A+ 端 320px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端 390px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端 768px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端 1024px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端 1440px 无横向溢出",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 端控制台无异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

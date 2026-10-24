@@ -24,6 +24,7 @@ import { CommunityQrModal } from './components/CommunityQrModal';
 import { RealNameModal } from './components/RealNameModal';
 import { AdminCenter } from './components/AdminCenter';
 import { TermsModal } from './components/TermsModal';
+import { StorageBanner } from './components/StorageBanner';
 
 import { Wifi, BatteryMedium, Signal, Smartphone, Monitor } from 'lucide-react';
 import { sound } from './utils/audio';
@@ -112,6 +113,7 @@ const MainLayout: React.FC = () => {
             <div className="relative flex-1 bg-slate-100 overflow-y-auto flex flex-col rounded-[36px] overflow-hidden">
               <HeaderNav />
               <main id="app-main" tabIndex={-1} className="flex-1 p-3.5 pb-20">
+                <StorageBanner />
                 {activeTab === 'home' && <HomeTab />}
                 {activeTab === 'community' && <CommunityTab />}
                 {activeTab === 'publish' && <PublishModal />}
@@ -129,6 +131,7 @@ const MainLayout: React.FC = () => {
           <HeaderNav />
 
           <main id="app-main" tabIndex={-1} className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+            <StorageBanner />
             {activeTab === 'home' && <HomeTab />}
             {activeTab === 'community' && <CommunityTab />}
             {activeTab === 'publish' && <PublishModal />}

@@ -34,17 +34,17 @@ export const PublishModal: React.FC = () => {
   const [helpTitle, setHelpTitle] = useState('');
   const [helpCategory, setHelpCategory] = useState<HelpCategory>('medical_escort');
   const [helpDesc, setHelpDesc] = useState('');
-  const [helpLocationArea, setHelpLocationArea] = useState('翠湖花园3期');
-  const [helpLocationDetail, setHelpLocationDetail] = useState(currentUser.address || '8号楼2单元601');
+  const [helpLocationArea, setHelpLocationArea] = useState('梧桐里3期（虚构）');
+  // 演练不采集门牌号（R6）：默认留空，由说明文案替代。
+  const [helpLocationDetail, setHelpLocationDetail] = useState('');
   const [helpDate, setHelpDate] = useState('明日 (周六)');
   const [helpTime, setHelpTime] = useState('09:00 - 11:30');
   const [helpDuration, setHelpDuration] = useState(2.5);
   const [helpMedicalNotes, setHelpMedicalNotes] = useState('');
   const [consentSensitive, setConsentSensitive] = useState(true);
   const [isUrgent, setIsUrgent] = useState(false);
-  const [photos] = useState<string[]>([
-    'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=400&q=80'
-  ]);
+  // 本轮不做上传（§1.4），照片一律为空；接单大厅用品牌占位替代现场图。
+  const [photos] = useState<string[]>([]);
 
   // Form states for Volunteer Story / Post
   const [postTitle, setPostTitle] = useState('');
@@ -110,7 +110,7 @@ export const PublishModal: React.FC = () => {
     setHelpTitle(draft.helpTitle || '');
     if (draft.helpCategory) setHelpCategory(draft.helpCategory as HelpCategory);
     setHelpDesc(draft.helpDesc || '');
-    setHelpLocationArea(draft.helpLocationArea || '翠湖花园3期');
+    setHelpLocationArea(draft.helpLocationArea || '梧桐里3期（虚构）');
     setHelpLocationDetail(draft.helpLocationDetail || '');
     setHelpDate(draft.helpDate || '明日 (周六)');
     setHelpTime(draft.helpTime || '09:00 - 11:30');
@@ -203,9 +203,7 @@ export const PublishModal: React.FC = () => {
       category: publishMode === 2 ? 'story' : postCategory,
       categoryLabel: publishMode === 2 ? '志愿风采' : (postCategory === 'idle' ? '闲置互助' : '求助交流'),
       isAnonymous,
-      images: [
-        'https://images.unsplash.com/photo-1516307365426-bea591f05011?auto=format&fit=crop&w=600&q=80'
-      ],
+      images: [],
       locationTag: currentUser.community
     });
 
@@ -525,19 +523,18 @@ export const PublishModal: React.FC = () => {
           <div className="space-y-1">
             <label className="text-xs font-bold text-slate-700">附加照片：</label>
             <div className="flex items-center gap-2">
-              <img 
-                src="https://images.unsplash.com/photo-1516307365426-bea591f05011?auto=format&fit=crop&w=200&q=80" 
-                alt="配图" 
-                className="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-xs"
-              />
               <button
                 type="button"
-                onClick={() => toast('已自动选取本地照片并完成压缩与定位信息清除', 'success')}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 transition-colors"
+                disabled
+                title="本轮不含图片上传"
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-300 cursor-not-allowed"
               >
                 <Camera className="w-5 h-5" />
-                <span className="text-[10px] mt-0.5">加图</span>
+                <span className="text-[10px] mt-0.5">未开放</span>
               </button>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                本轮不含图片上传（无对象存储、无 EXIF 清除、无图片审核）。生产环境必须先补齐这三项，否则不得开放上传。
+              </p>
             </div>
           </div>
 

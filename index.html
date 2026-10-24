@@ -2,15 +2,32 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>翠湖花园社区 · 时间银行与银龄守护互助平台</title>
-    <meta name="description" content="翠湖社区官方纯公益邻里互助平台，涵盖求助发单、志愿接单、时间银行储蓄、慢病养老科普、电子志愿证明查验及紧急应急联防。" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;900&family=Noto+Serif+SC:wght@600;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- 不被搜索引擎索引（T16）。public/robots.txt 是第二道闸门。 -->
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>邻里互助演练 · 社区服务（B 端 · 合成数据）</title>
+    <meta
+      name="description"
+      content="纯前端合成演练：求助订单、志愿动态、邻里帖子、消息与时间账本。仅演示产品与合规流程，不可用于真实运营。"
+    />
+    <meta name="theme-color" content="#0f3d38" />
+    <!-- 自制内联图标（深青底 + 浅绿圆点），不引用任何外部素材或 CDN，同时避免 /favicon.ico 404。 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f3d38'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23a7f3d0'/%3E%3C/svg%3E" />
   </head>
   <body class="bg-slate-100 text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>
+    <noscript>
+      <div style="max-width: 32rem; margin: 12vh auto; padding: 1.5rem; font-family: system-ui, sans-serif; line-height: 1.7; color: #0f172a">
+        <h1 style="font-size: 1.125rem; margin: 0 0 0.75rem">需要启用 JavaScript</h1>
+        <p style="margin: 0 0 0.75rem; font-size: 0.875rem">
+          本页是纯前端演练原型，所有界面与数据都在浏览器内运行。请启用 JavaScript 后重新打开。
+        </p>
+        <p style="margin: 0; font-size: 0.8125rem; color: #475569">
+          紧急情况请直接拨打 120 / 110；本平台不是急救通道。
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -32,3 +32,6 @@ scripts/.mcp_session
 reference_extracted.txt
 *.tar.gz
 *.b64
+
+# 验收截图（体积大，不入库；只提交同目录的 report.json）
+docs/evidence/**/*.png
