@@ -1,6 +1,6 @@
 # 组件 ↔ 数据源映射表
 
-更新：2026-10-23。范围：`433525/2026-10-232` 双入口改造后的 B 端（`/`）与 A+ 端（`/aplus.html`）。
+更新：2026-10-24。范围：`433525/2026-10-232` 双入口改造后的 B 端（`/`）与 A+ 端（`/aplus.html`）。
 本表回答一个问题：**每个界面上看到的东西来自哪个文件、哪个字段，点了之后调用哪个方法。**
 
 数据源只有两处，均在本机：
@@ -24,7 +24,7 @@
 | `CommunityTab` 信息流 | `visiblePosts`（仅 `moderation==='approved' && publishedToFeed!==false`） | `store.ts:644` 附近派生 | — |
 | `CommunityTab` 点赞 / 收藏 | `post.likedByMe`、`likeCount`、`favorited` | `Post` 字段 | `toggleLike`、`toggleFavorite` |
 | `CommunityTab` 评论（先审后发） | `post.comments`（只展示 `approved`） | `Comment` | `addComment`（新评论 `pending`） |
-| `CommunityTab` 举报 | `reports` | `Report` | `reportContent`、`resolveReport` |
+| `CommunityTab` 举报（帖子 / **单条评论**） | `reports`（含 `targetType` / `targetId`） | `Report` | `reportContent('post' 或 'comment')`、`resolveReport` |
 | `CommunityTab`「项目组发布」筛选 | `SYNTHETIC_TEAM_AUTHOR_ID` 命中的帖子 | `selectors/community.ts` | — |
 | `PublishModal` 三类发布 | 表单本地草稿 + `publish-draft.ts` | `PublishPostInput` | `publishPost`（写入 `moderation:'pending'`） |
 | `PublishModal` 实名前置 | `membership` | `membershipFromUserId` | 拦截时 `setMembership` / 引导实名 |
@@ -42,7 +42,8 @@
 | `AdminCenter` 举报处置 | `reports` | `Report` | `resolveReport` |
 | `AdminCenter` 操作日志 | `auditLog` | `AuditLogEntry` | 由上述动作自动追加 |
 | `AdminCenter` 投诉工单 | `complaints` | `Complaint` | `addComplaint` |
-| `AdminCenter` 演练数据重置 | 全量 `state` | — | `resetDemoData`、`reloadFromStorage`、`readBackupJson` |
+| `AdminCenter` 存档与恢复（第 5 页签，P6） | `storageStatus`、`storageError`、`lastSavedAt`、`unreadableStoredData`（`AppContext` 只读投影） | `data/community/types.ts` 的 `COMMUNITY_STORAGE_STATUSES` | `resetDemoData`、`reloadFromStorage`、`readBackupJson`；坏档原文经 `AppContext.exportUnreadableArchive` 下载 |
+| `StorageBanner`（主内容区顶部，P6） | 同上四项状态 | 同上 | 同「存档与恢复」，只在 `memory-only / save-error / recovery-required / conflict` 渲染 |
 | `SosModal` | 无业务数据（不定位、不通知） | — | —（只写一条本机提示） |
 | `RealNameModal` | `membership` | `MembershipRole` | `setMembership`（不采集证件号） |
 | `SearchModal` | `visiblePosts` 本机模糊匹配 | `store.ts` | — |
@@ -89,7 +90,7 @@
 | SOS | 本机提示，`tel:` 链接已移除 | — | 不定位、不通知、不派单 |
 | 实名 | `setMembership`（不采集证件号） | `currentDemoRole` 仅演示角色 | 无真实认证 |
 | 管理动作 | `moderatePost` / `moderateComment` / `hideOrderMessage` | `raiseHighRiskStop` / `recordContactSimulation` / `updateFollowUp` | 均写本机日志/时间线 |
-| 备份 | `readBackupJson` + 刷新 | `exportBackup` / `importBackup`（5 MB 上限、拒绝空摘要） | 各自独立存档 |
+| 备份 | `readBackupJson` → 导出 JSON / 坏档取原文 | `exportBackup` / `importBackup`（5 MB 上限、拒绝空摘要） | 各自独立存档；下载实现共用 `src/shared/download.ts` |
 
 ## 四、schema 扩展登记
 

@@ -1,6 +1,6 @@
 # 验收记录
 
-更新：2026-10-23。执行环境：Windows 11 / Node 22.22.2 / Chromium（headless）/ `vite preview @ 5180`。
+更新：2026-10-24。执行环境：Windows 11 / Node 22.22.2 / Chromium（headless）/ `vite preview @ 5180`。
 所有结论均来自本轮实际执行，命令与产物路径可复现。
 
 ## 一、构建与类型
@@ -8,23 +8,23 @@
 | 项目 | 命令 | 结果 |
 |---|---|---|
 | 类型检查 | `npm run typecheck`（`tsc --noEmit`，`strict` + `noUnusedLocals`） | **0 错误** |
-| 生产构建 | `npm run build` | **成功**，`✓ built in 2.01s` |
+| 生产构建 | `npm run build` | **成功**，`✓ built in 2.00s` |
 | 双入口产物 | `dist/index.html`、`dist/aplus.html` | 两份 HTML 各自只有 1 个入口 chunk |
-| 共享领域层 | `dist/assets/types-*.js`（196.40 kB / gzip 62.34） | 被两份 HTML **共同引用**（各出现 1 次），未重复打包 |
+| 共享领域层 | `dist/assets/types-*.js`（196.72 kB / gzip 62.52） | 被两份 HTML **共同引用**（各出现 1 次），未重复打包 |
 
-产物清单（本轮实测）：
+产物清单（2026-10-24 实测，P6 后）：
 
 ```
 dist/index.html                  2.17 kB │ gzip  1.35 kB
 dist/aplus.html                  2.16 kB │ gzip  1.31 kB
-dist/assets/community-*.css     87.48 kB │ gzip 13.43 kB   ← B 端（Tailwind 4）
+dist/assets/community-*.css     88.81 kB │ gzip 13.60 kB   ← B 端（Tailwind 4）
 dist/assets/aplus-*.css         33.38 kB │ gzip  7.56 kB   ← A+ 端（mvp 原生 CSS）
-dist/assets/community-*.js     276.85 kB │ gzip 76.88 kB
-dist/assets/aplus-*.js         172.34 kB │ gzip 42.52 kB
-dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
+dist/assets/community-*.js     291.95 kB │ gzip 80.97 kB   ← 含新增 StoragePanel / StorageBanner
+dist/assets/aplus-*.js         172.07 kB │ gzip 42.42 kB
+dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 ```
 
-## 二、自动化验收（89 项，全部通过）
+## 二、自动化验收（112 项，全部通过）
 
 | 脚本 | 结果 | 覆盖 |
 |---|---|---|
@@ -32,9 +32,11 @@ dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 | `npm run check:aplus` | **24/24** | 新建记录、虚构确认门禁、重复检测→人工复核、检查点拦截→解锁、状态流转、备份文本合法 JSON、刷新后持久化 |
 | `npm run check:community` | **11/11** | 实名前置拦截、拦截时不写存档、身份切换、成员发布写入存档、先审后发（待审不进公开流）、A+ 读取 B 的存档 |
 | `npm run check:acceptance` | **27/27** | §9 前三个脚本漏掉的主链路：接单→签到→确认→账本、病史可见性、每帖举报入口与落点、举报处置与留痕、A+ 高风险拦截 |
+| `npm run check:recovery` | **23/23** | §7 异常路径：存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论级举报落点、五档溢出、官方措辞/`tel:`/手机号静态扫描 |
 
-机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance}/report.json`。
+机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery}/report.json`。
 截图（不入库，本地复现）：`docs/evidence/dual-entry/*.png`。
+
 
 关键结论摘录：
 
@@ -43,6 +45,17 @@ dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 - 使用说明弹层初始焦点落在「知道了」（`[data-autofocus]`），而非它上方的关闭按钮。
 - 未实名访客提交求助被拦截并提示「依据实名制法规要求…须先完成实名认证」，且 `localStorage` 无存档写入。
 - 成员发布后 A+ 社区桥显示「已读取 1 条合成求助 · 存档保存于 …」，证明两端确实共用一份数据。
+
+### 2.1 P6 异常路径（`check:recovery`）关键结论
+
+| 场景 | 观测到的行为 |
+|---|---|
+| 存档被写坏 | 顶部出现 `role=alert`：「存档无法读取，写入已暂停」；再点举报被拦下，toast 指向「我的 → 演练审核与举报处置后台 → 存档与恢复」；被拦的写入**没有**覆盖坏档原文 |
+| 坏档恢复 | 面板显示「旧存档原文仍在浏览器里」，重置按钮 `disabled`；点「下载旧存档原文」后解锁；确认后重置成功（`posts=4`，存档 `savedAt` 存在，警示消失） |
+| 跨标签冲突 | 第二标签页改写 `savedAt` 后，本页出现「另一个标签页改写了存档」，写入被拦（`CONFLICT_MESSAGE`）；点「载入最新存档」后两端 `raw` 完全一致，冲突消解 |
+| 评论级举报 | 每条已审评论有独立举报按钮；`reports` 新增 `targetType=comment`、`targetId=SYNTH-COMMENT-001`；审核端工单显示「演练评论」；处置后 `status=resolved` 且审计日志有记录 |
+| 窄屏 | 坏档警示条存在时，320/390/768/1024/1440 五档横向溢出均为 0 |
+| 静态扫描 | 「网格 / 居委会 / 街道办」0 处、`href="tel:` 0 处、真实格式手机号 0 个、身份证号 0 个 |
 
 ## 三、§1.3 十条合规红线逐条验证
 
@@ -53,11 +66,11 @@ dist/assets/types-*.js         196.40 kB │ gzip 62.34 kB   ← 两端共享
 | 3 | **敏感信息最小化 / 接单后可见** | 选择器 `viewerParticipates()` 门控 `medicalNotes`；未接单只下发小区级 `locationArea` | `check:acceptance` 断言「接单前详情无病史文本 → 接单后同一订单可见」，并断言接单前有脱敏说明 | ✅ |
 | 4 | **紧急求助非急救通道** | `SosModal` 明示「不是急救通道、非 24 小时值守」；120/110 为纯文本「请手动拨打」 | 全仓 `href="tel:` 计数 **0**；`check:dual` 控制台无异常 | ✅ |
 | 5 | **时间币仅记账、不可兑现转让** | `LEDGER_ENTRY_STATUS='unsettled'`；「no action in the store settles them」 | 代码评审：store 无结算动作；界面文案标注「未结算」 | ✅ |
-| 6 | **UGC 举报入口与留痕** | `CommunityTab` 每帖、`OrderDetailModal` 每单均带举报按钮 → `submitComplaint({ orderId })` → `reports` + `auditLog('create-report')`；后台处置写 `resolution` 并回写站内消息 | `check:acceptance`：断言信息流举报按钮数 > 0、举报落点等于所点的那条（非固定首条）、后台处置为 `resolved`、站内消息 6 → 7、`resolve-report` 审计 +1 | ✅ |
+| 6 | **UGC 举报入口与留痕** | `CommunityTab` 每帖 + **每条已审评论**、`OrderDetailModal` 每单均带举报按钮 → `submitComplaint({ targetType, targetId })` → `reports` + `auditLog('create-report')`；后台处置写 `resolution` 并回写站内消息 | `check:acceptance`：断言信息流举报按钮数 > 0、举报落点等于所点的那条（非固定首条）、后台处置为 `resolved`、站内消息 6 → 7、`resolve-report` 审计 +1；`check:recovery`：评论举报落点为 `SYNTH-COMMENT-001`、工单显示「演练评论」、处置后 `status=resolved` | ✅ |
 | 7 | **匿名仅前台匿名** | `selectors/community.ts`：展示名替换为「匿名邻里（演练）」，`post.author` 保留 | 代码评审（含注释说明后台仍可定位） | ✅ |
 | 8 | **全站 noindex + robots.txt** | 两份 HTML 的 `meta robots=noindex,nofollow,noarchive`；`public/robots.txt` `Disallow: /` | `check:dual` 加载两入口；构建产物含 `robots.txt` | ✅ |
 | 9 | **仅自制/开源可商用素材、无外部 CDN** | 全仓无外部图片/字体/CDN 引用；头像为空串→渐变占位；图标为内联 SVG | `grep https?://` 仅命中注释；`@font-face` 0 处；字体为系统栈 | ✅ |
-| 10 | **不冒充官方** | 全站改为「项目组 / 互助演练」；证明书署名「演练项目组（虚构）」；协议声明「未获得任何社区、街道或机构授权」 | 全仓 `官方` 仅剩「不代表任何官方主体」等否定句与敏感词表 | ✅ |
+| 10 | **不冒充官方** | 全站改为「项目组 / 互助演练」；证明书署名「演练项目组（虚构）」；协议声明「未获得任何社区、街道或机构授权」；P6 清除「网格员 / 网格长 / 社区网格把关 / 一键直拨」等残留措辞 | 全仓 `官方` 仅剩「不代表任何官方主体」等否定句与敏感词表；`check:recovery` 静态扫描「网格 / 居委会 / 街道办」0 处 | ✅ |
 
 ## 四、手工走查（本轮已执行）
 

@@ -3,6 +3,52 @@
 每次推送都在此登记：谁推的、推了什么、验了什么、PR 在哪。
 约定：不推 `main`、不 force push、不改写远端历史；分支名 `agent/<agent>/<主题>`；每个提交带 `Agent` / `Session` / `Step` trailer。
 
+## 2026-10-24 · WorkBuddy · P6（存档自愈与评论级举报）
+
+| 项 | 值 |
+|---|---|
+| Agent | WorkBuddy（`user.name = agent:workbuddy`，`306421610+workbuddy@users.noreply.github.com`） |
+| Session | `2026-10-24-p6-storage-recovery` |
+| 阶段 | P6 存档自愈（坏档取原文 / 重置门禁 / 跨标签冲突）+ 评论级举报 + 合规文案清查 |
+| 分支 | `agent/workbuddy/aplus-react-port`（沿用） |
+| 基线 | 上一提交 `e871309` |
+| 提交 | `2af685f` feat(P6): 存档自愈与评论级举报，补齐 §7 异常路径 |
+| PR | [#1](https://github.com/433525/2026-10-232/pull/1)（追加提交后自动更新） |
+
+### 为什么要做这一轮
+
+交接文档 §3.1 把「评论级举报」「跨标签冲突未自动化」列为 P1，但它们其实是**同一类问题**：
+store 与类型层早就支持（`storageStatus` 六态、`Report.targetType='comment'`），
+界面却一处都没接。结果是坏档或冲突时写入被静默拦下、用户只有一句 toast，
+评论也只能借父帖举报。本轮只补「已建模但不可达」的路径，领域状态机未改。
+
+### 本轮验证（推送前）
+
+| 检查 | 结果 |
+|---|---|
+| `tsc --noEmit` | 0 错误 |
+| `npm run build` | 成功，`community-*.js` 291.95 kB / gzip 80.97；`community-*.css` 88.81 / 13.60 |
+| `npm run check:community` | 11/11 |
+| `npm run check:aplus` | 24/24 |
+| `npm run check:dual` | 27/27 |
+| `npm run check:acceptance` | 27/27 |
+| `npm run check:recovery`（新） | 23/23 |
+| 合计 | **112/112** |
+
+### 本轮改到的行为
+
+- 新增后台第 5 个页签「存档与恢复」与主内容区顶部 `StorageBanner`（只在异常态渲染）。
+- 坏档时重置必须先「下载旧存档原文」；守卫在 `AppContext`，领域层仍保留 `allowRecovery` 逃生口（已登记为技术债）。
+- 跨标签冲突走真实双标签验证（`Target.createTarget` 第二页改写 `savedAt`），不靠合成事件。
+- 评论举报落点 `SYNTH-COMMENT-001`，审核端显示「演练评论」，处置后 `resolved` + 审计 +1。
+
+### 风险与说明
+
+- 管理入口文案按 §1.3-10 从「社区网格管理与风控审核后台」改为「演练审核与举报处置后台（项目组）」，
+  `tools/check-acceptance.mjs` 的选择器同步更新；这是**断言随文案变更**，不是放宽断言。
+- B 端备份仍只有导出、没有导入；订单留言举报入口未接（领域已支持 `targetType='message'`）。
+- 仍未合并 PR、未推 `main`、未改仓库可见性。
+
 ## 2026-10-23 · WorkBuddy · P4.1（第二次验收补齐）
 
 | 项 | 值 |

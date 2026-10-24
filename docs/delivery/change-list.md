@@ -1,7 +1,7 @@
 # 改动清单
 
 相对 `origin/main`（`ea48ac0`）的全部改动。分四类，便于逐条核对。
-标注说明：**P1/P2** 为本分支前序阶段完成的骨架与 B 端主链路；**P3–P5** 为本次会话完成的 A+ 移植、清理验收与交付文档。
+标注说明：**P1/P2** 为本分支前序阶段完成的骨架与 B 端主链路；**P3–P5** 为 A+ 移植、清理验收与交付文档；**P6** 为 2026-10-24 的存档自愈与评论级举报（见 §四 4.2）。
 
 ## 一、新增（Added）
 
@@ -121,3 +121,28 @@
 | `src/components/OrderDetailModal.tsx` | 订单详情增加「举报该内容」；完成按钮「入账」改为「记账（未结算）」 | 修复 |
 | `src/components/ProfileTab.tsx` | 订单状态「已完成结算」→「已完成（未结算）」 | 修复 |
 | `docs/delivery/*.md`、`README.md` | 验收数 62 → 89、补合规章节证据、补低内存构建说明、补两类新缺口 | 修改 |
+
+### 4.2 P6 存档自愈与评论级举报（2026-10-24）
+
+起因：`store` 早已实现六态存档状态与坏档原文保留，但**没有任何组件读取**（`grep storageStatus src/components` 为空）。
+后果是：存档损坏或跨标签冲突时，所有写入被静默拦下，用户拿到一句 toast 却找不到恢复路径；评论也没有举报入口。
+本轮只补「已建模但不可达」的能力，领域状态机与既有 props 一行未改。调研见 `docs/research/p6-storage-recovery.md`。
+
+| 文件 | 改动 | 类型 |
+|---|---|---|
+| `src/shared/download.ts` | 从 A+ `workbench.ts` 抽出的下载工具（`downloadTextFile` / `dateStamp`），两端共用 | 新增 |
+| `src/components/StoragePanel.tsx` | 后台「存档与恢复」页签：六态中文映射、最后保存时间、导出备份、载入存档、坏档取原文、重置（下载前禁用） | 新增 |
+| `src/components/StorageBanner.tsx` | 主内容区顶部常驻警示条：仅在 `memory-only / save-error / recovery-required / conflict` 出现，动作复用 AppContext | 新增 |
+| `tools/check-recovery.mjs` | 23 项异常路径验收：面板可达、坏档可见与拦截、先取原文再重置、跨标签冲突与消解、评论级举报、五档溢出、静态扫描 | 新增 |
+| `src/context/AppContext.tsx` | 追加 9 个字段（存档状态只读投影 + 导出/取原文/载入/重置），实现 `resetDemoData` 的「未下载原文不得重置」守卫；`submitComplaint` 支持显式 `targetType/targetId`，取消 `posts[0]` 兜底 | 修改 |
+| `src/components/AdminCenter.tsx` | 新增「存档与恢复」页签（第 5 个）；举报工单显示目标类型与目标 id；处置结论草稿按工单 id 存（修掉多条工单同步回显） | 修改 |
+| `src/components/CommunityTab.tsx` | 每条已审评论增加举报按钮（目标 `comment`）；评论折叠按钮补 `aria-label` / `aria-expanded` | 修改 |
+| `src/types/index.ts` | `ComplaintTicket` 追加可选 `targetType` / `targetId`（签名不变，缺省按 post） | 修改 |
+| `src/selectors/community.ts` | `buildReports` 透出 `targetType` / `targetId`，供管理端区分帖子/评论/留言 | 修改 |
+| `src/App.tsx` | 两处 `<main>` 顶部挂载 `<StorageBanner />` | 修改 |
+| `src/data/community/store.ts` | 仅改 `RECOVERY_REQUIRED_MESSAGE` 文案，指向「我的 → 演练审核与举报处置后台 → 存档与恢复」 | 修改 |
+| `src/aplus/workbench.ts` | 删除本地 `downloadTextFile`，改用 `src/shared/download.ts` | 修改 |
+| `package.json` | 新增 `check:recovery` 脚本 | 修改 |
+| 合规文案（`HomeTab` / `CommunityTab` / `ProfileTab` / `HelpCenterModal` / `SosModal` / `CommunityQrModal` / `TermsModal`） | 清除「网格 / 网格员 / 网格长 / 一键直拨 / 社区网格把关 / 实名业主与认证志愿者」等官方化措辞，改为项目组口径；首页紧急入口副标题改为「非急救：请拨打 120/110」 | 修改 |
+| `tools/check-acceptance.mjs` | 管理入口文案变更后同步选择器（`审核与举报处置后台`） | 修改 |
+| `docs/research/p6-storage-recovery.md` | P6 调研：use-local-storage-state / localForage / Discourse flags 的取舍 | 新增 |
