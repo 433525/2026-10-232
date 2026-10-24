@@ -146,3 +146,18 @@
 | 合规文案（`HomeTab` / `CommunityTab` / `ProfileTab` / `HelpCenterModal` / `SosModal` / `CommunityQrModal` / `TermsModal`） | 清除「网格 / 网格员 / 网格长 / 一键直拨 / 社区网格把关 / 实名业主与认证志愿者」等官方化措辞，改为项目组口径；首页紧急入口副标题改为「非急救：请拨打 120/110」 | 修改 |
 | `tools/check-acceptance.mjs` | 管理入口文案变更后同步选择器（`审核与举报处置后台`） | 修改 |
 | `docs/research/p6-storage-recovery.md` | P6 调研：use-local-storage-state / localForage / Discourse flags 的取舍 | 新增 |
+
+### 4.3 P7 备份导入与留言举报（2026-10-24）
+
+起因：B 端只能导出不能导入，用户清缓存或换机器后无法恢复；§1.3-6 要求「每条 UGC 可举报」，
+而订单留言（`targetType='message'`）在领域层早已支持却一直没有入口。调研见 `docs/research/p7-backup-import.md`。
+
+| 文件 | 改动 | 类型 |
+|---|---|---|
+| `src/data/community/types.ts` | 新增 `CommunityBackupSummary`（导入摘要，不含业务数据） | 新增 |
+| `src/data/community/store.ts` | 新增 `previewBackup()` / `importBackup()`（复用启动时的同一解析器）；`allowRecovery` 仅在「已下载原文」时由调用方传入 | 修改 |
+| `src/context/AppContext.tsx` | 新增 `importBackupFile(file)`：5 MB 守卫 → 读文件 → 解析 → 摘要确认 → 整档覆盖；失败不改存档 | 修改 |
+| `src/components/StoragePanel.tsx` | 增加「导入备份 JSON」按钮与隐藏 `input[data-storage-import]`；操作区改为 4 列；补充文件/内容双层上限说明 | 修改 |
+| `src/components/MessagesTab.tsx` | 每条对方留言增加举报入口（`targetType='message'`），自己的留言不显示 | 修改 |
+| `tools/check-recovery.mjs` | 新增 5 项：导入入口、合法导入生效、版本不符被拒、超 5 MB 被拒、留言举报落点；顺手修正举报列表「前插」导致的取错项 | 修改 |
+| `docs/research/p7-backup-import.md` | P7 调研：Excalidraw restore / ajv / tldraw / mvp intake-backup 的取舍 | 新增 |

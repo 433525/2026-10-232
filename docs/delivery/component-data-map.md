@@ -31,7 +31,7 @@
 | `TasksHall` 接单大厅 | `visiblePosts`（`mode==='help'`） | `store.ts` | `acceptOrder`、`clockInOrder` |
 | `OrderDetailModal` 订单全流程 | `orderStatus`、`orderEvents`、`orderFeedback` | `OrderEvent[]` | `acceptOrder` → `clockInOrder` → `requestOrderCompletion` → `confirmOrderCompletion` / `cancelOrder` / `raiseOrderDispute` / `resolveOrderDispute`；合成对方动作 `counterpart*` |
 | `OrderDetailModal` 时间币记账 | `ledger`（`unsettled` 只读） | `LedgerEntry` | 完成/取消后由 store 追加流水（不结算、不可兑现） |
-| `MessagesTab` 订单留言 | `threads`（`kind==='order'`） | `DemoThread` / `DemoMessage` | `sendOrderMessage`、`hideOrderMessage` |
+| `MessagesTab` 订单留言（可逐条举报） | `threads`（`kind==='order'`） | `DemoThread` / `DemoMessage` | `sendOrderMessage`、`hideOrderMessage`、`reportContent('message')` |
 | `MessagesTab` 系统通知 | `systemNotices`、`unreadNoticeCount` | `DemoMessage.noticeKind` | `markNotificationsRead` |
 | `MessagesTab` 投诉 / 反馈工单 | `complaints` | `Complaint` | `addComplaint` |
 | `ProfileTab` 账本 / 订单 / 收藏 / 我的发布 | `ledger`、`posts`、`comments` | 派生 | — |
@@ -42,7 +42,7 @@
 | `AdminCenter` 举报处置 | `reports` | `Report` | `resolveReport` |
 | `AdminCenter` 操作日志 | `auditLog` | `AuditLogEntry` | 由上述动作自动追加 |
 | `AdminCenter` 投诉工单 | `complaints` | `Complaint` | `addComplaint` |
-| `AdminCenter` 存档与恢复（第 5 页签，P6） | `storageStatus`、`storageError`、`lastSavedAt`、`unreadableStoredData`（`AppContext` 只读投影） | `data/community/types.ts` 的 `COMMUNITY_STORAGE_STATUSES` | `resetDemoData`、`reloadFromStorage`、`readBackupJson`；坏档原文经 `AppContext.exportUnreadableArchive` 下载 |
+| `AdminCenter` 存档与恢复（第 5 页签，P6/P7） | `storageStatus`、`storageError`、`lastSavedAt`、`unreadableStoredData`（`AppContext` 只读投影） | `data/community/types.ts` 的 `COMMUNITY_STORAGE_STATUSES` / `CommunityBackupSummary` | `resetDemoData`、`reloadFromStorage`、`readBackupJson`、`previewBackup`、`importBackup`；坏档原文经 `AppContext.exportUnreadableArchive` 下载 |
 | `StorageBanner`（主内容区顶部，P6） | 同上四项状态 | 同上 | 同「存档与恢复」，只在 `memory-only / save-error / recovery-required / conflict` 渲染 |
 | `SosModal` | 无业务数据（不定位、不通知） | — | —（只写一条本机提示） |
 | `RealNameModal` | `membership` | `MembershipRole` | `setMembership`（不采集证件号） |

@@ -17,14 +17,14 @@
 ```
 dist/index.html                  2.17 kB │ gzip  1.35 kB
 dist/aplus.html                  2.16 kB │ gzip  1.31 kB
-dist/assets/community-*.css     88.81 kB │ gzip 13.60 kB   ← B 端（Tailwind 4）
+dist/assets/community-*.css     88.90 kB │ gzip 13.62 kB   ← B 端（Tailwind 4）
 dist/assets/aplus-*.css         33.38 kB │ gzip  7.56 kB   ← A+ 端（mvp 原生 CSS）
-dist/assets/community-*.js     291.95 kB │ gzip 80.97 kB   ← 含新增 StoragePanel / StorageBanner
+dist/assets/community-*.js     295.25 kB │ gzip 82.01 kB   ← 含 StoragePanel / StorageBanner / 备份导入
 dist/assets/aplus-*.js         172.07 kB │ gzip 42.42 kB
 dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 ```
 
-## 二、自动化验收（112 项，全部通过）
+## 二、自动化验收（117 项，全部通过）
 
 | 脚本 | 结果 | 覆盖 |
 |---|---|---|
@@ -32,7 +32,7 @@ dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 | `npm run check:aplus` | **24/24** | 新建记录、虚构确认门禁、重复检测→人工复核、检查点拦截→解锁、状态流转、备份文本合法 JSON、刷新后持久化 |
 | `npm run check:community` | **11/11** | 实名前置拦截、拦截时不写存档、身份切换、成员发布写入存档、先审后发（待审不进公开流）、A+ 读取 B 的存档 |
 | `npm run check:acceptance` | **27/27** | §9 前三个脚本漏掉的主链路：接单→签到→确认→账本、病史可见性、每帖举报入口与落点、举报处置与留痕、A+ 高风险拦截 |
-| `npm run check:recovery` | **23/23** | §7 异常路径：存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论级举报落点、五档溢出、官方措辞/`tel:`/手机号静态扫描 |
+| `npm run check:recovery` | **28/28** | §7 异常路径 + 数据恢复：存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法 / 版本不符 / 超 5 MB）、五档溢出、静态扫描 |
 
 机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery}/report.json`。
 截图（不入库，本地复现）：`docs/evidence/dual-entry/*.png`。
@@ -56,6 +56,8 @@ dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 | 评论级举报 | 每条已审评论有独立举报按钮；`reports` 新增 `targetType=comment`、`targetId=SYNTH-COMMENT-001`；审核端工单显示「演练评论」；处置后 `status=resolved` 且审计日志有记录 |
 | 窄屏 | 坏档警示条存在时，320/390/768/1024/1440 五档横向溢出均为 0 |
 | 静态扫描 | 「网格 / 居委会 / 街道办」0 处、`href="tel:` 0 处、真实格式手机号 0 个、身份证号 0 个 |
+| 备份导入 | 合法备份（改标题）经文件选择器导入后立即生效；版本号 99 的备份被拒（「版本不受支持」）且存档不变；5 MB+ 文件被拒（「超过 5 MB」）且存档不变 |
+| 留言举报 | 接单成为参与方后，「订单留言」页每条对方留言可单独举报，落点 `SYNTH-MESSAGE-004` |
 
 ## 三、§1.3 十条合规红线逐条验证
 

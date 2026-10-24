@@ -17,7 +17,7 @@
 | 待处理 | PR [#1](https://github.com/433525/2026-10-232/pull/1) 处于打开状态，未合并 |
 | 技术栈 | React 19.2.6 + Vite 7.3.2 + TypeScript 5.9.3；B 端 Tailwind 4.1.17，A+ 原生 CSS |
 | 代码规模 | `src` 共 19,576 行（ts/tsx/css）；B 端 22 个组件，A+ 21 个（11 版面 + 10 弹层） |
-| 验证状态 | 类型检查 0 错误；生产构建成功（2.00s）；自动化验收 112/112（2026-10-24 记录） |
+| 验证状态 | 类型检查 0 错误；生产构建成功（2.14s）；自动化验收 117/117（2026-10-24 记录） |
 | 性质 | 纯前端、纯合成数据、无后端、无通知、无支付，**不具备生产运营能力** |
 | 建议下一步 | 评审并合并 PR #1；再按 §3.1 的优先级决定是否投入生产化 |
 
@@ -99,7 +99,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | 类型检查 | `npm run typecheck` | 0 错误 |
 | 生产构建 | `npm run build` | 成功，2024 modules，`✓ built in 2.29s` |
 
-> 112 项验收数字取自入库证据（`docs/evidence/*/report.json`，2026-10-24 10:07–10:20 复跑，含新增 `recovery`）。接手后请按 §6.3 自行复跑一次。
+> 117 项验收数字取自入库证据（`docs/evidence/*/report.json`，2026-10-24 10:5x 复跑，`recovery` 已扩到 28 项）。接手后请按 §6.3 自行复跑一次。
 
 ### 2.3 B 端已完成功能
 
@@ -110,7 +110,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 - **履约**：接单 → 上门签到 → 请求完成 → 双方确认 → 追加 `unsettled` 账本流水；取消、争议、恢复/关闭。
 - **消息**：订单留言、系统通知、投诉/反馈工单、未读角标。
 - **我的**：资料、实名档位、时间账本、演练证明、设置、管理入口、A+ 受理进度只读摘要。
-- **管理后台**：审核队列（帖子/评论）、举报处置、投诉工单、操作日志、**存档与恢复**（六态状态、导出备份、载入存档、坏档取原文、重置门禁）。存档异常时主内容区顶部出警示条，不再只有一句 toast。
+- **管理后台**：审核队列（帖子/评论）、举报处置、投诉工单、操作日志、**存档与恢复**（六态状态、导出/导入备份、载入存档、坏档取原文、重置门禁）。存档异常时主内容区顶部出警示条，不再只有一句 toast。
 - **适老化**：关怀模式大字、44px 触控下限、焦点环、TTS 朗读、减少动态偏好。
 
 ### 2.4 A+ 端已完成功能
@@ -123,7 +123,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 - **社区桥**：读取 B 端存档、按 `sourcePostId` 去重、摘要/标签重复进人工复核。
 - **深链**：`?case=<id>`，记录不存在时清理参数并提示。
 
-### 2.5 自动化验收成绩（112/112）
+### 2.5 自动化验收成绩（117/117）
 
 | 脚本 | 项数 | 覆盖重点 |
 |---|---|---|
@@ -131,8 +131,8 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | `npm run check:aplus` | 24/24 | 新建、虚构确认门禁、去重→人工复核、检查点拦截→解锁、流转、备份 JSON、刷新持久化 |
 | `npm run check:community` | 11/11 | 实名拦截、拦截不写存档、身份切换、发布落存档、先审后发、A+ 读 B 存档 |
 | `npm run check:acceptance` | 27/27 | 接单→签到→确认→账本、病史接单后可见、每帖举报落点、举报处置留痕、A+ 高风险拦截 |
-| `npm run check:recovery` | 23/23 | 存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论级举报落点、五档溢出、官方措辞/`tel:`/手机号静态扫描 |
-| **合计** | **112/112** | 证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery}/report.json` |
+| `npm run check:recovery` | 28/28 | 存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法/版本不符/超限）、五档溢出、静态扫描 |
+| **合计** | **117/117** | 证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery}/report.json` |
 
 ### 2.6 十条合规红线的落地方式
 
@@ -143,7 +143,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | 敏感信息最小化 | `viewerParticipates()` 门控病史；未接单只见小区级位置 | 接单前无病史文本、接单后可见 |
 | 非急救通道 | `SosModal` 纯文本提示，无 `tel:` | 全仓 `href="tel:` 计数 0 |
 | 时间币只记账 | `LEDGER_ENTRY_STATUS='unsettled'`，store 无结算动作 | 代码评审 + 文案「未结算」 |
-| 举报与留痕 | 每帖 / **每条已审评论** / 每单举报 → `reports`（含 `targetType`）+ `auditLog('create-report')` | 落点等于所点条目、处置后消息 +1、审计 +1；评论举报落点为 `SYNTH-COMMENT-001` |
+| 举报与留痕 | 每帖 / **每条已审评论** / **每条对方留言** / 每单举报 → `reports`（含 `targetType`）+ `auditLog('create-report')` | 落点等于所点条目、处置后消息 +1、审计 +1；评论 `SYNTH-COMMENT-001`、留言 `SYNTH-MESSAGE-004` |
 | 匿名仅前台 | `selectors` 替换展示名，`post.author` 保留 | 代码评审（后台仍可定位） |
 | noindex + robots | 两个 HTML + `public/robots.txt` | 构建产物检查 |
 | 无外部素材 | 内联 SVG、空头像渐变、系统字体栈 | `@font-face` 0 处、无 CDN 引用 |
@@ -160,6 +160,14 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | 合规文案 | 清除「网格员 / 网格长 / 社区网格把关 / 一键直拨」；首页紧急入口副标题改为「非急救：请拨打 120/110」 |
 | 验收 | 新增 `tools/check-recovery.mjs` 23 项；合计 112 项 |
 
+### 2.6.2 P7 增量（2026-10-24）
+
+| 项 | 内容 |
+|---|---|
+| 备份导入 | 存档面板新增「导入备份 JSON」：5 MB 文件上限 → 与启动同一解析器校验 → 显示条数/保存时间 → 二次确认后整档覆盖；坏档需先下载原文 |
+| 留言举报 | 「订单留言」每条对方留言可单独举报（`targetType='message'`），自己的留言不显示 |
+| 验收 | `check:recovery` 扩到 28 项；合计 117 项 |
+
 ### 2.7 唯一的 schema 扩展
 
 `ORDER_EVENT_TYPES` 新增 `'clock-in'`（上门签到），用于补齐「接单 → 签到 → 完成」链路。其余类型、状态枚举、流转守卫、`ORDER_EVENT_LIMIT = 100` 均未改动。
@@ -174,11 +182,10 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 
 | 优先级 | 事项 | 性质 | 建议动作 |
 |---|---|---|---|
-| **P0** | PR #1 未合并，`main` 不含 A+ | 交付动作 | 评审 diff → 合并；合并前确认本地 112 项 |
+| **P0** | PR #1 未合并，`main` 不含 A+ | 交付动作 | 评审 diff → 合并；合并前确认本地 117 项 |
 | **P0** | 无视觉像素基线 | 质量缺口 | 若继续迭代 UI，先选 8–12 个关键状态（两端主视图、深链、代表弹层、320px、**存档异常态**）建截图基线；可参考 mvp 的 `visual-baseline` 做法，否则样式回归只能靠肉眼 |
-| **P1** | B 端备份只有导出、没有导入 | 功能缺口 | 可复用 A+ 的 `parse` + 大小上限 + 摘要校验思路；导入前必须二次确认覆盖 |
-| **P1** | 备份「导入」文件选择未自动化 | 测试缺口 | CDP 需 `DOM.setFileInputFiles`；补进 `check:aplus` |
-| **P1** | 订单留言的举报入口未接 | 契约缺口 | 领域已支持 `targetType: 'message'`，只需在消息列表挂按钮（评论级已在 P6 打通） |
+| **P1** | A+ 备份导入的文件选择未自动化 | 测试缺口 | B 端已用 `DOM.setFileInputFiles` 覆盖；把同一手法补进 `check:aplus` |
+| **P1** | B 端消息页没有会话列表 | 结构缺口 | 只渲染 `chatMessages[0]` 所属会话，多条订单后旧会话不可达；需改 232 版面，动手前先确认交互。 |
 | **P2** | 坏档门禁的最外层是 UI 守卫 | 健壮性取舍 | 绕过界面直接调 `store.resetDemoData()` 仍可覆盖原文；若要硬保证，需把「已确认」标记做进领域层 |
 | **P2** | A+ 全树重渲染 | 性能 | `revision` 单版本号订阅；记录上千时改按字段订阅 |
 | **P2** | `computed` 不缓存 | 性能/取舍 | 派生每次读取重算；规模小可接受，先量化再改 |
@@ -413,7 +420,7 @@ repo/
 | `docs/delivery/component-data-map.md` | 每个组件读哪个字段、调哪个方法 | 定位数据来源 |
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 | 评估工作量 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复四类清单 | 评审 diff |
-| `docs/delivery/acceptance.md` | 112 项验收明细与合规逐条验证 | 复现与核对 |
+| `docs/delivery/acceptance.md` | 117 项验收明细与合规逐条验证 | 复现与核对 |
 | `docs/research/p1–p6*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |
 | `docs/agents/log.md` | 推送日志、PR、验证结果、风险 | 追溯提交背景 |
 
@@ -515,7 +522,7 @@ dist/robots.txt
 1. `git status` 与 `git branch -vv`：确认在 `agent/workbuddy/aplus-react-port`，不要直接在 `main` 上改。
 2. 读 `README.md` → `docs/ARCHITECTURE.md` → `docs/delivery/gap-report.md` → `docs/delivery/acceptance.md`（顺序不要反）。
 3. 跑 `npm run typecheck` + `npm run build`，确认本地基线可用。
-4. 起 5180 预览，五个验收脚本全跑一遍，确认 112/112；若数字不符，先查环境（Node 版本、Chrome、端口），不要先改代码。
+4. 起 5180 预览，五个验收脚本全跑一遍，确认 117/117；若数字不符，先查环境（Node 版本、Chrome、端口），不要先改代码。
 5. 打开两端各走一遍主链路：B 端「发布 → 审核 → 接单 → 签到 → 完成 → 账本」；A+ 端「社区桥 → 登记 → 检查点 → 流转 → 备份」。
 6. 确认 PR #1 的 diff 范围与你将要改的文件是否重叠，避免重复劳动。
 
@@ -554,7 +561,7 @@ dist/robots.txt
 
 ### 7.5 五个常见误解
 
-1. **「112 项通过 = 可以上线」**：不等于。112 项只证明本机合成数据下主链路与异常路径可走通，无后端、无鉴权、无合规手续。
+1. **「117 项通过 = 可以上线」**：不等于。117 项只证明本机合成数据下主链路与异常路径可走通，无后端、无鉴权、无合规手续。
 2. **「`docs/evidence` 里有截图」**：没有。PNG 被 gitignore，只有 `report.json`；截图需本地跑脚本。
 3. **「项目用了 Noto Sans SC 字体」**：`index.css` 字体栈首选它，但**没有 `@font-face`、没有自托管**；系统未安装时回退到系统字体。不要为了「补齐」引入 CDN。
 4. **「A+ 和 B 的投诉是同一套」**：不是。B 的是本机反馈工单，A+ 的是针对演示角色的复核队列，同名不同义，刻意未合并。
@@ -574,7 +581,7 @@ npm run typecheck                  # tsc --noEmit
 npm run build                      # 双入口产物
 npx vite preview --port 5180 --strictPort
 
-# 验收（五脚本，共 112 项）
+# 验收（五脚本，共 117 项）
 npm run check:dual
 npm run check:aplus
 npm run check:community
@@ -627,16 +634,16 @@ main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 7. 不引入外部 CDN / 字体 / 图片；不引 UI 库；不加 Service Worker（除非整套离线方案一起做）。
 
 【当前状态】
-typecheck 0 错误；build 成功（2.00s）；自动化验收 112/112（27 双入口 + 24 A+ + 11 B + 27 履约链路 + 23 异常路径）。
+typecheck 0 错误；build 成功（2.14s）；自动化验收 117/117（27 双入口 + 24 A+ + 11 B + 27 履约链路 + 28 异常路径与恢复）。
 证据在 docs/evidence/*/report.json（截图不入库）。
-已知缺口：B 端备份缺导入、订单留言举报入口未接、坏档门禁最外层是 UI 守卫、
+已知缺口：A+ 导入自动化未接、消息页无会话列表、坏档门禁最外层是 UI 守卫、
 A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium 验证、无视觉像素基线。
 
 【第一步请按顺序做】
 1. 读 README.md、docs/ARCHITECTURE.md、docs/delivery/gap-report.md、docs/delivery/acceptance.md。
 2. 运行：cd D:/网页开发/repo && npm run typecheck && npm run build
 3. 起预览：npx vite preview --port 5180 --strictPort（验收脚本默认 BASE_URL 是 5180，不是 4173）
-4. 跑五个脚本：npm run check:dual / check:aplus / check:community / check:acceptance / check:recovery，确认 112/112。
+4. 跑五个脚本：npm run check:dual / check:aplus / check:community / check:acceptance / check:recovery，确认 117/117。
 5. 手动走两条链路：B 端发布→审核→接单→签到→完成→账本；A+ 社区桥→登记→检查点→流转→备份。
 6. 汇报：当前基线是否与文档一致、你打算改什么、影响哪些文件。
 
@@ -666,7 +673,7 @@ A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium �
 | `docs/delivery/component-data-map.md` | 组件 ↔ 数据源 ↔ 动作映射 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复清单 |
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 |
-| `docs/delivery/acceptance.md` | 112 项验收与十条合规逐条验证 |
+| `docs/delivery/acceptance.md` | 117 项验收与十条合规逐条验证 |
 | `docs/research/p1–p6*.md` | 阶段调研与方案取舍 |
 | `docs/agents/log.md` | 推送日志、PR、验证与风险 |
 

@@ -3,6 +3,57 @@
 每次推送都在此登记：谁推的、推了什么、验了什么、PR 在哪。
 约定：不推 `main`、不 force push、不改写远端历史；分支名 `agent/<agent>/<主题>`；每个提交带 `Agent` / `Session` / `Step` trailer。
 
+## 2026-10-24 · WorkBuddy · P7（备份导入与留言举报）
+
+| 项 | 值 |
+|---|---|
+| Agent | WorkBuddy（`user.name = agent:workbuddy`，`306421610+workbuddy@users.noreply.github.com`） |
+| Session | `2026-10-24-p7-backup-import` |
+| 阶段 | P7 备份导入（5 MB 守卫 / 摘要确认 / 整档覆盖）+ 订单留言举报 + 验收脚本修正 |
+| 分支 | `agent/workbuddy/aplus-react-port`（沿用） |
+| 基线 | 上一提交 `9a1f112` |
+| 提交 | `18a461d` feat(P7): B 端备份导入与订单留言举报 |
+| PR | [#1](https://github.com/433525/2026-10-232/pull/1)（追加提交后自动更新） |
+
+### 为什么要做这一轮
+
+P6 补完了「导出与坏档取原文」，但用户清了缓存或换机器后，手里有 JSON 也恢复不回去；
+同时订单留言虽是 UGC，领域层也支持 `Report.targetType='message'`，界面仍无入口。
+两项都属于「数据层已具备、界面缺一步」。
+
+### 本轮验证（推送前）
+
+| 检查 | 结果 |
+|---|---|
+| `tsc --noEmit` | 0 错误 |
+| `npm run build` | 成功，`community-*.js` 295.25 kB / gzip 82.01；`community-*.css` 88.90 / 13.62 |
+| `npm run check:community` | 11/11 |
+| `npm run check:aplus` | 24/24 |
+| `npm run check:dual` | 27/27 |
+| `npm run check:acceptance` | 27/27 |
+| `npm run check:recovery` | 28/28（+5） |
+| 合计 | **117/117** |
+
+### 本轮改到的行为
+
+- 导入与启动共用 `parseStoredCommunity()`：版本不符、字段无效、内容超限一律拒绝且不改存档。
+- 覆盖前 `window.confirm` 展示条数与备份时间；文件上限 5 MB 在读取前拦下。
+- 坏档期间导入需要 `allowRecovery`，由「已下载原文」的会话标记决定（与重置同一条守卫）。
+- 留言举报：只对对方留言显示按钮，落点 `SYNTH-MESSAGE-004`。
+
+### 测试脚本自身修掉的两个问题
+
+1. 举报列表是**前插**（`[report, ...reports]`），原断言取 `reports[length-1]` 会取到最旧一条；
+   改为 `reports[0]`，评论与留言两处同步。
+2. 底部「消息」页签含未读数角标，`textContent.trim() === '消息'` 匹配不到；
+   新增 `__navClick`（`nav` 作用域包含匹配），不再依赖页签无角标。
+
+### 风险与说明
+
+- 导入是**整档覆盖**，不做合并；确认框已写明「当前未导出的改动会丢失」。
+- 消息页仍只渲染第一条会话（232 版面限制），多订单时旧会话不可达；本轮未改版面。
+- 仍未合并 PR、未推 `main`、未改仓库可见性。
+
 ## 2026-10-24 · WorkBuddy · P6（存档自愈与评论级举报）
 
 | 项 | 值 |
