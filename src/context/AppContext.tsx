@@ -141,6 +141,8 @@ export interface AppContextType {
   exportUnreadableArchive: () => void;
   reloadArchive: () => void;
   resetDemoData: () => void;
+  /** 备份导入：内部先用 store 的只读预览校验，再由用户确认覆盖（5 MB 文件上限）。 */
+  importBackupFile: (file: File) => Promise<void>;
 
   // UI helpers
   unreadMessagesCount: number;
@@ -661,6 +663,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast(result.message ?? '已恢复为虚构演练数据。', 'success');
   }, [store, unreadableArchiveExported]);
 
+  /** 备份文件上限：与 A+ 的 5 MB 口径一致；存档内容本身另有 100 万字符上限（由 store 解析时判定）。 */
+  const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+  const importBackupFile = useCallback(
+    async (file: File) => {
+      if (file.size > MAX_IMPORT_BYTES) {
+        toast('备份文件超过 5 MB 上限，未读取；请确认选择的是本演练导出的 JSON。');
+        return;
+      }
+      let raw = '';
+      try {
+        raw = await file.text();
+      } catch {
+        toast('读取备份文件失败：浏览器未授予文件访问权限。');
+        return;
+      }
+      const preview = store.previewBackup(raw);
+      if (!preview.ok || !preview.summary) {
+        toast(preview.errors[0] ?? '备份文件无法解析，未做任何修改。');
+        return;
+      }
+      const summary = preview.summary;
+      const confirmed = window.confirm(
+        [
+          '将用选中的备份覆盖当前本机存档：',
+          `${summary.posts} 条帖子 / ${summary.comments} 条评论 / ${summary.reports} 条举报 / ${summary.ledgerEntries} 条账本`,
+          `备份保存时间：${new Date(summary.savedAt).toLocaleString('zh-CN')}`,
+          '',
+          '当前未导出的改动会丢失，是否继续？',
+        ].join('\n'),
+      );
+      if (!confirmed) return;
+      // 坏档期间允许导入，但前提是用户已下载过原文（与重置同一条守卫）。
+      const result = store.importBackup(raw, { allowRecovery: unreadableArchiveExported });
+      if (!result.ok) {
+        toast(result.errors[0] ?? '导入失败，本机存档未变更。');
+        return;
+      }
+      setUnreadableArchiveExported(false);
+      sound.playSuccess();
+      toast(result.message ?? '已导入本机备份。', 'success');
+    },
+    [store, unreadableArchiveExported],
+  );
+
   const unreadMessagesCount = projection.messages.filter((message) => message.unread).length;
 
   const value: AppContextType = {
@@ -725,6 +772,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     exportUnreadableArchive,
     reloadArchive,
     resetDemoData,
+    importBackupFile,
     unreadMessagesCount,
   };
 

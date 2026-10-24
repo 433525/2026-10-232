@@ -336,6 +336,21 @@ export interface CommunityState {
   notificationsReadAt?: string
 }
 
+/**
+ * 导入前的只读摘要：让用户在覆盖本机存档前看到「将要导入什么」。
+ * 由 store 解析后计算，UI 不自行推断条数。
+ */
+export interface CommunityBackupSummary {
+  readonly savedAt: string
+  readonly posts: number
+  readonly comments: number
+  readonly threads: number
+  readonly messages: number
+  readonly reports: number
+  readonly ledgerEntries: number
+  readonly auditLog: number
+}
+
 export interface PublishPostInput {
   mode: PostMode
   title: string

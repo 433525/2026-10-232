@@ -5,13 +5,16 @@
  * 1. 存档异常在界面上是**可见**的（此前 store 有六态，但没有任何组件读取）；
  * 2. 坏档 `recovery-required`：写入被拦、原文可下载、下载前不允许重置、下载后可重置；
  * 3. 跨标签 `conflict`：另一标签页改写后出现提示，载入最新存档可消解；
- * 4. 评论级举报：目标落到 comment 而不是父帖，并能被审核端处置。
+ * 4. 评论级举报：目标落到 comment 而不是父帖，并能被审核端处置；
+ * 5. 备份导入：合法备份可覆盖并立即生效，版本不符与超限文件被拒绝且不改存档；
+ * 6. 订单留言举报：目标落到 message。
  *
  * 另附静态扫描：官方化措辞（网格/居委会/街道）、电话链接、真实格式手机号与身份证号。
  *
  * 用法：先 build + preview 到 5180，再 `node tools/check-recovery.mjs`。
  */
-import { mkdirSync, writeFileSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   CDPConnection,
@@ -51,6 +54,13 @@ window.__btn = (text) => window.__buttons().find((b) => b.textContent.includes(t
 window.__btnExact = (text) => window.__buttons().find((b) => b.textContent.trim() === text)
 window.__click = (text) => { const b = window.__btn(text); if (!b) return false; b.click(); return true }
 window.__clickExact = (text) => { const b = window.__btnExact(text); if (!b) return false; b.click(); return true }
+// 底部导航的「消息」按钮内含未读数角标，textContent 不是纯标签文字；按 nav 作用域包含匹配。
+window.__navClick = (text) => {
+  const b = [...document.querySelectorAll('nav button')].find((item) => item.textContent.includes(text))
+  if (!b) return false
+  b.click()
+  return true
+}
 window.__toasts = () => [...document.querySelectorAll('[role="status"][aria-live], [role="alert"][aria-live]')]
   .map((n) => n.textContent.trim()).join(' | ')
 window.__lastToast = () => {
@@ -296,7 +306,7 @@ async function main() {
       ${settle}
       const state = window.__state()
       const reports = (state && state.reports) || []
-      const latest = reports[reports.length - 1]
+      const latest = reports[0]
       return {
         opened: true,
         flagged: true,
@@ -359,7 +369,139 @@ async function main() {
     )
     await pressEscape(page)
 
-    // ── 5. 窄屏不溢出（警示条也在 DOM 里时）──────────────────────────
+    // ── 5. 备份导入（文件选择用 CDP DOM.setFileInputFiles 真实触发）─────
+    const tmpDir = mkdtempSync(join(tmpdir(), 'wb-recovery-'))
+    const uploadFile = async (selector, filePath) => {
+      await page.send('DOM.enable')
+      const { root } = await page.send('DOM.getDocument', { depth: 1 })
+      const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+      if (!nodeId) throw new Error(`未找到文件输入：${selector}`)
+      await page.send('DOM.setFileInputFiles', { files: [filePath], nodeId })
+    }
+
+    const openStoragePanel = `(async () => {
+      window.__clickExact('我的')
+      ${settle}
+      window.__click('演练审核与举报处置后台')
+      ${settle}
+      window.__click('存档与恢复')
+      ${settle}
+      return !!document.querySelector('input[data-storage-import]')
+    })()`
+    const panelOpened = await evaluate(page, openStoragePanel)
+    check('存档面板提供导入入口（隐藏文件输入）', panelOpened === true)
+
+    const rawBeforeImport = await evaluate(page, 'window.__raw()')
+    const validBackup = JSON.parse(rawBeforeImport)
+    validBackup.state.posts[0].title = '导入验证：本机备份'
+    const validPath = join(tmpDir, 'valid-backup.json')
+    writeFileSync(validPath, JSON.stringify(validBackup), 'utf8')
+
+    await uploadFile('input[data-storage-import]', validPath)
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    const imported = await evaluate(page, `(async () => {
+      const state = window.__state()
+      return {
+        toast: window.__lastToast(),
+        title: state && state.posts[0] ? state.posts[0].title : null,
+      }
+    })()`)
+    check(
+      '合法备份导入后立即覆盖本机存档',
+      String(imported.toast).includes('已导入本机备份') && imported.title === '导入验证：本机备份',
+      JSON.stringify(imported),
+    )
+
+    const badPath = join(tmpDir, 'bad-version.json')
+    writeFileSync(badPath, JSON.stringify({
+      app: 'community-mvp',
+      kind: 'synthetic-community-demo',
+      schemaVersion: 99,
+      savedAt: new Date().toISOString(),
+      state: {},
+    }), 'utf8')
+    await uploadFile('input[data-storage-import]', badPath)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const rejectedVersion = await evaluate(page, `(() => ({
+      toast: window.__lastToast(),
+      title: window.__state()?.posts[0]?.title ?? null,
+    }))()`)
+    check(
+      '版本不符的备份被拒绝且不改存档',
+      String(rejectedVersion.toast).includes('版本不受支持')
+        && rejectedVersion.title === '导入验证：本机备份',
+      JSON.stringify(rejectedVersion),
+    )
+
+    const hugePath = join(tmpDir, 'too-large.json')
+    writeFileSync(hugePath, 'x'.repeat(5 * 1024 * 1024 + 64), 'utf8')
+    await uploadFile('input[data-storage-import]', hugePath)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const rejectedSize = await evaluate(page, `(() => ({
+      toast: window.__lastToast(),
+      title: window.__state()?.posts[0]?.title ?? null,
+    }))()`)
+    check(
+      '超过 5 MB 的备份文件被拒绝且不改存档',
+      String(rejectedSize.toast).includes('超过 5 MB')
+        && rejectedSize.title === '导入验证：本机备份',
+      JSON.stringify(rejectedSize),
+    )
+    rmSync(tmpDir, { recursive: true, force: true })
+
+    // ── 6. 订单留言举报（先接单成为参与方）─────────────────────────────
+    await pressEscape(page)
+    const messageReport = await evaluate(page, `(async () => {
+      // 导入阶段身份仍是审核员；接单与留言举报都要求已实名成员，先切回。
+      const header = document.querySelector('header')
+      const trigger = [...header.querySelectorAll('button')].find((b) => b.textContent.includes('审核员'))
+      if (trigger) trigger.click()
+      ${settle}
+      const member = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('演练用户'))
+      if (member) member.click()
+      ${settle}
+      window.__navClick('首页')
+      ${settle}
+      window.__click('我要接单')
+      ${settle}
+      window.__click('查看详情')
+      ${settle}
+      window.__click('认领并提供志愿服务')
+      ${settle}
+      window.__navClick('消息')
+      ${settle}
+      window.__click('订单留言')
+      ${settle}
+      const flag = document.querySelector('button[aria-label^="举报这条留言"]')
+      if (!flag) return { accepted: true, flagged: false, text: document.body.innerText.slice(0, 80) }
+      flag.click()
+      ${settle}
+      const state = window.__state()
+      const reports = (state && state.reports) || []
+      const latest = reports[0]
+      return {
+        accepted: true,
+        flagged: true,
+        toast: window.__lastToast(),
+        who: (document.querySelector('header')?.innerText ?? '').includes('演练用户'),
+        targetType: latest ? latest.targetType : null,
+        targetId: latest ? latest.targetId : null,
+      }
+    })()`)
+    check(
+      '订单留言可单独举报，目标落在该留言上',
+      messageReport.flagged === true
+        && messageReport.targetType === 'message'
+        && String(messageReport.targetId).startsWith('SYNTH-MESSAGE'),
+      JSON.stringify({
+        flagged: messageReport.flagged,
+        target: messageReport.targetId,
+        who: messageReport.who,
+        toast: messageReport.toast,
+      }),
+    )
+
+    // ── 7. 窄屏不溢出（警示条也在 DOM 里时）──────────────────────────
     await evaluate(page, `localStorage.setItem(window.__key, 'not-json')`)
     await navigate(page, `${BASE}/`)
     await evaluate(page, HELPERS)
@@ -381,7 +523,7 @@ async function main() {
     check('异常路径控制台零错误', errors.errors.length === 0, errors.errors.slice(0, 2).join(' / '))
     errors.stop()
 
-    // ── 6. 静态扫描：官方化措辞与真实个人信息 ────────────────────────
+    // ── 8. 静态扫描：官方化措辞与真实个人信息 ────────────────────────
     const files = walkFiles(join(process.cwd(), 'src'))
     const sourceText = files.map((file) => readFileSync(file, 'utf8')).join('\n')
     const officialPattern = /网格员|网格长|网格管理|居委会|街道办/

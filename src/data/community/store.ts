@@ -28,6 +28,7 @@ import {
   type AuditLogEntry,
   type Comment,
   type CommunityActionResult,
+  type CommunityBackupSummary,
   type CommunityState,
   type CommunityStorageStatus,
   type Complaint,
@@ -2265,6 +2266,60 @@ export const useCommunityStore = createReactiveStore('community', () => {
     return serializeState(state.value, lastSavedAt.value ?? nowIso())
   }
 
+  function summarizeBackup(next: CommunityState, savedAt: string): CommunityBackupSummary {
+    return {
+      savedAt,
+      posts: next.posts.length,
+      comments: next.posts.reduce((total, post) => total + post.comments.length, 0),
+      threads: next.threads.length,
+      messages: next.threads.reduce((total, thread) => total + thread.messages.length, 0),
+      reports: next.reports?.length ?? 0,
+      ledgerEntries: next.ledgerEntries.length,
+      auditLog: next.auditLog?.length ?? 0,
+    }
+  }
+
+  /**
+   * 导入前只解析、不写入。解析规则与启动时读存档完全一致（同一 `parseStoredCommunity`），
+   * 避免出现「导入能过、刷新就坏」的两套校验。
+   */
+  function previewBackup(raw: string): {
+    ok: boolean
+    errors: string[]
+    summary: CommunityBackupSummary | null
+  } {
+    if (typeof raw !== 'string' || raw.trim() === '') {
+      return { ok: false, errors: ['备份文件为空。'], summary: null }
+    }
+    const parsed = parseStoredCommunity(raw)
+    if (!parsed.ok) return { ok: false, errors: [parsed.error], summary: null }
+    return { ok: true, errors: [], summary: summarizeBackup(parsed.state, parsed.savedAt) }
+  }
+
+  /**
+   * 用备份覆盖本机存档。
+   * `allowRecovery` 只应由「已下载旧存档原文」的调用方传入（与 resetDemoData 同一条守卫），
+   * 否则坏档期间导入会绕过「先取回原文」的要求。
+   */
+  function importBackup(
+    raw: string,
+    options: { allowRecovery?: boolean } = {},
+  ): CommunityActionResult {
+    if (!options.allowRecovery) {
+      const blocked = blockedByRecovery()
+      if (blocked) return blocked
+    }
+    const parsed = parseStoredCommunity(raw)
+    if (!parsed.ok) return failure(parsed.error)
+    const result = persistState(parsed.state, { allowRecovery: options.allowRecovery === true })
+    if (!result.ok) return result
+    const summary = summarizeBackup(parsed.state, parsed.savedAt)
+    return {
+      ...result,
+      message: `已导入本机备份：${summary.posts} 条帖子 / ${summary.comments} 条评论 / ${summary.reports} 条举报。`,
+    }
+  }
+
   return {
     posts,
     threads,
@@ -2316,5 +2371,7 @@ export const useCommunityStore = createReactiveStore('community', () => {
     resetDemoData,
     reloadFromStorage,
     readBackupJson,
+    previewBackup,
+    importBackup,
   }
 })

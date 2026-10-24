@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   ChevronRight, 
   ShieldCheck, 
-  PhoneCall
+  PhoneCall,
+  Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
@@ -283,6 +284,27 @@ export const MessagesTab: React.FC = () => {
                     }`}>
                       {chat.text}
                     </div>
+                  )}
+
+                  {/* 留言也是 UGC：只对对方的留言给举报入口（R7）。目标为 message，不是父帖。 */}
+                  {!chat.isMe && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playTap();
+                        submitComplaint({
+                          targetType: 'message',
+                          targetId: chat.id,
+                          orderTitle: `留言：${chat.text.slice(0, 14)}`,
+                          reason: '订单留言举报（演练）',
+                          detail: '在订单留言中举报单条留言；只写本机记录，不通知任何机构。',
+                        });
+                      }}
+                      aria-label={`举报这条留言：${chat.text.slice(0, 12)}`}
+                      className="text-[10px] text-slate-400 hover:text-rose-600 inline-flex items-center gap-1 px-1 py-1"
+                    >
+                      <Flag className="w-3 h-3" /> 举报
+                    </button>
                   )}
                 </div>
               </div>

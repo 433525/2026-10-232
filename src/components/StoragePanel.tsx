@@ -8,6 +8,7 @@ import {
   RefreshCw,
   RotateCcw,
   ShieldAlert,
+  Upload,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
@@ -93,7 +94,10 @@ export const StoragePanel: React.FC = () => {
     exportUnreadableArchive,
     reloadArchive,
     resetDemoData,
+    importBackupFile,
   } = useApp();
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const meta = STATUS_META[storageStatus];
   const tone = TONE_CLASS[meta.tone];
@@ -168,7 +172,7 @@ export const StoragePanel: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         <button
           type="button"
           onClick={() => {
@@ -178,6 +182,30 @@ export const StoragePanel: React.FC = () => {
           className="min-h-[44px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold inline-flex items-center justify-center gap-1.5 px-3"
         >
           <Download className="w-4 h-4 text-slate-600" /> 导出当前备份 JSON
+        </button>
+
+        {/* 导入：文件选择交给隐藏 input，解析与覆盖确认都在 AppContext（组件不碰领域逻辑） */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          data-storage-import=""
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) void importBackupFile(file);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            sound.playTap();
+            fileInputRef.current?.click();
+          }}
+          className="min-h-[44px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold inline-flex items-center justify-center gap-1.5 px-3"
+        >
+          <Upload className="w-4 h-4 text-slate-600" /> 导入备份 JSON
         </button>
 
         <button
@@ -211,7 +239,8 @@ export const StoragePanel: React.FC = () => {
 
       <p className="text-[11px] text-slate-500 leading-relaxed">
         存档只存在于当前浏览器，换浏览器、换设备或清除站点数据都会消失；本演练没有云端同步、没有自动备份。
-        导出的 JSON 与原文都只在本机生成，不会上传。
+        导出的 JSON 与原文都只在本机生成，不会上传。导入会先显示备份内条数并二次确认，
+        确认后才覆盖本机存档；文件上限 5 MB，内容上限 100 万字符（与运行期存档一致）。
       </p>
     </div>
   );
