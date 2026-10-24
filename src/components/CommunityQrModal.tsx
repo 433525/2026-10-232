@@ -51,13 +51,13 @@ export const CommunityQrModal: React.FC = () => {
           </div>
           <div className="flex items-center justify-center gap-1 text-[11px] text-emerald-700 font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>实名业主与认证志愿者专属群聊 · 杜绝广告</span>
+            <span>演练成员与志愿者专属群（虚构）· 仅作版式演示</span>
           </div>
         </div>
 
         {/* Assistant Service ID */}
         <div className="p-2.5 rounded-xl bg-slate-100 flex items-center justify-between text-xs text-slate-700">
-          <span>客服微信号：<strong>cuihu_care2026</strong></span>
+          <span>项目组值班微信（虚构）：<strong>cuihu_care2026</strong></span>
           <button
             onClick={handleCopy}
             className="flex items-center gap-1 text-emerald-700 font-bold hover:text-emerald-800"
@@ -68,7 +68,7 @@ export const CommunityQrModal: React.FC = () => {
         </div>
 
         <p className="text-[10px] text-slate-400">
-          若微信群二维码已过期（微信7天有效机制），请添加上方网格员微信拉您入群。
+          若微信群二维码已过期（微信7天有效机制），请添加上方项目组值班微信拉您入群（演示用虚构群）。
         </p>
       </div>
     </div>

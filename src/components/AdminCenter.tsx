@@ -6,11 +6,13 @@ import {
   AlertTriangle, 
   Coins, 
   FileText, 
-  Users
+  Users,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
+import { StoragePanel } from './StoragePanel';
 
 export const AdminCenter: React.FC = () => {
   const { 
@@ -27,11 +29,13 @@ export const AdminCenter: React.FC = () => {
     setActiveSubPage 
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'audit' | 'complaints' | 'ledger' | 'users'>('audit');
+  const [activeTab, setActiveTab] = useState<'audit' | 'complaints' | 'ledger' | 'users' | 'storage'>('audit');
   const [selectedUserForCoin, setSelectedUserForCoin] = useState<string>(users[0].id);
   const [adjustCoinAmount, setAdjustCoinAmount] = useState<number>(5);
   const [adjustCoinReason, setAdjustCoinReason] = useState<string>('年度邻里互助模范特别奖励');
-  const [complaintReplyText, setComplaintReplyText] = useState<string>('已核对本机演练记录，按互助规则完成处置。');
+  // 按工单 id 存草稿：共用一份字符串会让多条待处理工单同步回显同一段处置结论。
+  const [complaintReplies, setComplaintReplies] = useState<Record<string, string>>({});
+  const complaintReplyOf = (id: string) => complaintReplies[id] ?? '已核对本机演练记录，按互助规则完成处置。';
   // 驳回必须给理由（R7）：按帖子 id 存草稿，未填理由时按钮禁用。
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
@@ -124,6 +128,19 @@ export const AdminCenter: React.FC = () => {
           >
             <Users className="w-4 h-4 text-blue-600" />
             <span>演练身份与志愿者</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playTap();
+              setActiveTab('storage');
+            }}
+            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'storage' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
+            }`}
+          >
+            <Database className="w-4 h-4 text-slate-600" />
+            <span>存档与恢复</span>
           </button>
         </div>
 
@@ -219,7 +236,13 @@ export const AdminCenter: React.FC = () => {
                   </div>
 
                   <div className="text-xs sm:text-sm text-slate-700 space-y-1">
-                    <p><strong>举报人：</strong>{ticket.userName} | <strong>被举报内容：</strong>{ticket.orderTitle || '演练内容'}</p>
+                    <p>
+                      <strong>举报人：</strong>{ticket.userName} | <strong>被举报内容：</strong>
+                      {ticket.orderTitle ?? ticket.targetUser ?? '演练内容'}
+                      {ticket.targetId ? (
+                        <span className="text-slate-400 font-mono">（{ticket.targetId}）</span>
+                      ) : null}
+                    </p>
                     <p><strong>举报原因：</strong>{ticket.reason}</p>
                     <p className="p-2.5 rounded-lg bg-slate-50 border text-slate-600">{ticket.detail}</p>
                   </div>
@@ -229,13 +252,13 @@ export const AdminCenter: React.FC = () => {
                       <label className="text-xs text-slate-500 font-semibold">处置结论（写入举报记录，留痕）：</label>
                       <input
                         type="text"
-                        value={complaintReplyText}
-                        onChange={(e) => setComplaintReplyText(e.target.value)}
+                        value={complaintReplyOf(ticket.id)}
+                        onChange={(e) => setComplaintReplies((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
                         className="w-full p-2 text-xs border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                       <div className="flex justify-end">
                         <button
-                          onClick={() => adminResolveComplaint(ticket.id, complaintReplyText)}
+                          onClick={() => adminResolveComplaint(ticket.id, complaintReplyOf(ticket.id))}
                           className="px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs"
                         >
                           确认办结（只写本机站内消息）
@@ -386,6 +409,9 @@ export const AdminCenter: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* 5. 存档与恢复（§7 存储契约：坏档必须可自愈） */}
+          {activeTab === 'storage' && <StoragePanel />}
         </div>
       </div>
     </div>

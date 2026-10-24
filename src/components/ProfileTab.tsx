@@ -324,7 +324,7 @@ export const ProfileTab: React.FC = () => {
         >
           <div className="flex items-center gap-2.5">
             <LayoutDashboard className="w-5 h-5 text-purple-700" />
-            <span>社区网格管理与风控审核后台</span>
+            <span>演练审核与举报处置后台（项目组）</span>
           </div>
           <span className="text-xs text-purple-700 font-bold bg-white px-2 py-0.5 rounded shadow-2xs">
             管理入口

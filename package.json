@@ -11,7 +11,8 @@
     "check:dual": "node tools/check-dual-entry.mjs",
     "check:aplus": "node tools/check-aplus-flow.mjs",
     "check:community": "node tools/check-community-flow.mjs",
-    "check:acceptance": "node tools/check-acceptance.mjs"
+    "check:acceptance": "node tools/check-acceptance.mjs",
+    "check:recovery": "node tools/check-recovery.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

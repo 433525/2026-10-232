@@ -31,10 +31,11 @@ import {
   membershipFromUserId,
   projectCommunity,
 } from '../selectors/community';
-import type { PostMode } from '../data/community/types';
+import type { PostMode, CommunityStorageStatus } from '../data/community/types';
 import { sound } from '../utils/audio';
 import { safeRead, safeWrite } from '../utils/storage';
 import { toast } from '../utils/toast';
+import { dateStamp, downloadTextFile } from '../shared/download';
 
 export type SubPageType =
   | null
@@ -125,6 +126,21 @@ export interface AppContextType {
   adminRejectPostWithReason: (postId: string, reason: string) => void;
   adminResolveComplaint: (ticketId: string, resolution: string) => void;
   adminAdjustTimeCoin: (userId: string, amount: number, note: string) => void;
+
+  /**
+   * 追加能力（不改变既有签名）：本机存档的可见状态与恢复动作（§7 存储契约）。
+   * 232 原实现把存档异常藏在 store 里，界面无法感知；这里只做只读投影 + 四个动作，
+   * 不新增业务存档键，也不改领域层。
+   */
+  storageStatus: CommunityStorageStatus;
+  storageError: string | null;
+  lastSavedAt: string | null;
+  hasUnreadableArchive: boolean;
+  unreadableArchiveExported: boolean;
+  exportBackup: () => void;
+  exportUnreadableArchive: () => void;
+  reloadArchive: () => void;
+  resetDemoData: () => void;
 
   // UI helpers
   unreadMessagesCount: number;
@@ -460,19 +476,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const submitComplaint = useCallback(
     (data: Partial<ComplaintTicket>) => {
-      const targetId = data.orderId ?? store.posts.value[0]?.id;
+      // 举报目标：显式传入优先（帖子 / 评论 / 订单留言），否则按 232 的通用投诉表单处理。
+      const targetType = data.targetType ?? 'post';
+      let targetId = data.targetId ?? data.orderId ?? '';
+      let targetLabel = data.orderTitle ?? (targetType === 'comment' ? '演练评论' : '演练留言');
+
       if (!targetId) {
-        toast('当前没有可举报的演练内容。');
-        return;
+        // 通用投诉表单没有目标选择器：退化为「最新一条公开内容」，并在提示里点名。
+        // 写死 posts[0] 会把举报挂到与该用户操作无关的帖子上（旧实现的缺陷）。
+        const fallback = store.visiblePosts.value[0];
+        if (!fallback) {
+          toast('当前没有可举报的演练内容。');
+          return;
+        }
+        targetId = fallback.id;
+        targetLabel = fallback.title || fallback.content.slice(0, 18);
       }
+
       const reason = [data.reason, data.detail].filter(Boolean).join('：') || '未填写原因';
-      const result = store.reportContent('post', targetId, reason);
+      const result = store.reportContent(targetType, targetId, reason);
       if (!result.ok) {
         toast(result.errors[0] ?? '提交失败');
         return;
       }
       sound.playSuccess();
-      toast('举报已记录在本机（不会通知任何真实机构）；处置结果会写入站内消息。', 'success');
+      toast(`举报已记录（目标：${targetLabel}）；只写本机，不通知任何机构，处置结果写入站内消息。`, 'success');
     },
     [store],
   );
@@ -555,6 +583,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast('演练数据只读：时间账本不支持调账、兑现或转让。');
   }, []);
 
+  /* ---------------------------- 本机存档 ---------------------------- */
+  /**
+   * 坏档闸门：recovery-required 时 store 会拦下所有写入，用户必须先拿到旧存档原文。
+   * 这个标记只存在于当前会话（不写 localStorage）——写进去就等于承认「已备份」，
+   * 而真正的确认只能是用户看到浏览器下载完成。
+   */
+  const [unreadableArchiveExported, setUnreadableArchiveExported] = useState(false);
+
+  const storageStatus = store.storageStatus.value;
+  const storageError = store.storageError.value;
+  const lastSavedAt = store.lastSavedAt.value;
+  const hasUnreadableArchive = store.unreadableStoredData.value !== null;
+
+  const exportBackup = useCallback(() => {
+    try {
+      downloadTextFile(
+        `community-synthetic-backup-${dateStamp()}.json`,
+        store.readBackupJson(),
+      );
+      toast('已请求下载备份 JSON；文件只包含本机合成演练数据。', 'success');
+    } catch {
+      toast('导出失败：当前演练数据超出浏览器可下载的大小，请先清理部分记录。');
+    }
+  }, [store]);
+
+  const exportUnreadableArchive = useCallback(() => {
+    const raw = store.unreadableStoredData.value;
+    if (!raw) {
+      toast('没有可导出的旧存档原文。');
+      return;
+    }
+    try {
+      downloadTextFile('community-unreadable-local-save.txt', raw, 'text/plain;charset=utf-8');
+      setUnreadableArchiveExported(true);
+      toast('已请求下载旧存档原文；请确认文件已保存，再重置演练数据。', 'success');
+    } catch {
+      toast('原文下载失败：浏览器拒绝创建下载。请改用桌面浏览器重试。');
+    }
+  }, [store]);
+
+  const reloadArchive = useCallback(() => {
+    const confirmed = window.confirm(
+      '载入最新本机存档会覆盖当前页面显示的内容（包括本页尚未保存的改动）。继续？',
+    );
+    if (!confirmed) return;
+    const result = store.reloadFromStorage();
+    if (!result.ok) {
+      toast(result.errors[0] ?? '载入存档失败');
+      return;
+    }
+    setUnreadableArchiveExported(false);
+    sound.playTap();
+    toast(result.message ?? '已载入最新本机存档。', 'success');
+  }, [store]);
+
+  const resetDemoData = useCallback(() => {
+    if (store.storageStatus.value === 'recovery-required' && !unreadableArchiveExported) {
+      toast('当前有无法读取的旧存档：请先「下载旧存档原文」，再重置演练数据。');
+      return;
+    }
+    const recovery = store.storageStatus.value === 'recovery-required';
+    const confirmed = window.confirm(
+      recovery
+        ? '重置会覆盖这份无法读取的旧存档且无法恢复；请确认已保存原文。仍要重置吗？'
+        : '恢复初始合成演练数据？当前所有帖子、订单、举报与账本记录都会被清除，建议先导出备份。',
+    );
+    if (!confirmed) return;
+    const result = store.resetDemoData();
+    if (!result.ok) {
+      toast(result.errors[0] ?? '重置失败');
+      return;
+    }
+    setUnreadableArchiveExported(false);
+    setActiveSubPage(null);
+    sound.playSuccess();
+    toast(result.message ?? '已恢复为虚构演练数据。', 'success');
+  }, [store, unreadableArchiveExported]);
+
   const unreadMessagesCount = projection.messages.filter((message) => message.unread).length;
 
   const value: AppContextType = {
@@ -610,6 +716,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adminRejectPostWithReason,
     adminResolveComplaint,
     adminAdjustTimeCoin,
+    storageStatus,
+    storageError,
+    lastSavedAt,
+    hasUnreadableArchive,
+    unreadableArchiveExported,
+    exportBackup,
+    exportUnreadableArchive,
+    reloadArchive,
+    resetDemoData,
     unreadMessagesCount,
   };
 

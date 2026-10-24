@@ -115,7 +115,7 @@ export const SosModal: React.FC = () => {
             <div className="space-y-3 pt-2">
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 下面的按钮**只在本机演练数据里记一条「紧急求助」事件**并展示 120/110 提示。
-                它<strong className="text-rose-600">不会</strong>拨号、不会发送短信、不会通知网格员或志愿者，
+                它<strong className="text-rose-600">不会</strong>拨号、不会发送短信、不会通知项目组或志愿者，
                 也不代表已经报警。
               </p>
 

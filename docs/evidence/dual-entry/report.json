@@ -1,13 +1,13 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-23T15:04:37.447Z",
+  "checkedAt": "2026-10-24T02:09:52.805Z",
   "total": 27,
   "passed": 27,
   "results": [
     {
       "name": "B 端渲染出内容",
       "ok": true,
-      "detail": "textLength=1220"
+      "detail": "textLength=1229"
     },
     {
       "name": "B 端五栏导航存在",

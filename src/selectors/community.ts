@@ -522,6 +522,9 @@ export function buildReports(state: CommunityState): ComplaintTicket[] {
         orderId: report.targetType === 'post' ? report.targetId : undefined,
         orderTitle: target?.title,
         targetUser: report.targetType === 'post' ? '演练帖子' : report.targetType === 'comment' ? '演练评论' : '演练留言',
+        // 举报目标随视图透出：管理端据此区分「帖子 / 评论 / 留言」，避免把评论举报显示成帖子。
+        targetType: report.targetType,
+        targetId: report.targetId,
         reason: report.reason,
         detail: report.resolution ?? '',
         evidencePhotos: [],

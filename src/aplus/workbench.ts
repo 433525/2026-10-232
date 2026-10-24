@@ -56,6 +56,7 @@ import {
 } from '../data/intake/intake'
 import { INTAKE_PAUSED_NOTICE, useIntakeStore, type NewIntakeInput } from '../data/intake/store'
 import { MAX_BACKUP_BYTES } from '../data/intake/intake-backup'
+import { dateStamp, downloadTextFile } from '../shared/download'
 import {
   INTAKE_FILTERS,
   readIntakeFilter,
@@ -668,20 +669,9 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
   }
 
   // ── 备份 ────────────────────────────────────────────────────────────
-  function downloadTextFile(filename: string, content: string, type = 'application/json;charset=utf-8'): void {
-    const url = URL.createObjectURL(new Blob([content], { type }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = filename
-    document.body.append(anchor)
-    anchor.click()
-    anchor.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  }
-
   function exportBackup(): void {
     try {
-      downloadTextFile(`a-plus-synthetic-backup-${new Date().toISOString().slice(0, 10)}.json`, store.exportBackup())
+      downloadTextFile(`a-plus-synthetic-backup-${dateStamp()}.json`, store.exportBackup())
       notify('已请求下载；请确认文件已保存，未下载时可查看备份文本')
     } catch {
       notify('当前演练数据超过备份容量上限；请先减少记录或时间线内容')

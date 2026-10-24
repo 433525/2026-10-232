@@ -43,7 +43,7 @@ const FAQ_LIST: FaqItem[] = [
   {
     id: 'faq_4',
     question: '遇到突发紧急情况该怎么使用？',
-    answer: '遇到严重身体不适或险情，请直接拨打 120 / 110。本平台的“紧急求助”只是界面演示：它不会呼叫急救、不会通知网格员、不会定位，也不会派单，因此不能替代任何急救通道。',
+    answer: '遇到严重身体不适或险情，请直接拨打 120 / 110。本平台的“紧急求助”只是界面演示：它不会呼叫急救、不会通知项目组值班人员、不会定位，也不会派单，因此不能替代任何急救通道。',
     audioText: '紧急情况应对：请直接拨打 120 或 110。本页的紧急求助按钮只是界面演示，不会真的通知任何人，也不能替代急救电话。'
   }
 ];
@@ -112,7 +112,7 @@ export const HelpCenterModal: React.FC = () => {
             <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-center space-y-1">
               <ShieldCheck className="w-6 h-6 text-sky-700 mx-auto" />
               <div className="text-xs font-bold text-sky-900">3. 实名安全</div>
-              <p className="text-[11px] text-sky-700">社区网格把关，全程双向确认</p>
+              <p className="text-[11px] text-sky-700">项目组双人复核，全程双向确认</p>
             </div>
           </div>
 

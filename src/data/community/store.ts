@@ -61,7 +61,7 @@ const STORAGE_APP = 'community-mvp'
 const STORAGE_KIND = 'synthetic-community-demo'
 
 const RECOVERY_REQUIRED_MESSAGE =
-  '本机有一份无法读取或版本不受支持的社区演练存档。为避免覆盖原文，已停止所有写入；请先备份原文，或明确使用“重置演示数据”。'
+  '本机有一份无法读取或版本不受支持的社区演练存档。为避免覆盖原文，已停止所有写入；请在「我的 → 演练审核与举报处置后台 → 存档与恢复」下载旧存档原文后再重置。'
 const MEMORY_ONLY_MESSAGE =
   '当前浏览器本机存储不可用，更改只保留在本次会话，刷新后会丢失。'
 const SAVE_ERROR_MESSAGE =

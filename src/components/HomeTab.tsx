@@ -193,7 +193,7 @@ export const HomeTab: React.FC = () => {
               紧急求助
             </span>
             <span className="text-[10px] text-rose-500 mt-0.5 hidden sm:block">
-              一键直拨网格
+              非急救：请拨打 120/110
             </span>
           </button>
 

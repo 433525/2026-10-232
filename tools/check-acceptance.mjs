@@ -249,7 +249,8 @@ async function main() {
         .find((b) => b.textContent.includes('审核员'))
       if (reviewer) reviewer.click()
       ${settle}
-      const entry = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('风控审核后台'))
+      // 入口文案已按 §1.3-10 从「社区网格管理…」改为「演练审核与举报处置后台（项目组）」。
+      const entry = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('审核与举报处置后台'))
       if (!entry) {
         return {
           opened: false,

@@ -150,7 +150,7 @@ export const CommunityTab: React.FC = () => {
               梧桐里（虚构）1-4 期邻里互助群入口
             </p>
             <p className="text-[11px] text-slate-500 truncate">
-              网格员在线 · 线下帮扶随时对接 · 邻里急事相助
+              项目组值班 · 线下互助随时对接 · 邻里急事相助
             </p>
           </div>
         </div>
@@ -349,6 +349,8 @@ export const CommunityTab: React.FC = () => {
                     sound.playTap();
                     setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id);
                   }}
+                  aria-label={`${activeCommentPostId === post.id ? '收起' : '查看'}评论（${post.comments.length} 条）`}
+                  aria-expanded={activeCommentPostId === post.id}
                   className="flex items-center gap-1 hover:text-emerald-700 transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -380,6 +382,8 @@ export const CommunityTab: React.FC = () => {
                   onClick={() => {
                     sound.playTap();
                     submitComplaint({
+                      targetType: 'post',
+                      targetId: post.id,
                       orderId: post.id,
                       orderTitle: post.title || post.content.slice(0, 24),
                       reason: '信息流内容举报（演练）',
@@ -427,7 +431,28 @@ export const CommunityTab: React.FC = () => {
                       <div key={c.id} className="p-2 rounded-lg bg-slate-50 text-xs space-y-1">
                         <div className="flex items-center justify-between text-slate-500">
                           <span className="font-bold text-slate-800">{c.userName}</span>
-                          <span className="text-[10px] text-slate-400">{c.createdAt}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-400">{c.createdAt}</span>
+                            {/* 评论也是 UGC：举报目标为 comment，不是父帖（R7） */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playTap();
+                                submitComplaint({
+                                  targetType: 'comment',
+                                  targetId: c.id,
+                                  orderTitle: `评论：${c.content.slice(0, 14)}`,
+                                  reason: '评论区内容举报（演练）',
+                                  detail: '在信息流对单条评论发起举报；只写本机记录，不通知任何机构。',
+                                });
+                              }}
+                              aria-label={`举报 ${c.userName} 的这条评论`}
+                              title="举报这条评论"
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <Flag className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-slate-700">{c.content}</p>
                       </div>
