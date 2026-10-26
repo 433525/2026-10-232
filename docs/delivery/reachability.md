@@ -24,9 +24,10 @@
 | A+ 端（受理工作台） | 19 | 14 | 5 | 0 | 0 | 73.7% |
 | **合计** | **53** | **41** | **11** | **1** | **0** | **77.4%** |
 
-- M4 目标为 ≥90%，当前 **77.4%**；W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点。
+- 判据（D-17）：W3 出口 **46/53 = 86.8%**、W4 出口 **52/53 = 98.1%**、D-03 删除 `viewMode` 后 **52/52 = 100%**；当前 **41/53 = 77.4%**。
+- W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 11 条。
 - `unreachable` 为 0：不存在「有实现无入口」的静默能力，这是 P6–P10 修复的直接成果。
-- `gap` 仍有 11 条，集中在活动报名、点赞/收藏、文章朗读、长辈模式、消息已读等旁路能力；这不是可达性问题，是断言覆盖问题。
+- `gap` 仍有 11 条，集中在互动（点赞/收藏/报名）、文章朗读、长辈模式、A+ 复核回退与跟进/联系模拟等旁路能力；这不是可达性问题，是断言覆盖问题。
 
 ## 三、B 端动作矩阵
 
@@ -97,24 +98,25 @@
 
 > 断言编号 `comm#n` / `acc#n` / `rec#n` / `fix#n` / `aplus#n` / `dual#n` 指对应脚本内 `check()` 的出现序号，与 `docs/evidence/<slug>/report.json` 的 `results` 数组下标一致（从 0 起）。
 
-## 五、缺口清单与处置顺序
+## 五、缺口清单与批次划分（D-17）
 
-W1 序 6 已闭环 3 条（`adminRejectPostWithReason`、`adminAdjustTimeCoin`、`toggleIntakePaused`），见 `fix#89`–`#93`。剩余 15 条按「是否触及数据完整性」排序，前 5 条进入 W2 补测额度（30 项）的前段：
+11 条缺口按「是否触及数据完整性」排序，拆两批：**W3 交前 5 条（46/53 = 86.8%）**，**W4 交余下 6 条（52/53 = 98.1%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
 
-| 序 | 动作 | 为何优先 | 建议断言 |
-|---|---|---|---|
-| 1 | `adminRejectCommentWithReason` | 帖子维度已补，评论维度仍零覆盖；同一函数族，复用现成用例成本最低 | 空/空白理由禁用、驳回后评论不展示、审计留痕 |
-| 2 | `cancelOrder` | 订单终态之一，当前只被「因争议关闭」间接带出，主动取消路径未验 | 取消需理由、状态 `cancelled`、账本不产生结算、留痕事件 `cancel` |
-| 3 | `verifyRealName` | `comm#4` 只验证「已实名成员能发布」，未验证「未实名提交被拒 + 认证后放行」 | 非法证件号被拒、认证成功写入 `realNameVerified`、刷新后保持 |
-| 4 | `markAllMessagesRead` | 未读数是导航角标的唯一来源 | 全部已读后角标消失、刷新后保持 |
-| 5 | `saveFollowUp` | 跟进记录是 A+ 的主要产出之一 | 保存后时间线追加、弹层关闭、空内容禁用 |
-| 6 | `saveContactSimulation` | 联系结果决定后续流转分支 | 结果码写入、未选结果禁用提交 |
-| 7 | `createReopenedRecord` | 跨 case 关联，容易产生孤儿记录 | 新记录带 `reopenedFrom`、不影响原 case 终态 |
-| 8 | `likePost` / `bookmarkPost` / `enrollActivity` | 互动类，影响信息流排序与「我的」列表 | 幂等（重复点只 +1）、刷新后保持 |
-| 9 | `playArticleAudio` / `stopArticleAudio` | 依赖浏览器音频能力，CDP 下需 mock | 状态切换、停止后 `isAudioPlaying=false` |
-| 10 | `setElderlyMode` | 纯展示偏好 | 切换后字号 class 生效、刷新后保持 |
-| 11 | `cancelDuplicateReview` | 复核回退路径 | 返回后表单内容保留、不产生记录 |
-| 12 | `copySelectedCaseLink` | 深链复制，已有 `shared/clipboard.ts` 可复用 | 剪贴板内容与当前 case id 一致、`?case=` 可直接打开 |
+| 批次 | 序 | 动作 | 实现 | 为何优先 | 建议断言（选择器须现场复核） |
+|---|---|---|---|---|---|
+| W3 | 1 | `cancelDuplicateReview` | `src/aplus/workbench.ts:1020` | 唯一的「清重复复核状态」路径，漏清会留下脏标记并影响后续建单 | 取消后候选清空、`duplicateReviewRequired=false`、记录总数不变、未创建新记录 |
+| W3 | 2 | `enrollActivity` | `src/context/AppContext.tsx:612` | 报名/取消切换写存档，名额与「我的」列表同源 | 报名后 `signedUpByMe=true` 且名额 −1；再点回到未报名且名额复原；刷新后保持 |
+| W3 | 3 | `likePost` | `src/context/AppContext.tsx:580` | toggle 语义，计数与点赞列表同源，最易出现「点两次加两」的假绿 | 首次点赞计数 +1、再点回到初值、刷新后保持 |
+| W3 | 4 | `bookmarkPost` | `src/context/AppContext.tsx:589` | 与点赞同一张卡片，可复用前置，边际成本最低 | 收藏后「我的」列表出现该帖、再点移除、刷新后保持 |
+| W3 | 5 | `setElderlyMode` | `src/context/AppContext.tsx:304` | 纯偏好，但写 UI 键，验证持久化与回退 | 切换后根节点字号标记生效；刷新保持；关闭后恢复常规字号 |
+| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | A+ 的主要产出，缺断言即无法证明跟进被记录 | 保存后时间线追加一条、弹层关闭、空内容禁用提交 |
+| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | 联系结果决定后续流转分支 | 结果码写入记录、未选结果禁用提交 |
+| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | 跨 case 关联，易产生孤儿记录 | 新记录带 `reopenedFrom`、原 case 终态不变 |
+| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | 深链一致性，已有 `shared/clipboard.ts` 可复用 | 剪贴板内容含当前 case id、`?case=` 可直接打开该记录 |
+| W4 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 依赖浏览器音频能力，CDP 下需 mock | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
+| W4 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 与播放同组，同批交付 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
+
+> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，其余并入本表。W4 的媒体与剪贴板项须先补 `Audio` / 剪贴板桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
 
 ## 六、死接口
 
