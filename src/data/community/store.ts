@@ -1,4 +1,4 @@
-import { computed, createReactiveStore, ref } from '../reactive'
+import { batch, computed, createReactiveStore, ref } from '../reactive'
 import {
   ACTIVE_ORDER_STATUSES,
   AUDIT_ACTIONS,
@@ -743,122 +743,128 @@ export const useCommunityStore = createReactiveStore('community', () => {
     next: CommunityState,
     options: { allowRecovery?: boolean } = {},
   ): CommunityActionResult {
-    // Callers build partial state snapshots for one mutation; keep the current
-    // read cursor instead of silently clearing unread tracking on every write.
-    const hydrated: CommunityState = next.notificationsReadAt === undefined && notificationsReadAt.value !== undefined
-      ? { ...next, notificationsReadAt: notificationsReadAt.value }
-      : next
-    if (
-      !options.allowRecovery
-      && (
-        storageStatus.value === 'recovery-required'
-        || unreadableStoredData.value !== null
-      )
-    ) {
-      return failure(RECOVERY_REQUIRED_MESSAGE)
-    }
-
-    const storage = getLocalStorage()
-    if (!storage) {
-      if (options.allowRecovery && unreadableStoredData.value !== null) {
-        storageStatus.value = 'recovery-required'
-        storageError.value = '本机存储不可用，无法安全重置损坏存档；原文仍保留在浏览器中。'
-        return failure(storageError.value)
+    // 批处理：一次写入会连续改写状态、保存时间与多类数据 ref，
+    // 批末只通知订阅者一次，避免连环同步重渲染。
+    return batch(() => {
+      // Callers build partial state snapshots for one mutation; keep the current
+      // read cursor instead of silently clearing unread tracking on every write.
+      const hydrated: CommunityState = next.notificationsReadAt === undefined && notificationsReadAt.value !== undefined
+        ? { ...next, notificationsReadAt: notificationsReadAt.value }
+        : next
+      if (
+        !options.allowRecovery
+        && (
+          storageStatus.value === 'recovery-required'
+          || unreadableStoredData.value !== null
+        )
+      ) {
+        return failure(RECOVERY_REQUIRED_MESSAGE)
       }
+
+      const storage = getLocalStorage()
+      if (!storage) {
+        if (options.allowRecovery && unreadableStoredData.value !== null) {
+          storageStatus.value = 'recovery-required'
+          storageError.value = '本机存储不可用，无法安全重置损坏存档；原文仍保留在浏览器中。'
+          return failure(storageError.value)
+        }
+        applyState(hydrated)
+        storageStatus.value = 'memory-only'
+        storageError.value = MEMORY_ONLY_MESSAGE
+        return { ok: true, errors: [], message: MEMORY_ONLY_MESSAGE }
+      }
+
+      const savedAt = nowIso()
+      let currentRaw: string | null
+      try {
+        currentRaw = storage.getItem(COMMUNITY_STORAGE_KEY)
+      } catch {
+        storageStatus.value = 'save-error'
+        storageError.value = SAVE_ERROR_MESSAGE
+        return failure(SAVE_ERROR_MESSAGE)
+      }
+      if (currentRaw !== lastKnownRaw) {
+        storageStatus.value = 'conflict'
+        storageError.value = CONFLICT_MESSAGE
+        return failure(CONFLICT_MESSAGE)
+      }
+
+      const overLimitPost = hydrated.posts.find((post) => (post.orderEvents?.length ?? 0) > MAX_ORDER_EVENTS)
+      if (overLimitPost) {
+        return failure(
+          `订单《${overLimitPost.title}》的演练事件已达 ${MAX_ORDER_EVENTS} 条上限，本次操作未保存；请重置演练数据后再试。`,
+        )
+      }
+
+      const serialized = serializeState(hydrated, savedAt)
+      if (serialized.length > MAX_STORED_CHARS) {
+        return failure(
+          `本次操作会生成超过 ${MAX_STORED_CHARS} 字符的本机存档，已拒绝写入且旧存档保持不变；请清理部分演练数据后再试。`,
+        )
+      }
+      try {
+        storage.setItem(COMMUNITY_STORAGE_KEY, serialized)
+      } catch {
+        storageStatus.value = 'save-error'
+        storageError.value = SAVE_ERROR_MESSAGE
+        return failure(SAVE_ERROR_MESSAGE)
+      }
+
       applyState(hydrated)
-      storageStatus.value = 'memory-only'
-      storageError.value = MEMORY_ONLY_MESSAGE
-      return { ok: true, errors: [], message: MEMORY_ONLY_MESSAGE }
-    }
-
-    const savedAt = nowIso()
-    let currentRaw: string | null
-    try {
-      currentRaw = storage.getItem(COMMUNITY_STORAGE_KEY)
-    } catch {
-      storageStatus.value = 'save-error'
-      storageError.value = SAVE_ERROR_MESSAGE
-      return failure(SAVE_ERROR_MESSAGE)
-    }
-    if (currentRaw !== lastKnownRaw) {
-      storageStatus.value = 'conflict'
-      storageError.value = CONFLICT_MESSAGE
-      return failure(CONFLICT_MESSAGE)
-    }
-
-    const overLimitPost = hydrated.posts.find((post) => (post.orderEvents?.length ?? 0) > MAX_ORDER_EVENTS)
-    if (overLimitPost) {
-      return failure(
-        `订单《${overLimitPost.title}》的演练事件已达 ${MAX_ORDER_EVENTS} 条上限，本次操作未保存；请重置演练数据后再试。`,
-      )
-    }
-
-    const serialized = serializeState(hydrated, savedAt)
-    if (serialized.length > MAX_STORED_CHARS) {
-      return failure(
-        `本次操作会生成超过 ${MAX_STORED_CHARS} 字符的本机存档，已拒绝写入且旧存档保持不变；请清理部分演练数据后再试。`,
-      )
-    }
-    try {
-      storage.setItem(COMMUNITY_STORAGE_KEY, serialized)
-    } catch {
-      storageStatus.value = 'save-error'
-      storageError.value = SAVE_ERROR_MESSAGE
-      return failure(SAVE_ERROR_MESSAGE)
-    }
-
-    applyState(hydrated)
-    storageStatus.value = 'saved'
-    storageError.value = null
-    lastSavedAt.value = savedAt
-    unreadableStoredData.value = null
-    lastKnownRaw = serialized
-    return { ok: true, errors: [] }
+      storageStatus.value = 'saved'
+      storageError.value = null
+      lastSavedAt.value = savedAt
+      unreadableStoredData.value = null
+      lastKnownRaw = serialized
+      return { ok: true, errors: [] }
+    })
   }
 
   function reloadFromStorage(): CommunityActionResult {
-    const storage = getLocalStorage()
-    if (!storage) {
-      storageStatus.value = 'memory-only'
-      storageError.value = MEMORY_ONLY_MESSAGE
-      return failure(MEMORY_ONLY_MESSAGE)
-    }
+    return batch(() => {
+      const storage = getLocalStorage()
+      if (!storage) {
+        storageStatus.value = 'memory-only'
+        storageError.value = MEMORY_ONLY_MESSAGE
+        return failure(MEMORY_ONLY_MESSAGE)
+      }
 
-    let raw: string | null
-    try {
-      raw = storage.getItem(COMMUNITY_STORAGE_KEY)
-    } catch {
-      storageStatus.value = 'save-error'
-      storageError.value = SAVE_ERROR_MESSAGE
-      return failure(SAVE_ERROR_MESSAGE)
-    }
+      let raw: string | null
+      try {
+        raw = storage.getItem(COMMUNITY_STORAGE_KEY)
+      } catch {
+        storageStatus.value = 'save-error'
+        storageError.value = SAVE_ERROR_MESSAGE
+        return failure(SAVE_ERROR_MESSAGE)
+      }
 
-    // This read is the new baseline; a corrupt result still blocks writes via recovery state.
-    lastKnownRaw = raw
-    if (raw === null) {
-      applyState(normalizeCommunityState(createCommunityFixtures()))
-      storageStatus.value = 'ready'
+      // This read is the new baseline; a corrupt result still blocks writes via recovery state.
+      lastKnownRaw = raw
+      if (raw === null) {
+        applyState(normalizeCommunityState(createCommunityFixtures()))
+        storageStatus.value = 'ready'
+        storageError.value = null
+        lastSavedAt.value = null
+        unreadableStoredData.value = null
+        return { ok: true, errors: [], message: '未找到本机存档，已显示初始虚构演练数据。' }
+      }
+
+      const parsed = parseStoredCommunity(raw)
+      if (!parsed.ok) {
+        storageStatus.value = 'recovery-required'
+        storageError.value = parsed.error
+        lastSavedAt.value = null
+        unreadableStoredData.value = raw
+        return failure(parsed.error)
+      }
+
+      applyState(parsed.state)
+      storageStatus.value = 'saved'
       storageError.value = null
-      lastSavedAt.value = null
+      lastSavedAt.value = parsed.savedAt
       unreadableStoredData.value = null
-      return { ok: true, errors: [], message: '未找到本机存档，已显示初始虚构演练数据。' }
-    }
-
-    const parsed = parseStoredCommunity(raw)
-    if (!parsed.ok) {
-      storageStatus.value = 'recovery-required'
-      storageError.value = parsed.error
-      lastSavedAt.value = null
-      unreadableStoredData.value = raw
-      return failure(parsed.error)
-    }
-
-    applyState(parsed.state)
-    storageStatus.value = 'saved'
-    storageError.value = null
-    lastSavedAt.value = parsed.savedAt
-    unreadableStoredData.value = null
-    return { ok: true, errors: [], message: '已重新载入最新本机存档。' }
+      return { ok: true, errors: [], message: '已重新载入最新本机存档。' }
+    })
   }
 
   /** Mark every current local system notice as read. */

@@ -12,6 +12,15 @@ export const SYNTHETIC_SOURCE_CHANNELS = [
 
 export type SyntheticSourceChannel = (typeof SYNTHETIC_SOURCE_CHANNELS)[number]['value']
 
+/**
+ * 普通新建表单可选的来源标记。「社区入口演练（仅本机）」必须携带社区帖子 id
+ * （sourcePostId，由社区桥登记时提供）；普通表单没有这个字段，选了必被
+ * createCase 拒绝，因此不进这个列表。存量记录的校验与展示仍用全量列表。
+ */
+export const MANUAL_SOURCE_CHANNELS = SYNTHETIC_SOURCE_CHANNELS.filter(
+  (channel) => channel.value !== 'community-entry-local',
+)
+
 export const DEFAULT_SYNTHETIC_SOURCE_CHANNEL: SyntheticSourceChannel = 'manual-entry'
 export const MISSING_SYNTHETIC_SOURCE_LABEL = '历史来源未记录'
 

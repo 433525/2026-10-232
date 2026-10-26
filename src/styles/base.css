@@ -1,0 +1,213 @@
+/* ============================================================
+   基础层：重置、排版、焦点、滚动条、无障碍兜底
+   ============================================================ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--nl-bg-page);
+  color: var(--nl-text);
+  font-family: var(--nl-font-sans);
+  font-size: var(--nl-fs-body);
+  line-height: var(--nl-lh-body);
+  overflow-wrap: anywhere;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  /* 移动端不小于 16px，避免 iOS 聚焦自动放大 */
+  font-size: max(16px, 1em);
+}
+
+:focus-visible {
+  outline: var(--nl-focus-ring);
+  outline-offset: var(--nl-focus-offset);
+  border-radius: 6px;
+}
+
+::selection {
+  background: #f3d6c6;
+  color: var(--nl-ink);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e3d2bf;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d3bda6;
+}
+
+/* ---------- 排版工具 ---------- */
+
+.nl-serif {
+  font-family: var(--nl-font-serif);
+  font-weight: 700;
+  color: var(--nl-ink);
+  line-height: var(--nl-lh-tight);
+  letter-spacing: 0.01em;
+}
+
+.nl-page-title {
+  font-family: var(--nl-font-serif);
+  font-size: var(--nl-fs-h1);
+  font-weight: 700;
+  color: var(--nl-ink);
+  line-height: var(--nl-lh-tight);
+  letter-spacing: 0.01em;
+}
+
+.nl-page-sub {
+  margin-top: 4px;
+  font-size: var(--nl-fs-caption);
+  color: var(--nl-muted);
+  line-height: 1.6;
+}
+
+.nl-num {
+  font-family: var(--nl-font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.nl-muted {
+  color: var(--nl-muted);
+}
+
+.nl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 跳到主内容：键盘第一站 */
+.nl-skip {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 200;
+  transform: translateY(-160%);
+  background: var(--nl-brand);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform var(--nl-dur) var(--nl-ease);
+}
+.nl-skip:focus {
+  transform: translateY(0);
+}
+
+/* ---------- 适老化大字模式：只放大正文，不重排布局 ---------- */
+.elderly-mode-active {
+  --nl-fs-body: 16px;
+  --nl-fs-title: 16px;
+  --nl-fs-sm: 14.5px;
+  --nl-fs-caption: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 高对比模式：描边不能被吃掉 */
+@media (forced-colors: active) {
+  .nl-card,
+  .nl-field,
+  .nl-btn,
+  .nl-chip,
+  .nl-tag,
+  .nl-dock,
+  .nl-header {
+    border: 1px solid ButtonText;
+  }
+  .nl-btn--primary,
+  .nl-chip--active,
+  .nl-dock__item--active {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .nl-btn:focus-visible,
+  .nl-dock__item:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

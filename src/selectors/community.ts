@@ -21,6 +21,7 @@ import type {
   Post as CommunityPost,
   Report,
 } from '../data/community/types';
+import { ORDER_EVENT_ACTOR_LABELS, ORDER_EVENT_LABELS } from '../data/community/types';
 import { SYNTHETIC_DEMO_AUTHOR } from '../data/community/fixtures';
 import type {
   Announcement,
@@ -32,6 +33,7 @@ import type {
   HelpCategory,
   HelpOrder,
   MessageItem,
+  OrderEventView,
   OrderStatus,
   Post as ViewPost,
   TimeLedger,
@@ -310,6 +312,15 @@ export function buildOrder(post: CommunityPost, viewerId?: string): HelpOrder {
     disputeReason: lastEventOfType(post, 'dispute')?.note,
     createdAt: formatRelative(post.createdAt, Date.now()),
     auditNote: post.reviewNote,
+    // 订单事件留痕：领域层已有完整时间线（接单/签到/申请/确认/取消/争议），
+    // 投影成可展示条目；「合成对方（代记录）」如实标注代记录来源。
+    events: (post.orderEvents ?? []).map<OrderEventView>((event) => ({
+      id: event.id,
+      typeLabel: ORDER_EVENT_LABELS[event.type],
+      actorLabel: ORDER_EVENT_ACTOR_LABELS[event.actor],
+      note: event.note,
+      time: formatDateTime(event.createdAt),
+    })),
   };
 }
 
@@ -410,13 +421,56 @@ export function buildPost(post: CommunityPost, currentUserName: string, viewerId
 
 /**
  * 信息流：只有审核通过、且未关闭“同步到社区”的内容会出现。
- * `includeUnapproved` 仅供审核后台使用（AdminCenter 自己会再筛一次）。
+ * `includeUnapproved: true` 仅供审核后台使用（AdminCenter 自己会再筛一次），
+ * 用于把待审内容投进审核队列——公开信息流仍走默认的「只留 approved」。
  */
-export function buildPosts(state: CommunityState, currentUserName: string, viewerId?: string): ViewPost[] {
-  return [...state.posts]
+export function buildPosts(
+  state: CommunityState,
+  currentUserName: string,
+  viewerId?: string,
+  options?: { includeUnapproved?: boolean },
+): ViewPost[] {
+  const projected = [...state.posts]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .map((post) => buildPost(post, currentUserName, viewerId))
-    .filter((post) => post.status === 'approved');
+    .map((post) => buildPost(post, currentUserName, viewerId));
+  return options?.includeUnapproved ? projected : projected.filter((post) => post.status === 'approved');
+}
+
+/** 待审评论的审核队列条目：先审后发的评论在通过前不进信息流（R7）。 */
+export interface PendingCommentItem {
+  id: string;
+  postId: string;
+  postTitle: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
+/**
+ * 待审评论队列：评论只能发在已公开的帖子上（store.addComment 的门禁），
+ * 所以只需要扫帖子下的 pending 评论；驳回过的不再进队列。
+ */
+export function buildPendingComments(state: CommunityState): PendingCommentItem[] {
+  const pending: Array<{ item: PendingCommentItem; createdAt: string }> = [];
+  for (const post of state.posts) {
+    for (const comment of post.comments) {
+      if ((comment.moderation ?? 'pending') !== 'pending') continue;
+      pending.push({
+        createdAt: comment.createdAt,
+        item: {
+          id: comment.id,
+          postId: post.id,
+          postTitle: post.title,
+          userName: authorName(comment.author),
+          content: comment.content,
+          createdAt: formatRelative(comment.createdAt, Date.now()),
+        },
+      });
+    }
+  }
+  return pending
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map((entry) => entry.item);
 }
 
 /* ------------------------------------------------------------------ */
@@ -429,12 +483,19 @@ function messageTypeFor(sender: DemoMessage['sender'], threadKind: string): Mess
   return 'chat';
 }
 
-function buildMessageItem(message: DemoMessage, threadKind: string, readAt: number | null): MessageItem {
+function buildMessageItem(
+  message: DemoMessage,
+  threadKind: string,
+  readAt: number | null,
+  threadPostId?: string,
+): MessageItem {
   return {
     id: message.id,
     type: messageTypeFor(message.sender, threadKind),
     title: threadKind === 'order' ? '订单消息（演练）' : threadKind === 'system' ? '系统通知（演练）' : '演练留言',
     content: message.automaticReply ? `【合成自动回复】${message.content}` : message.content,
+    // 订单消息带上订单 id，消息页才能「查看订单详情」直达对应订单。
+    ...(threadKind === 'order' && threadPostId ? { orderId: threadPostId } : {}),
     unread: readAt === null || Date.parse(message.createdAt) > readAt,
     timestamp: formatRelative(message.createdAt, Date.now()),
     senderName: message.sender === 'system' ? '系统（演练）' : '演练联系人（虚构）',
@@ -446,12 +507,13 @@ export function buildMessages(state: CommunityState): MessageItem[] {
   const items = state.threads.flatMap((thread) =>
     thread.messages
       .filter((message) => message.hidden !== true)
-      .map((message) => buildMessageItem(message, thread.kind, readAt)),
+      .map((message) => buildMessageItem(message, thread.kind, readAt, thread.postId)),
   );
   return items.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
 }
 
 export function buildChatMessages(state: CommunityState): ChatMessage[] {
+  const postTitles = new Map(state.posts.map((post) => [post.id, post.title]));
   return state.threads
     .filter((thread) => thread.kind === 'chat' || thread.kind === 'order')
     .flatMap((thread) =>
@@ -467,6 +529,11 @@ export function buildChatMessages(state: CommunityState): ChatMessage[] {
           text: message.automaticReply ? `【合成自动回复】${message.content}` : message.content,
           type: 'text',
           timestamp: formatClock(message.createdAt),
+          // 订单会话绑定订单：消息页按订单挑会话、第一条留言落到正确的订单线程。
+          ...(thread.postId ? { postId: thread.postId } : {}),
+          ...(thread.kind === 'order'
+            ? { conversationTitle: (thread.postId ? postTitles.get(thread.postId) : undefined) ?? thread.title }
+            : {}),
         })),
     );
 }
@@ -588,6 +655,10 @@ export interface CommunityProjection {
   users: User[];
   orders: HelpOrder[];
   posts: ViewPost[];
+  /** 待审帖子（审核队列视图）：公开信息流之外的 pending 内容。 */
+  pendingPosts: ViewPost[];
+  /** 待审评论（审核队列视图）。 */
+  pendingComments: PendingCommentItem[];
   messages: MessageItem[];
   chatMessages: ChatMessage[];
   timeLedger: TimeLedger[];
@@ -608,10 +679,16 @@ export function projectCommunity(
 } {
   const users = buildUsers(state, membership);
   const currentUser = users.find((user) => user.id === MEMBERSHIP_USER_IDS[membership]) ?? users[1];
+  // 同一份全量投影派生两个视图：公开信息流（approved）与审核队列（pending）。
+  const moderationPosts = buildPosts(state, currentUser.name, currentUser.id, {
+    includeUnapproved: true,
+  });
   return {
     users,
     orders: buildOrders(state, currentUser.id),
-    posts: buildPosts(state, currentUser.name, currentUser.id),
+    posts: moderationPosts.filter((post) => post.status === 'approved'),
+    pendingPosts: moderationPosts.filter((post) => post.status === 'pending'),
+    pendingComments: buildPendingComments(state),
     messages: buildMessages(state),
     chatMessages: buildChatMessages(state),
     timeLedger: buildTimeLedger(state, currentUser.id),

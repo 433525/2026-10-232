@@ -1,408 +1,545 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  HandHeart, 
-  UserCheck, 
-  AlertTriangle, 
-  HeartPulse, 
-  Award, 
-  HelpCircle, 
-  ChevronRight, 
-  Flame, 
-  MapPin, 
-  Clock, 
-  Coins, 
-  Star, 
-  Sparkles
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  BookOpen,
+  ChevronRight,
+  CircleHelp,
+  Flame,
+  HandHeart,
+  MapPin,
+  Pause,
+  Phone,
+  Play,
+  ScrollText,
+  Sparkles,
+  UserCheck,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
+import { SectionHead } from '../ui/SectionHead';
+import { Avatar } from '../ui/Avatar';
+import { Button } from '../ui/Button';
+
+/** 相对时间：设计稿用「2 小时前 / 昨天」这类口语写法。 */
+function timeAgo(value: string): string {
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) return value;
+  const diff = Date.now() - time;
+  const minute = 60_000;
+  if (diff < minute) return '刚刚';
+  if (diff < 60 * minute) return `${Math.floor(diff / minute)} 分钟前`;
+  if (diff < 24 * 60 * minute) return `${Math.floor(diff / (60 * minute))} 小时前`;
+  if (diff < 48 * 60 * minute) return '昨天';
+  return `${Math.floor(diff / (24 * 60 * minute))} 天前`;
+}
+
+const QUICK_ACTIONS = [
+  {
+    key: 'help',
+    label: '我要求助',
+    hint: '一键发布需求',
+    icon: HandHeart,
+    tone: 'bg-brand-tint text-brand',
+  },
+  {
+    key: 'accept',
+    label: '我要接单',
+    hint: '附近可接任务',
+    icon: UserCheck,
+    tone: 'bg-accent-tint text-accent',
+  },
+  {
+    key: 'sos',
+    label: '紧急求助',
+    hint: '非急救：120 / 110',
+    icon: Phone,
+    tone: 'bg-danger-tint text-danger',
+  },
+  {
+    key: 'article',
+    label: '养老科普',
+    hint: '慢病 · 居家安全',
+    icon: BookOpen,
+    tone: 'bg-warn-tint text-[#9a6a1f]',
+  },
+  {
+    key: 'certificate',
+    label: '志愿证明',
+    hint: '查看 / 下载',
+    icon: ScrollText,
+    tone: 'bg-accent-tint text-accent',
+  },
+  {
+    key: 'help-center',
+    label: '帮助中心',
+    hint: '支持人机朗读',
+    icon: CircleHelp,
+    tone: 'bg-subtle text-text2',
+  },
+] as const;
 
 export const HomeTab: React.FC = () => {
-  const { 
-    banners, 
-    volunteers, 
-    orders, 
-    setActiveTab, 
-    setActiveSubPage, 
-    setSelectedOrderId, 
-    setSelectedArticleId, 
+  const {
+    banners,
+    volunteers,
+    orders,
+    posts,
+    announcements,
+    currentUser,
+    timeLedger,
+    setActiveTab,
+    setActiveSubPage,
+    setSelectedOrderId,
+    setSelectedArticleId,
     triggerSos,
-    elderlyMode 
   } = useApp();
 
-  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const [openAnnouncement, setOpenAnnouncement] = useState<string | null>(null);
+  const [userPaused, setUserPaused] = useState(false);
+  const [hoverPaused, setHoverPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
-  // Auto rotate banners
   useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, [banners.length]);
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(query.matches);
+    const onChange = () => setReducedMotion(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
 
-  const urgentOrders = orders.filter(o => o.status === 'published');
+  const playing = !userPaused && !hoverPaused && !reducedMotion && banners.length > 1;
 
-  const handleBannerAction = (banner: typeof banners[0]) => {
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(() => {
+      setBannerIdx((prev) => (prev + 1) % banners.length);
+    }, 5600);
+    return () => window.clearInterval(timer);
+  }, [banners.length, playing]);
+
+  const openOrders = useMemo(
+    () => orders.filter((order) => order.status === 'published').slice(0, 2),
+    [orders],
+  );
+  const freshPosts = useMemo(
+    () => posts.filter((post) => post.status === 'approved').slice(0, 2),
+    [posts],
+  );
+  const ledgerSummary = useMemo(() => {
+    const now = new Date();
+    const monthEarn = timeLedger
+      .filter((entry) => {
+        const date = new Date(entry.createdAt);
+        return (
+          entry.amount > 0 &&
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth()
+        );
+      })
+      .reduce((sum, entry) => sum + entry.amount, 0) / 60;
+    const pending = orders
+      .filter((order) => order.status === 'in_progress' || order.status === 'pending_confirm')
+      .reduce((sum, order) => sum + order.timeCoinReward, 0);
+    return { monthEarn, pending };
+  }, [timeLedger, orders]);
+
+  const noticeRows = useMemo(
+    () => [...announcements].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)).slice(0, 3),
+    [announcements],
+  );
+
+  const banner = banners.length > 0 ? banners[bannerIdx % banners.length] : null;
+  const slideCount = banners.length;
+
+  const goSlide = (next: number) => {
+    if (slideCount === 0) return;
+    setBannerIdx((next + slideCount) % slideCount);
+  };
+
+  const handleQuickAction = (key: string) => {
     sound.playTap();
-    if (banner.actionType === 'help') {
-      setActiveTab('publish');
-    } else if (banner.actionType === 'community') {
-      setActiveTab('community');
-    } else if (banner.actionType === 'article') {
+    if (key === 'help') setActiveSubPage('publish_modal');
+    else if (key === 'accept') setActiveSubPage('tasks_hall');
+    else if (key === 'sos') triggerSos();
+    else if (key === 'article') {
       setSelectedArticleId('art_1');
+      setActiveSubPage('eldercare_detail');
+    } else if (key === 'certificate') setActiveSubPage('certificate_view');
+    else setActiveSubPage('help_center');
+  };
+
+  const runBannerAction = () => {
+    if (!banner) return;
+    sound.playTap();
+    if (banner.actionType === 'help') setActiveSubPage('publish_modal');
+    else if (banner.actionType === 'community') setActiveTab('community');
+    else if (banner.actionType === 'tasks') setActiveSubPage('tasks_hall');
+    else if (banner.actionType === 'sos') triggerSos();
+    else if (banner.actionType === 'rules') setActiveSubPage('rules_modal');
+    else {
+      setSelectedArticleId(banner.targetId ?? 'art_1');
       setActiveSubPage('eldercare_detail');
     }
   };
 
   return (
-    <div className="space-y-4 pb-12 animate-in fade-in duration-150">
-      {/* Search Bar Bar */}
-      <div 
-        onClick={() => {
-          sound.playTap();
-          setActiveSubPage('search_page');
-        }}
-        className="cursor-pointer p-2.5 rounded-2xl bg-white shadow-xs border border-slate-200/80 hover:border-emerald-300 transition-all flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2 text-slate-400">
-          <Search className="w-4 h-4 text-emerald-600" />
-          <span className="text-xs sm:text-sm text-slate-500 font-medium">
-            搜索服务类型、附近志愿者、紧急求助...
-          </span>
-        </div>
-        <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
-          一键直达
-        </span>
-      </div>
+    <div className="pb-2">
+      <h1 className="nl-sr-only">暖阳邻里 · 社区互助演练首页</h1>
 
-      {/* Banner Carousel */}
-      <div className="relative rounded-2xl overflow-hidden shadow-md group">
-        <div className="relative h-44 sm:h-52 w-full overflow-hidden">
-          {banners.map((banner, idx) => (
-            <div
-              key={banner.id}
-              className={`absolute inset-0 transition-opacity duration-700 ${
-                idx === activeBannerIdx ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-              }`}
-            >
-              <img 
-                src={banner.image} 
-                alt={banner.title} 
-                className="w-full h-full object-cover brightness-75 scale-105 transition-transform duration-1000"
-              />
-              <div className={`absolute inset-0 bg-gradient-to-t ${banner.bgGradient} opacity-80 mix-blend-multiply`} />
-              <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-end text-white">
-                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 w-max mb-1.5 shadow-xs">
-                  {banner.tag}
-                </span>
-                <h2 className="text-base sm:text-xl font-black leading-tight drop-shadow-md">
-                  {banner.title}
-                </h2>
-                <p className="text-xs text-slate-200 line-clamp-1 mt-0.5 max-w-md drop-shadow-sm">
-                  {banner.subtitle}
-                </p>
-                <div className="mt-2.5">
+      <div className="nl-home">
+        <div className="nl-home__main">
+          {/* ── 公告轮播 ───────────────────────────────────────── */}
+          <section
+            className="nl-home__banner"
+            aria-label="社区公告"
+            aria-roledescription="carousel"
+            onMouseEnter={() => setHoverPaused(true)}
+            onMouseLeave={() => setHoverPaused(false)}
+            onFocusCapture={() => setHoverPaused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) setHoverPaused(false);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                goSlide(bannerIdx + 1);
+              } else if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                goSlide(bannerIdx - 1);
+              }
+            }}
+          >
+            <div className="nl-banner">
+              {banner ? (
+                <>
+                  <span className="nl-banner__tag">{banner.tag}</span>
+                  <h2 className="nl-banner__title">{banner.title}</h2>
+                  <p className="nl-banner__sub">{banner.subtitle}</p>
+                  <button type="button" className="nl-banner__cta" onClick={runBannerAction}>
+                    {banner.actionText}
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </>
+              ) : (
+                <p className="text-[13px] text-white/85">暂无可展示的社区公告。</p>
+              )}
+
+              {slideCount > 1 ? (
+                <div className="nl-banner__controls">
                   <button
-                    onClick={() => handleBannerAction(banner)}
-                    className="px-3.5 py-1.5 rounded-xl bg-white text-slate-900 hover:bg-amber-300 font-bold text-xs shadow-md transition-all flex items-center gap-1"
+                    type="button"
+                    className="nl-banner__arrow"
+                    aria-label="上一条公告"
+                    onClick={() => goSlide(bannerIdx - 1)}
                   >
-                    <span>{banner.actionText}</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <ChevronRight className="h-3.5 w-3.5 rotate-180" aria-hidden="true" />
+                  </button>
+
+                  <div className="nl-banner__dots">
+                    {banners.map((item, index) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="nl-banner__dot"
+                        aria-label={`第 ${index + 1} 条公告：${item.title}`}
+                        aria-current={index === bannerIdx % slideCount}
+                        onClick={() => goSlide(index)}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="nl-banner__arrow"
+                    aria-label="下一条公告"
+                    onClick={() => goSlide(bannerIdx + 1)}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="nl-banner__arrow"
+                    aria-label={userPaused ? '继续自动播放公告' : '暂停自动播放公告'}
+                    aria-pressed={userPaused}
+                    onClick={() => {
+                      setUserPaused((paused) => !paused);
+                      setHoverPaused(false);
+                    }}
+                  >
+                    {userPaused || reducedMotion ? (
+                      <Play className="h-3 w-3" aria-hidden="true" />
+                    ) : (
+                      <Pause className="h-3 w-3" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
-              </div>
+              ) : null}
             </div>
-          ))}
-        </div>
+          </section>
 
-        {/* Carousel Indicators */}
-        <div className="absolute bottom-2.5 right-4 z-20 flex gap-1.5">
-          {banners.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveBannerIdx(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === activeBannerIdx ? 'w-5 bg-amber-400' : 'w-1.5 bg-white/50'
-              }`}
+          {/* ── 常用功能 ───────────────────────────────────────── */}
+          <section className="nl-home__quick" aria-labelledby="home-quick-title">
+            <SectionHead
+              id="home-quick-title"
+              title="常用功能"
+              sub="老人与家属最常办的六件事"
+              action={
+                <span className="hidden items-center gap-1 text-[10.5px] text-muted sm:flex">
+                  <Sparkles className="h-3 w-3 text-brand" aria-hidden="true" />
+                  演练环境 · 不连接真实服务
+                </span>
+              }
             />
-          ))}
-        </div>
-      </div>
 
-      {/* 6 Quick Action Grid Cards */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>核心便民互助入口</span>
-          </h3>
-          <span className="text-[11px] text-emerald-700 font-medium">
-            梧桐里互助站 24H（虚构）
-          </span>
-        </div>
-
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-2.5">
-          {/* 1. 我要求助 */}
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('publish');
-            }}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-teal-500/10 border border-emerald-200/80 hover:border-emerald-400 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-emerald-600 group-hover:scale-110 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 transition-transform">
-              <HandHeart className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-slate-800 group-hover:text-emerald-800 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              我要求助
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              快速发布派单
-            </span>
-          </button>
-
-          {/* 2. 我要接单 */}
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage('tasks_hall');
-            }}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-blue-500/10 to-sky-500/10 border border-blue-200/80 hover:border-blue-400 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 group-hover:scale-110 text-white flex items-center justify-center shadow-md shadow-blue-500/20 transition-transform">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-slate-800 group-hover:text-blue-800 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              我要接单
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              接单大厅认领
-            </span>
-          </button>
-
-          {/* 3. 紧急求助 (SOS) */}
-          <button
-            onClick={triggerSos}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-rose-500/15 to-red-500/15 border-2 border-rose-300 hover:border-rose-500 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group animate-pulse"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-rose-600 group-hover:scale-110 text-white flex items-center justify-center shadow-md shadow-rose-500/30 transition-transform">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-rose-700 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              紧急求助
-            </span>
-            <span className="text-[10px] text-rose-500 mt-0.5 hidden sm:block">
-              非急救：请拨打 120/110
-            </span>
-          </button>
-
-          {/* 4. 养老科普 */}
-          <button
-            onClick={() => {
-              sound.playTap();
-              setSelectedArticleId('art_1');
-              setActiveSubPage('eldercare_detail');
-            }}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-sky-500/10 to-indigo-500/10 border border-sky-200/80 hover:border-sky-400 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-sky-600 group-hover:scale-110 text-white flex items-center justify-center shadow-md shadow-sky-500/20 transition-transform">
-              <HeartPulse className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-slate-800 group-hover:text-sky-800 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              养老科普
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              慢病语音指南
-            </span>
-          </button>
-
-          {/* 5. 志愿证明 */}
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage('certificate_view');
-            }}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-amber-500/10 to-yellow-500/10 border border-amber-200/80 hover:border-amber-400 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-amber-500 group-hover:scale-110 text-slate-950 flex items-center justify-center shadow-md shadow-amber-500/20 transition-transform">
-              <Award className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-slate-800 group-hover:text-amber-800 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              志愿证明
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              下载演练证明
-            </span>
-          </button>
-
-          {/* 6. 帮助中心 */}
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage('help_center');
-            }}
-            className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-purple-500/10 to-violet-500/10 border border-purple-200/80 hover:border-purple-400 hover:shadow-md transition-all flex flex-col items-center justify-center text-center group"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-purple-600 group-hover:scale-110 text-white flex items-center justify-center shadow-md shadow-purple-500/20 transition-transform">
-              <HelpCircle className="w-6 h-6" />
-            </div>
-            <span className={`font-bold text-slate-800 group-hover:text-purple-800 mt-2 ${elderlyMode ? 'text-sm' : 'text-xs'}`}>
-              帮助中心
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
-              语音操作教程
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Recommended Nearby Volunteers List */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <UserCheck className="w-4 h-4 text-emerald-600" />
-            <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-              附近可接单志愿者（就近调配）
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400">
-            按距离排序 · 已实名
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {volunteers.map((vol) => (
-            <div
-              key={vol.id}
-              className="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200/80 hover:border-emerald-200 transition-all flex items-start gap-3"
-            >
-              <div className="relative shrink-0">
-                <img 
-                  src={vol.avatar} 
-                  alt={vol.name} 
-                  className="w-12 h-12 rounded-xl object-cover ring-2 ring-emerald-500/30"
-                />
-                <span className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-400 text-slate-900 shadow-xs">
-                  {vol.badge}
-                </span>
-              </div>
-
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-800 text-xs sm:text-sm truncate">
-                      {vol.name}
+            <div className="nl-quick">
+              {QUICK_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.key}
+                    type="button"
+                    onClick={() => handleQuickAction(action.key)}
+                    className="nl-quick__item"
+                  >
+                    <span className={`nl-quick__icon ${action.tone}`}>
+                      <Icon className="h-[23px] w-[23px]" strokeWidth={1.8} aria-hidden="true" />
                     </span>
-                    <span className="flex items-center text-[10px] text-amber-600 font-bold">
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" />
-                      {vol.rating}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-0.5 bg-white px-1.5 py-0.5 rounded border border-emerald-100">
-                    <MapPin className="w-3 h-3 text-emerald-600" />
-                    {vol.distance}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1">
-                  {vol.skills.map((s, idx) => (
-                    <span 
-                      key={idx} 
-                      className="text-[10px] px-1.5 py-0.2 rounded bg-white text-slate-600 border border-slate-200/60"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-
-                <p className="text-[11px] text-slate-500 line-clamp-1">
-                  {vol.bio}
-                </p>
-              </div>
+                    <span className="nl-quick__label">{action.label}</span>
+                    <span className="nl-quick__hint">{action.hint}</span>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </div>
+          </section>
 
-      {/* Hot Urgent Help Requests */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Flame className="w-4 h-4 text-rose-500" />
-            <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-              热门急需求助订单（接单大厅）
-            </h3>
-          </div>
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage('tasks_hall');
-            }}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
-          >
-            <span>进入大厅全部 ({urgentOrders.length})</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+          {/* ── 附近的志愿者 ───────────────────────────────────── */}
+          <section className="nl-home__vol" aria-labelledby="home-volunteer-title">
+            <SectionHead
+              id="home-volunteer-title"
+              title="附近的志愿者"
+              action={
+                <button
+                  type="button"
+                  className="nl-sec__link"
+                  onClick={() => {
+                    sound.playTap();
+                    setActiveSubPage('tasks_hall');
+                  }}
+                >
+                  全部 {volunteers.length} 人
+                  <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                </button>
+              }
+            />
 
-        <div className="space-y-2.5">
-          {urgentOrders.slice(0, 3).map((order) => (
-            <div
-              key={order.id}
-              onClick={() => {
-                sound.playTap();
-                setSelectedOrderId(order.id);
-                setActiveSubPage('order_detail');
-              }}
-              className="cursor-pointer p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/40 border border-slate-200/80 hover:border-emerald-300 transition-all space-y-2 group"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {order.isUrgent && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-700 flex items-center gap-0.5">
-                        <Flame className="w-3 h-3 text-rose-600" />
-                        紧急
+            <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {volunteers.slice(0, 2).map((vol, index) => (
+                <div key={vol.id} className="nl-mini">
+                  <Avatar name={vol.name} tone="accent" />
+                  <div className="nl-mini__main">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-[12.5px] font-semibold text-ink">{vol.name}</span>
+                      {vol.badge ? <span className="nl-tag nl-tag--accent">{vol.badge}</span> : null}
+                    </div>
+                    <p className="nl-mini__meta">
+                      {vol.skills.join(' / ')} · 已服务 {vol.completedTasks} 小时
+                    </p>
+                    <p className="nl-mini__rating">
+                      {vol.rating > 0 ? (
+                        <>
+                          <span className="nl-num">{vol.rating.toFixed(1)}</span> 分
+                        </>
+                      ) : (
+                        <span>暂无评分</span>
+                      )}
+                      <span className="text-line-strong" aria-hidden="true">
+                        ·
                       </span>
-                    )}
-                    <span className="px-2 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      {order.categoryLabel}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {order.createdAt}
-                    </span>
+                      距您 {vol.distance}
+                    </p>
                   </div>
-                  <h4 className={`font-bold text-slate-900 group-hover:text-emerald-800 transition-colors ${elderlyMode ? 'text-base' : 'text-xs sm:text-sm'}`}>
-                    {order.title}
-                  </h4>
+                  <Button
+                    size="xs"
+                    variant={index === 0 ? 'primary' : 'ghost'}
+                    onClick={() => {
+                      sound.playTap();
+                      setActiveSubPage('tasks_hall');
+                    }}
+                    aria-label={`预约志愿者 ${vol.name}`}
+                  >
+                    预约
+                  </Button>
                 </div>
-
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200 shrink-0">
-                  <Coins className="w-3.5 h-3.5 text-amber-600" />
-                  <span>+{order.timeCoinReward} 币</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 font-medium text-slate-700">
-                    <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                    {order.locationArea}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {order.timeStr}
-                  </span>
-                </div>
-                <span className="text-emerald-700 font-bold group-hover:translate-x-1 transition-transform inline-flex items-center">
-                  详情 <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
+              ))}
             </div>
-          ))}
+          </section>
+
+          {/* ── 社区新鲜事 ─────────────────────────────────────── */}
+          <section className="nl-home__fresh" aria-labelledby="home-fresh-title">
+            <SectionHead
+              id="home-fresh-title"
+              title="社区新鲜事"
+              action={
+                <button
+                  type="button"
+                  className="nl-sec__link"
+                  onClick={() => {
+                    sound.playTap();
+                    setActiveTab('community');
+                  }}
+                >
+                  进入社区
+                  <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                </button>
+              }
+            />
+
+            <div className="mt-3 grid gap-2.5">
+              {freshPosts.map((post) => (
+                <article key={post.id} className="nl-fresh">
+                  <Avatar name={post.userName} size="sm" tone={post.isOfficial ? 'ink' : 'brand'} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-semibold text-ink">{post.userName}</span>
+                      {post.isOfficial ? <span className="nl-tag">服务</span> : null}
+                    </div>
+                    <p className="nl-fresh__text">{post.content}</p>
+                  </div>
+                  <span className="shrink-0 text-[9.5px] text-faint">{timeAgo(post.createdAt)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="nl-home__side">
+          {/* ── 时间存折 ───────────────────────────────────────── */}
+          <section className="nl-home__ledger" aria-label="我的时间存折">
+            <div className="nl-ledger">
+              <div className="nl-ledger__top">
+                <div>
+                  <p className="nl-ledger__label">我的时间存折</p>
+                  <p className="nl-ledger__value">
+                    <span className="nl-num">{currentUser.timeCoins.toFixed(1)}</span>
+                    <span className="nl-ledger__unit">小时</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="nl-ledger__link"
+                  onClick={() => {
+                    sound.playTap();
+                    setActiveSubPage('time_ledger_page');
+                  }}
+                >
+                  查看明细
+                  <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </div>
+              <p className="nl-ledger__meta">
+                本月 +{ledgerSummary.monthEarn.toFixed(1)} 小时 · 待结算{' '}
+                {ledgerSummary.pending.toFixed(1)}
+              </p>
+            </div>
+          </section>
+
+          {/* ── 热门求助 ───────────────────────────────────────── */}
+          <section className="nl-home__hot" aria-labelledby="home-hot-title">
+            <SectionHead
+              id="home-hot-title"
+              title="热门求助"
+              action={
+                <button
+                  type="button"
+                  className="nl-sec__link"
+                  onClick={() => {
+                    sound.playTap();
+                    setActiveSubPage('tasks_hall');
+                  }}
+                >
+                  接单大厅
+                </button>
+              }
+            />
+
+            <div className="mt-3 grid gap-2.5">
+              {openOrders.length === 0 ? (
+                <div className="nl-card nl-card--sm px-4 py-6 text-center text-[11.5px] text-muted">
+                  当前没有待接单的求助。发起一单试试？
+                </div>
+              ) : (
+                openOrders.map((order) => (
+                  <button
+                    key={order.id}
+                    type="button"
+                    className="nl-hot"
+                    onClick={() => {
+                      sound.playTap();
+                      setSelectedOrderId(order.id);
+                      setActiveSubPage('order_detail');
+                    }}
+                  >
+                    <div className="nl-hot__top">
+                      <span className={`nl-tag ${order.isUrgent ? 'nl-tag--danger' : ''}`}>
+                        {order.isUrgent ? <Flame className="h-2.5 w-2.5" aria-hidden="true" /> : null}
+                        {order.categoryLabel}
+                      </span>
+                      <span className="text-[9.5px] text-muted">约 {order.durationHours} 小时</span>
+                    </div>
+                    <p className="nl-hot__title">{order.title}</p>
+                    <p className="nl-hot__meta">
+                      {order.dateStr} {order.timeStr} · {order.locationArea}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* ── 公告与制度 ─────────────────────────────────────── */}
+          <section className="nl-home__notices" aria-labelledby="home-notice-title">
+            <SectionHead id="home-notice-title" title="公告与制度" />
+            <div className="nl-card nl-notices nl-divide">
+              {noticeRows.map((notice) => {
+                const expanded = openAnnouncement === notice.id;
+                return (
+                  <div key={notice.id}>
+                    <button
+                      type="button"
+                      className="nl-notice-row"
+                      aria-expanded={expanded}
+                      onClick={() => setOpenAnnouncement(expanded ? null : notice.id)}
+                    >
+                      <span className="nl-notice-row__title">{notice.title}</span>
+                      <ChevronRight
+                        className={`h-3.5 w-3.5 shrink-0 text-faint transition-transform ${
+                          expanded ? 'rotate-90' : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {expanded ? (
+                      <div className="nl-notice-row__body">
+                        {notice.content}
+                        <p className="mt-2 text-[9.5px] text-muted">
+                          {notice.source} · {notice.date}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </div>
+
+      <p className="mt-7 flex items-center justify-center gap-1.5 text-[10px] text-muted">
+        <MapPin className="h-3 w-3" aria-hidden="true" />
+        {currentUser.community} · 合成演练数据，不对应任何真实居民或机构
+      </p>
     </div>
   );
 };

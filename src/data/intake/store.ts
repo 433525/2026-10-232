@@ -1,4 +1,4 @@
-import { computed, createReactiveStore, ref } from '../reactive'
+import { batch, computed, createReactiveStore, ref } from '../reactive'
 import {
   DEFAULT_SERVICE_TYPE,
   HIGH_RISK_STOP_NEXT_STEP,
@@ -338,70 +338,78 @@ export const useIntakeStore = createReactiveStore('intake', () => {
     nextPaused = intakePaused.value,
     nextComplaints: readonly Complaint[] = complaints.value,
   ): string | null {
-    if (storageStatus.value === 'recovery-required') {
-      return '旧存档无法读取，请先导出旧存档或恢复备份后再修改。'
-    }
-    writeSnapshot(nextCases, nextSelectedId, nextPaused, nextComplaints)
-    if (storageStatus.value === 'conflict') {
-      return '另一个窗口已更新存档，请先重新载入最新存档再继续。'
-    }
-    if (storageStatus.value === 'save-error') {
-      return '本次操作未应用：存档校验失败或浏览器写入失败。请检查演练记录并确认浏览器存储空间可用。'
-    }
-    applySnapshotToState(nextCases, nextSelectedId, nextPaused, nextComplaints)
-    return null
+    // 批处理：快照写入 + 状态回填会连续改写状态、时间与数据 ref，
+    // 批末只通知一次，避免 useSyncExternalStore 连环同步重渲染。
+    return batch(() => {
+      if (storageStatus.value === 'recovery-required') {
+        return '旧存档无法读取，请先导出旧存档或恢复备份后再修改。'
+      }
+      writeSnapshot(nextCases, nextSelectedId, nextPaused, nextComplaints)
+      if (storageStatus.value === 'conflict') {
+        return '另一个窗口已更新存档，请先重新载入最新存档再继续。'
+      }
+      if (storageStatus.value === 'save-error') {
+        return '本次操作未应用：存档校验失败或浏览器写入失败。请检查演练记录并确认浏览器存储空间可用。'
+      }
+      applySnapshotToState(nextCases, nextSelectedId, nextPaused, nextComplaints)
+      return null
+    })
   }
 
   function replaceSnapshot(
     nextCases: IntakeCase[],
     nextSelectedId: string | null,
     nextPaused = intakePaused.value,
-    nextComplaints: readonly Complaint[] = [],
+    nextComplaints: readonly Complaint[] = complaints.value,
   ): boolean {
-    if (!writeSnapshot(nextCases, nextSelectedId, nextPaused, nextComplaints) && storageStatus.value !== 'memory-only') return false
-    applySnapshotToState(nextCases, nextSelectedId, nextPaused, nextComplaints)
-    return true
+    return batch(() => {
+      if (!writeSnapshot(nextCases, nextSelectedId, nextPaused, nextComplaints) && storageStatus.value !== 'memory-only') return false
+      applySnapshotToState(nextCases, nextSelectedId, nextPaused, nextComplaints)
+      return true
+    })
   }
 
   function reloadFromStorage(): { ok: boolean; errors: string[] } {
-    const storage = getLocalStorage()
-    if (!storage) {
-      storageStatus.value = 'memory-only'
-      return { ok: false, errors: ['当前浏览器不可用本机存档。'] }
-    }
-    let raw: string | null
-    try {
-      raw = storage.getItem(INTAKE_STORAGE_KEY)
-    } catch {
-      storageStatus.value = 'save-error'
-      return { ok: false, errors: ['读取本机存档失败，请检查浏览器存储权限。'] }
-    }
-    if (raw === null) {
-      const fixtures = copyFixtures()
-      lastKnownSnapshot = null
-      storageStatus.value = 'ready'
-      lastSavedAt.value = null
+    return batch(() => {
+      const storage = getLocalStorage()
+      if (!storage) {
+        storageStatus.value = 'memory-only'
+        return { ok: false, errors: ['当前浏览器不可用本机存档。'] }
+      }
+      let raw: string | null
+      try {
+        raw = storage.getItem(INTAKE_STORAGE_KEY)
+      } catch {
+        storageStatus.value = 'save-error'
+        return { ok: false, errors: ['读取本机存档失败，请检查浏览器存储权限。'] }
+      }
+      if (raw === null) {
+        const fixtures = copyFixtures()
+        lastKnownSnapshot = null
+        storageStatus.value = 'ready'
+        lastSavedAt.value = null
+        unreadableBackup.value = null
+        applySnapshotToState(fixtures, fixtures[0]?.id ?? null, false, [])
+        return { ok: true, errors: [] }
+      }
+      const result = parseIntakeBackup(raw)
+      if (!result.ok) {
+        storageStatus.value = 'recovery-required'
+        unreadableBackup.value = raw
+        return { ok: false, errors: result.errors }
+      }
+      lastKnownSnapshot = raw
+      storageStatus.value = 'saved'
+      lastSavedAt.value = result.backup.savedAt
       unreadableBackup.value = null
-      applySnapshotToState(fixtures, fixtures[0]?.id ?? null, false, [])
-      return { ok: true, errors: [] }
-    }
-    const result = parseIntakeBackup(raw)
-    if (!result.ok) {
-      storageStatus.value = 'recovery-required'
-      unreadableBackup.value = raw
-      return { ok: false, errors: result.errors }
-    }
-    lastKnownSnapshot = raw
-    storageStatus.value = 'saved'
-    lastSavedAt.value = result.backup.savedAt
-    unreadableBackup.value = null
-    applySnapshotToState(
-      result.backup.cases,
-      result.backup.selectedId,
-      result.backup.intakePaused,
-      result.backup.complaints,
-    )
-    return { ok: true, errors: result.warnings }
+      applySnapshotToState(
+        result.backup.cases,
+        result.backup.selectedId,
+        result.backup.intakePaused,
+        result.backup.complaints,
+      )
+      return { ok: true, errors: result.warnings }
+    })
   }
 
   if (typeof window !== 'undefined') {

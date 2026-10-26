@@ -1,215 +1,187 @@
-import React, { useState } from 'react';
-import { 
-  CheckCircle2, 
-  MapPin, 
-  Clock, 
-  Coins, 
-  Flame, 
-  X, 
-  Search, 
-  HeartHandshake, 
-  UserCheck
-} from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle2, Clock, Coins, Flame, MapPin, Search, UserCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Tag } from '../ui/Tag';
+import { EmptyState } from '../ui/EmptyState';
 
+const CATEGORIES = [
+  { key: 'all', label: '全部需求' },
+  { key: 'medical_escort', label: '陪同就医' },
+  { key: 'daily_chores', label: '日常家务' },
+  { key: 'chat_companion', label: '聊天陪伴' },
+  { key: 'childcare_guide', label: '隔代育儿' },
+  { key: 'urgent_help', label: '紧急求助' },
+];
+
+/** 接单大厅：与社区同一套卡片语言，筛选条固定在弹层顶部。 */
 export const TasksHall: React.FC = () => {
-  const { orders, setActiveSubPage, setSelectedOrderId, currentUser, acceptOrder, elderlyMode } = useApp();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [filterUrgentOnly, setFilterUrgentOnly] = useState<boolean>(false);
-  const [keyword, setKeyword] = useState<string>('');
+  const { orders, setActiveSubPage, setSelectedOrderId, currentUser, acceptOrder } = useApp();
+  const [category, setCategory] = useState('all');
+  const [urgentOnly, setUrgentOnly] = useState(false);
+  const [keyword, setKeyword] = useState('');
 
-  const openOrders = orders.filter(o => {
-    if (o.status !== 'published') return false;
-    if (selectedCategory !== 'all' && o.category !== selectedCategory) return false;
-    if (filterUrgentOnly && !o.isUrgent) return false;
-    if (keyword.trim()) {
-      const q = keyword.toLowerCase();
-      return o.title.toLowerCase().includes(q) || o.description.toLowerCase().includes(q) || o.locationArea.toLowerCase().includes(q);
-    }
-    return true;
-  });
-
-  const categories = [
-    { key: 'all', label: '全部需求' },
-    { key: 'medical_escort', label: '陪同就医' },
-    { key: 'daily_chores', label: '日常家务' },
-    { key: 'chat_companion', label: '聊天陪伴' },
-    { key: 'childcare_guide', label: '隔代育儿' },
-    { key: 'urgent_help', label: '紧急求助' },
-  ];
+  const openOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        if (order.status !== 'published') return false;
+        if (category !== 'all' && order.category !== category) return false;
+        if (urgentOnly && !order.isUrgent) return false;
+        if (keyword.trim()) {
+          const query = keyword.trim().toLowerCase();
+          return (
+            order.title.toLowerCase().includes(query) ||
+            order.description.toLowerCase().includes(query) ||
+            order.locationArea.toLowerCase().includes(query)
+          );
+        }
+        return true;
+      }),
+    [orders, category, urgentOnly, keyword],
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white">
-              <HeartHandshake className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <h2 className="font-bold text-base sm:text-lg">
-                社区志愿接单大厅 · 邻里互助广场
-              </h2>
-              <p className="text-xs text-emerald-100">
-                可接需求共 {openOrders.length} 条 · 服务时长 100% 存入时间银行
-              </p>
-            </div>
+    <Modal
+      title="社区志愿接单大厅"
+      subtitle={`可接需求 ${openOrders.length} 条 · 服务时长 100% 存入时间存折`}
+      onClose={() => setActiveSubPage(null)}
+      wide
+      footer={
+        <>
+          <p className="nl-modal__foot-note">接单前只能看到社区级位置；病史与门牌号在认领后才可见。</p>
+          <Button variant="ghost" size="sm" onClick={() => setActiveSubPage(null)}>
+            关闭
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            className="nl-field nl-field--icon"
+            placeholder="搜索求助标题、地点或需求描述…"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            aria-label="搜索待接单需求"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <div className="no-scrollbar flex gap-1.5 overflow-x-auto" role="group" aria-label="需求分类">
+            {CATEGORIES.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`nl-chip shrink-0${category === item.key ? ' nl-chip--active' : ''}`}
+                aria-pressed={category === item.key}
+                onClick={() => {
+                  sound.playTap();
+                  setCategory(item.key);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
+
           <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage(null);
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
+            type="button"
+            className={`nl-chip shrink-0${urgentOnly ? ' nl-chip--active' : ''}`}
+            aria-pressed={urgentOnly}
+            onClick={() => setUrgentOnly((value) => !value)}
           >
-            <X className="w-5 h-5" />
+            <Flame className="h-3 w-3" aria-hidden="true" />
+            仅看紧急
           </button>
         </div>
 
-        {/* Filters & Search */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="搜索求助标题、地点或需求描述..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 sm:py-2 rounded-xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
-
-          {/* Category Chips */}
-          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-            <div className="flex items-center gap-1.5">
-              {categories.map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => {
-                    sound.playTap();
-                    setSelectedCategory(c.key);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                    selectedCategory === c.key
-                      ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'bg-white hover:bg-slate-200 text-slate-600 border border-slate-200'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                sound.playTap();
-                setFilterUrgentOnly(!filterUrgentOnly);
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
-                filterUrgentOnly
-                  ? 'bg-rose-100 text-rose-800 border-rose-300'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5 text-rose-500" />
-              <span>仅看紧急</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Order List */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-3">
-          {openOrders.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 space-y-2">
-              <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto" />
-              <p className="text-sm font-medium">当前筛选条件下暂无待接单需求</p>
-              <p className="text-xs text-slate-400">您可以尝试清空筛选关键词或稍后刷新</p>
-            </div>
-          ) : (
-            openOrders.map((order) => (
-              <div
-                key={order.id}
-                className="p-4 rounded-xl bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-md transition-all space-y-3 group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {order.isUrgent && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 flex items-center gap-0.5">
-                          <Flame className="w-3 h-3 text-rose-600" />
+        {openOrders.length === 0 ? (
+          <EmptyState
+            title="当前筛选条件下没有待接单需求"
+            hint="清空关键词或切换分类再看看；也可以到「我要求助」发起一条。"
+            icon={<CheckCircle2 className="h-6 w-6" aria-hidden="true" />}
+          />
+        ) : (
+          <div className="grid gap-2.5">
+            {openOrders.map((order) => (
+              <div key={order.id} className="group nl-card nl-card--sm px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {order.isUrgent ? (
+                        <Tag tone="danger">
+                          <Flame className="h-2.5 w-2.5" aria-hidden="true" />
                           加急置顶
-                        </span>
-                      )}
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        {order.categoryLabel}
-                      </span>
-                      <span className="text-xs text-slate-400 font-mono">
-                        {order.createdAt}
-                      </span>
+                        </Tag>
+                      ) : null}
+                      <Tag tone="neutral">{order.categoryLabel}</Tag>
+                      <span className="text-[9.5px] text-faint">{order.createdAt}</span>
                     </div>
-                    <h3 className={`font-bold text-slate-900 group-hover:text-emerald-800 transition-colors ${elderlyMode ? 'text-lg' : 'text-base'}`}>
+                    <h3 className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">
                       {order.title}
                     </h3>
                   </div>
-
-                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200 shrink-0">
-                    <Coins className="w-3.5 h-3.5 text-amber-600" />
-                    <span>+{order.timeCoinReward} 币</span>
-                  </div>
+                  <span className="flex shrink-0 items-center gap-1 rounded-lg bg-warn-tint px-2 py-1 text-[10.5px] font-semibold text-[#8a5f1c]">
+                    <Coins className="h-3 w-3" aria-hidden="true" />+{order.timeCoinReward} 币
+                  </span>
                 </div>
 
-                <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">
+                <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-relaxed text-text2">
                   {order.description}
                 </p>
 
-                {/* Details Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1 text-slate-700 font-medium">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+                  <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3 text-danger" aria-hidden="true" />
                       {order.locationArea}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <Clock className="h-3 w-3" aria-hidden="true" />
                       {order.dateStr} {order.timeStr}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="xs"
                       onClick={() => {
                         sound.playTap();
                         setSelectedOrderId(order.id);
                         setActiveSubPage('order_detail');
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium"
                     >
                       查看详情
-                    </button>
-                    
-                    {currentUser.role === 'volunteer' && (
-                      <button
+                    </Button>
+                    {currentUser.role === 'volunteer' ? (
+                      <Button
+                        variant="primary"
+                        size="xs"
                         onClick={() => {
                           acceptOrder(order.id);
                           setSelectedOrderId(order.id);
                           setActiveSubPage('order_detail');
                         }}
-                        className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1"
                       >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>快速接单</span>
-                      </button>
-                    )}
+                        <UserCheck className="h-3 w-3" aria-hidden="true" />
+                        快速接单
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -47,36 +47,26 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="min-h-[70vh] flex items-center justify-center p-6 bg-slate-50">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
-            <AlertTriangle className="w-8 h-8" />
+      <div className="nl-crash">
+        <div className="nl-crash__card">
+          <div className="nl-crash__icon">
+            <AlertTriangle className="h-7 w-7" aria-hidden="true" />
           </div>
 
-          <div className="space-y-1.5">
-            <h2 className="text-xl font-black text-slate-900">页面暂时无法显示</h2>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              遇到了一处未预期的界面异常，您的数据已安全保存在本机。
-              您可以重试加载；若反复出现，可恢复演示数据后重新进入。
-            </p>
-            <p className="text-[11px] font-mono text-slate-400 break-words">
-              错误信息：{this.state.message}
-            </p>
-          </div>
+          <h2 className="nl-crash__title">页面暂时无法显示</h2>
+          <p className="nl-crash__text">
+            遇到了一处未预期的界面异常，您的数据已安全保存在本机。
+            您可以重试加载；若反复出现，可恢复演示数据后重新进入。
+          </p>
+          <p className="nl-crash__detail">错误信息：{this.state.message}</p>
 
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <button
-              onClick={this.handleRetry}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md flex items-center gap-1.5 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
+          <div className="nl-crash__actions">
+            <button type="button" onClick={this.handleRetry} className="nl-btn nl-btn--primary">
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
               重新加载
             </button>
-            <button
-              onClick={this.handleHome}
-              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold flex items-center gap-1.5 transition-colors"
-            >
-              <Home className="w-4 h-4" />
+            <button type="button" onClick={this.handleHome} className="nl-btn nl-btn--ghost">
+              <Home className="h-4 w-4" aria-hidden="true" />
               恢复演示数据
             </button>
           </div>

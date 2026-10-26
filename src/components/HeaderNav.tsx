@@ -1,213 +1,237 @@
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Volume2, 
-  Smartphone, 
-  Monitor, 
-  AlertTriangle, 
-  ShieldCheck, 
-  ChevronDown, 
-  Accessibility
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Accessibility, Bell, Check, ChevronDown, House, Search, Volume2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
-import { BrandMark } from './BrandMark';
 
+const NAV_ITEMS = [
+  { key: 'home', label: '首页' },
+  { key: 'community', label: '社区' },
+  { key: 'messages', label: '消息' },
+  { key: 'profile', label: '我的' },
+] as const;
+
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 6) return '夜深了';
+  if (hour < 11) return '上午好';
+  if (hour < 14) return '中午好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
+
+/**
+ * 顶栏：桌面与移动两套结构。
+ * 桌面＝标识 + 导航 + 搜索 + 工具；移动＝问候 + 社区名 + 铃铛 + 搜索。
+ * 设计稿的桌面顶栏没有导航项，这里补一组 11px 文本导航，避免只能靠底部坞切页。
+ */
 export const HeaderNav: React.FC = () => {
-  const { 
-    currentUser, 
-    users, 
-    switchUser, 
-    viewMode, 
-    setViewMode, 
-    elderlyMode, 
-    setElderlyMode, 
-    setActiveSubPage, 
-    isAudioPlaying, 
+  const {
+    currentUser,
+    users,
+    switchUser,
+    elderlyMode,
+    setElderlyMode,
+    setActiveSubPage,
+    setActiveTab,
+    activeTab,
+    isAudioPlaying,
     stopArticleAudio,
-    triggerSos
+    unreadMessagesCount,
   } = useApp();
 
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowUserMenu(false);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setShowUserMenu(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [showUserMenu]);
+
+  const goTab = (tab: (typeof NAV_ITEMS)[number]['key']) => {
+    sound.playTap();
+    setActiveSubPage(null);
+    setActiveTab(tab);
+  };
+
+  const openSearch = () => {
+    sound.playTap();
+    setActiveSubPage('search_page');
+  };
+
+  const communityLabel = currentUser.community.replace(/（虚构）$/, '');
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-emerald-100/80 shadow-xs">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5">
-        <div className="flex items-center justify-between gap-2">
-          {/* Left: Community & Brand */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-white ring-1 ring-emerald-100 flex items-center justify-center shadow-xs shrink-0">
-              <BrandMark size={30} />
+    <header className="nl-header">
+      {/* 桌面 */}
+      <div className="nl-container nl-header__inner">
+        <div className="nl-brand">
+          <span className="nl-brand__mark" aria-hidden="true">
+            <House className="h-[22px] w-[22px]" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <div className="nl-brand__name">
+              <span className="min-w-0 truncate">{communityLabel}</span>
+              <span className="nl-tag shrink-0">互助演练站</span>
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-800 text-sm sm:text-base tracking-tight truncate">
-                  {currentUser.community}
-                </span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                  <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
-                  互助演练站
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 truncate hidden xs:block">
-                时间银行·银龄邻里守护平台
-              </p>
-            </div>
+            <p className="nl-brand__sub">时间银行 · 银龄邻里守护平台</p>
           </div>
+        </div>
 
-          {/* Center/Right: Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Search shortcut */}
+        <nav className="nl-nav" aria-label="主导航">
+          {NAV_ITEMS.map((item) => (
             <button
-              onClick={() => {
-                sound.playTap();
-                setActiveSubPage('search_page');
-              }}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-100/80 hover:bg-slate-200/80 text-slate-600 flex items-center gap-1.5 text-xs font-medium transition-colors"
-              title="全局搜索服务、志愿者、帖子"
+              key={item.key}
+              type="button"
+              className="nl-nav__link"
+              aria-current={activeTab === item.key ? 'page' : undefined}
+              onClick={() => goTab(item.key)}
             >
-              <Search className="w-4 h-4 text-slate-500" />
-              <span className="hidden sm:inline">搜索</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <button type="button" className="nl-search" onClick={openSearch} aria-label="搜索服务、志愿者、求助">
+          <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="nl-search__text">搜索服务、志愿者、求助</span>
+          <kbd className="nl-search__kbd">Ctrl K</kbd>
+        </button>
+
+        <div className="nl-tools">
+          {isAudioPlaying ? (
+            <button type="button" className="nl-modebtn" onClick={stopArticleAudio} title="正在语音朗读，点击停止">
+              <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+              停止朗读
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className="nl-modebtn"
+            aria-pressed={elderlyMode}
+            onClick={() => {
+              sound.playTap();
+              setElderlyMode(!elderlyMode);
+            }}
+            title="切换大字关怀模式"
+          >
+            <Accessibility className="h-3.5 w-3.5" aria-hidden="true" />
+            {elderlyMode ? '大字版' : '大字模式'}
+          </button>
+
+          <button
+            type="button"
+            className="nl-iconbtn"
+            onClick={() => goTab('messages')}
+            aria-label={`消息${unreadMessagesCount > 0 ? `，${unreadMessagesCount} 条未读` : ''}`}
+          >
+            <Bell className="h-[17px] w-[17px]" aria-hidden="true" />
+            {unreadMessagesCount > 0 ? <span className="nl-iconbtn__dot" /> : null}
+          </button>
+
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              className="nl-user"
+              onClick={() => setShowUserMenu((open) => !open)}
+              aria-expanded={showUserMenu}
+              aria-haspopup="menu"
+            >
+              <span className="nl-user__avatar" aria-hidden="true">
+                {currentUser.name.slice(0, 1)}
+              </span>
+              <span className="nl-user__name">{currentUser.nickname}</span>
+              <ChevronDown className="h-3 w-3 text-muted" aria-hidden="true" />
             </button>
 
-            {/* Audio Speech Status Indicator */}
-            {isAudioPlaying && (
-              <button
-                onClick={stopArticleAudio}
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium animate-pulse border border-amber-300"
-                title="正在语音朗读，点击停止"
+            {showUserMenu ? (
+              <div
+                role="menu"
+                aria-label="切换演示角色身份"
+                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[264px] rounded-[18px] border border-line bg-surface p-2"
               >
-                <Volume2 className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden xs:inline text-[11px]">正在朗读</span>
-              </button>
-            )}
+                <p className="px-2 py-1 text-[10px] font-medium text-muted">切换演示角色身份</p>
+                <div className="grid gap-0.5">
+                  {users.map((user) => {
+                    const isCurrent = user.id === currentUser.id;
+                    return (
+                      <button
+                        key={user.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isCurrent}
+                        onClick={() => {
+                          switchUser(user.id);
+                          setShowUserMenu(false);
+                        }}
+                        className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-page ${
+                          isCurrent ? 'bg-page' : ''
+                        }`}
+                      >
+                        <span className="nl-avatar nl-avatar--sm" aria-hidden="true">
+                          {user.name.slice(0, 1)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate text-[11.5px] font-semibold text-ink">{user.nickname}</span>
+                            <span className="nl-tag nl-tag--neutral shrink-0">{user.roleLabel}</span>
+                          </span>
+                          <span className="mt-0.5 block truncate text-[10px] text-muted">
+                            时间币 {(user.timeCoins ?? 0).toFixed(1)} · {user.address}
+                          </span>
+                        </span>
+                        {isCurrent ? <Check className="h-3.5 w-3.5 shrink-0 text-brand" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
 
-            {/* Elderly Care Mode Toggle */}
-            <button
-              onClick={() => {
-                sound.playTap();
-                setElderlyMode(!elderlyMode);
-              }}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs ${
-                elderlyMode 
-                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-amber-200' 
-                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-              }`}
-              title="切换大字关怀模式"
-            >
-              <Accessibility className="w-4 h-4" />
-              <span className="text-xs">{elderlyMode ? '长辈大字版' : '关怀模式'}</span>
-            </button>
-
-            {/* Device View Switcher (Desktop Portal vs Mini-Program Simulator) */}
-            <button
-              onClick={() => {
-                sound.playTap();
-                setViewMode(viewMode === 'mobile_frame' ? 'responsive_web' : 'mobile_frame');
-              }}
-              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200"
-              title="切换手机模拟框 / 宽屏网页视图"
-            >
-              {viewMode === 'mobile_frame' ? (
-                <>
-                  <Monitor className="w-3.5 h-3.5 text-slate-600" />
-                  <span>宽屏网页</span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>小程序视图</span>
-                </>
-              )}
-            </button>
-
-            {/* SOS Fast Trigger Button */}
-            <button
-              onClick={triggerSos}
-              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs hover:shadow-md transition-all animate-pulse"
-              title="一键紧急求助"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>SOS</span>
-            </button>
-
-            {/* User Identity Switcher Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center gap-1.5 p-1 sm:px-2 sm:py-1 rounded-lg hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors"
-              >
-                <img 
-                  src={currentUser.avatar} 
-                  alt={currentUser.name} 
-                  className="w-6 h-6 rounded-full object-cover ring-1 ring-emerald-500"
-                />
-                <span className="hidden sm:inline text-xs font-medium max-w-[70px] truncate">
-                  {currentUser.name}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              </button>
-
-              {showUserDropdown && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowUserDropdown(false)}
-                  />
-                  <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200/80 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-2 py-1.5 border-b border-slate-100 mb-1">
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        切换演示角色身份
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      {users.map((u) => {
-                        const isCurrent = u.id === currentUser.id;
-                        return (
-                          <button
-                            key={u.id}
-                            onClick={() => {
-                              switchUser(u.id);
-                              setShowUserDropdown(false);
-                            }}
-                            className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left text-xs transition-colors ${
-                              isCurrent 
-                                ? 'bg-emerald-50 text-emerald-900 font-semibold' 
-                                : 'hover:bg-slate-50 text-slate-700'
-                            }`}
-                          >
-                            <img 
-                              src={u.avatar} 
-                              alt={u.name} 
-                              className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className="truncate">{u.nickname}</span>
-                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-normal ${
-                                  u.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                  u.role === 'volunteer' ? 'bg-emerald-100 text-emerald-800' :
-                                  u.role === 'elder' ? 'bg-amber-100 text-amber-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {u.roleLabel}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-400 truncate">
-                                时间币: {u.timeCoins} | {u.address}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {/* 移动：仅首页显示问候与地址，其余页由页面标题承担 */}
+      {activeTab === 'home' ? (
+      <div className="nl-mheader">
+        <div className="nl-mheader__top">
+          <div className="min-w-0">
+            <p className="nl-mheader__greet">
+              {greeting()}，{currentUser.nickname}
+            </p>
+            <h1 className="nl-mheader__title truncate">{communityLabel}</h1>
+          </div>
+          <button
+            type="button"
+            className="nl-iconbtn"
+            onClick={() => goTab('messages')}
+            aria-label={`消息${unreadMessagesCount > 0 ? `，${unreadMessagesCount} 条未读` : ''}`}
+          >
+            <Bell className="h-[17px] w-[17px]" aria-hidden="true" />
+            {unreadMessagesCount > 0 ? <span className="nl-iconbtn__dot" /> : null}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button type="button" className="nl-search" onClick={openSearch} aria-label="搜索服务、志愿者、求助">
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="nl-search__text text-[12px]">搜索服务、志愿者、求助</span>
+          </button>
+        </div>
+      </div>
+      ) : null}
     </header>
   );
 };

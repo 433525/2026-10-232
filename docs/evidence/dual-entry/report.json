@@ -1,18 +1,18 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-24T02:40:51.660Z",
+  "checkedAt": "2026-10-26T04:14:12.853Z",
   "total": 27,
   "passed": 27,
   "results": [
     {
       "name": "B 端渲染出内容",
       "ok": true,
-      "detail": "textLength=1229"
+      "detail": "textLength=953"
     },
     {
       "name": "B 端五栏导航存在",
       "ok": true,
-      "detail": "navCount=5"
+      "detail": "navCount=9"
     },
     {
       "name": "B 端无 tel: 链接",
@@ -52,7 +52,7 @@
     {
       "name": "A+ 端启动非白屏",
       "ok": true,
-      "detail": "textLength=2014"
+      "detail": "textLength=1974"
     },
     {
       "name": "A+ 队列有记录",

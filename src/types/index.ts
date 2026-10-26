@@ -40,6 +40,15 @@ export type OrderStatus =
   | 'cancelled'         // 已取消
   | 'disputed';         // 申诉中
 
+/** 订单事件留痕的视图条目（由领域层 orderEvents 投影，供订单详情时间线展示）。 */
+export interface OrderEventView {
+  id: string;
+  typeLabel: string;
+  actorLabel: string;
+  note: string;
+  time: string;
+}
+
 export interface HelpOrder {
   id: string;
   userId: string;
@@ -76,6 +85,8 @@ export interface HelpOrder {
   disputeReason?: string;
   createdAt: string;
   auditNote?: string;
+  /** 追加能力（可选）：本机演练的订单事件留痕，按时间正序；不改变既有字段。 */
+  events?: OrderEventView[];
 }
 
 export type PostCategory = 'story' | 'help' | 'activity' | 'idle';
@@ -168,6 +179,10 @@ export interface ChatMessage {
   };
   imageUrl?: string;
   timestamp: string;
+  /** 追加能力（可选，不改变既有字段）：订单留言会话绑定的求助订单 id。 */
+  postId?: string;
+  /** 追加能力（可选）：会话展示标题，订单留言取对应订单标题。 */
+  conversationTitle?: string;
 }
 
 export interface VolunteerProfile {
@@ -246,6 +261,6 @@ export interface BannerItem {
   bgGradient: string;
   image: string;
   actionText: string;
-  actionType: 'help' | 'tasks' | 'article' | 'community' | 'sos';
+  actionType: 'help' | 'tasks' | 'article' | 'community' | 'sos' | 'rules';
   targetId?: string;
 }

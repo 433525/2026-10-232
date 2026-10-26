@@ -1,419 +1,451 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  X, 
-  CheckCircle, 
-  AlertTriangle, 
-  Coins, 
-  FileText, 
-  Users,
-  Database
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Coins, Database, FileText, ShieldCheck, Users } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
 import { StoragePanel } from './StoragePanel';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Tag } from '../ui/Tag';
+import { Avatar } from '../ui/Avatar';
+import { EmptyState } from '../ui/EmptyState';
+
+const TABS = [
+  { key: 'audit', label: '内容审核', icon: FileText },
+  { key: 'complaints', label: '举报处置工单', icon: AlertTriangle },
+  { key: 'ledger', label: '时间账本', icon: Coins },
+  { key: 'users', label: '演练身份', icon: Users },
+  { key: 'storage', label: '存档与恢复', icon: Database },
+] as const;
 
 export const AdminCenter: React.FC = () => {
-  const { 
-    currentUser, 
-    posts, 
-    orders, 
-    complaints, 
-    users, 
-    timeLedger, 
-    adminApprovePost, 
-    adminRejectPostWithReason, 
-    adminResolveComplaint, 
-    adminAdjustTimeCoin, 
-    setActiveSubPage 
+  const {
+    currentUser,
+    pendingPosts,
+    pendingComments,
+    orders,
+    complaints,
+    users,
+    timeLedger,
+    adminApprovePost,
+    adminRejectPostWithReason,
+    adminApproveComment,
+    adminRejectCommentWithReason,
+    adminResolveComplaint,
+    adminAdjustTimeCoin,
+    setActiveSubPage,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'audit' | 'complaints' | 'ledger' | 'users' | 'storage'>('audit');
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('audit');
   const [selectedUserForCoin, setSelectedUserForCoin] = useState<string>(users[0].id);
   const [adjustCoinAmount, setAdjustCoinAmount] = useState<number>(5);
   const [adjustCoinReason, setAdjustCoinReason] = useState<string>('年度邻里互助模范特别奖励');
-  // 按工单 id 存草稿：共用一份字符串会让多条待处理工单同步回显同一段处置结论。
   const [complaintReplies, setComplaintReplies] = useState<Record<string, string>>({});
-  const complaintReplyOf = (id: string) => complaintReplies[id] ?? '已核对本机演练记录，按互助规则完成处置。';
-  // 驳回必须给理由（R7）：按帖子 id 存草稿，未填理由时按钮禁用。
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
-  const pendingPosts = posts.filter(p => p.status === 'pending');
-  const pendingOrders = orders.filter(o => o.status === 'pending_audit');
+  const replyOf = (id: string) => complaintReplies[id] ?? '已核对本机演练记录，按互助规则完成处置。';
+  const pendingOrders = orders.filter((order) => order.status === 'pending_audit');
+  const pendingComplaints = complaints.filter((item) => item.status === 'pending');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Admin Header */}
-        <div className="p-4 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-base sm:text-lg">
-                  内容审核与举报处置（演练后台）
-                </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">
-                  当前操作员: {currentUser.name}
+    <Modal
+      title="审核与举报处置后台"
+      subtitle={`内容审核与举报处置 · 当前操作员：${currentUser.name} · 先审后发 · 处置留痕`}
+      onClose={() => setActiveSubPage(null)}
+      wide
+      footer={
+        <>
+          <p className="nl-modal__foot-note">
+            本后台只操作本机存档；不连接真实审核系统，也不会通知任何机构。
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setActiveSubPage(null)}>
+            关闭
+          </Button>
+        </>
+      }
+    >
+      <div className="no-scrollbar mb-3 flex gap-1 overflow-x-auto border-b border-line pb-2">
+        {TABS.map((item) => {
+          const Icon = item.icon;
+          const count =
+            item.key === 'audit'
+              ? pendingPosts.length + pendingComments.length + pendingOrders.length
+              : item.key === 'complaints'
+                ? pendingComplaints.length
+                : 0;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={tab === item.key}
+              onClick={() => {
+                sound.playTap();
+                setTab(item.key);
+              }}
+              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] transition-colors ${
+                tab === item.key
+                  ? 'bg-brand text-white'
+                  : 'text-text2 hover:bg-page hover:text-ink'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              {item.label}
+              {count > 0 ? (
+                <span
+                  className={`nl-num rounded-full px-1 text-[9px] ${
+                    tab === item.key ? 'bg-white/20' : 'bg-sunken text-brand-ink'
+                  }`}
+                >
+                  {count}
                 </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'audit' ? (
+        <div className="grid gap-3">
+          {pendingPosts.length === 0 && pendingComments.length === 0 && pendingOrders.length === 0 ? (
+            <EmptyState
+              icon={<CheckCircle2 className="h-6 w-6 text-accent" aria-hidden="true" />}
+              title="当前没有积压的待审核内容"
+              hint="新的发布与评论提交会进入这里；先审后发不会跳过队列。"
+            />
+          ) : null}
+
+          {pendingPosts.map((post) => (
+            <section key={post.id} className="nl-card nl-card--sm px-4 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Tag tone="warn">待审内容 · {post.categoryLabel}</Tag>
+                <span className="text-[9.5px] text-faint">{post.createdAt}</span>
               </div>
-              <p className="text-xs text-purple-200">
-                先审后发 · 驳回必须填理由 · 举报处置留痕 · 时间账本只读
+              <p className="mt-2 text-[12.5px] font-semibold text-ink">{post.title || '动态分享'}</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-text2">{post.content}</p>
+
+              <div className="mt-2.5 border-t border-line pt-2.5">
+                <label className="nl-label" htmlFor={`reject-${post.id}`}>
+                  驳回理由（必填，会写入审核日志）
+                </label>
+                <input
+                  id={`reject-${post.id}`}
+                  type="text"
+                  className="nl-field"
+                  value={rejectReasons[post.id] ?? ''}
+                  onChange={(event) =>
+                    setRejectReasons((prev) => ({ ...prev, [post.id]: event.target.value }))
+                  }
+                  placeholder="例如：包含未脱敏的联系方式 / 与互助无关的推广"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button
+                    size="xs"
+                    variant="quiet"
+                    disabled={!(rejectReasons[post.id] ?? '').trim()}
+                    onClick={() => adminRejectPostWithReason(post.id, rejectReasons[post.id] ?? '')}
+                  >
+                    驳回并记录理由
+                  </Button>
+                  <Button size="xs" variant="primary" onClick={() => adminApprovePost(post.id)}>
+                    审核通过并公开
+                  </Button>
+                </div>
+              </div>
+            </section>
+          ))}
+
+          {pendingComments.map((comment) => (
+            <section key={comment.id} className="nl-card nl-card--sm px-4 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Tag tone="warn">待审评论</Tag>
+                <span className="text-[9.5px] text-faint">{comment.createdAt}</span>
+              </div>
+              <p className="mt-2 text-[11px] text-muted">
+                {comment.userName} · 发表在《{comment.postTitle}》
               </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage(null);
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-text2">{comment.content}</p>
+
+              <div className="mt-2.5 border-t border-line pt-2.5">
+                <label className="nl-label" htmlFor={`reject-${comment.id}`}>
+                  驳回理由（必填，会写入审核日志）
+                </label>
+                <input
+                  id={`reject-${comment.id}`}
+                  type="text"
+                  className="nl-field"
+                  value={rejectReasons[comment.id] ?? ''}
+                  onChange={(event) =>
+                    setRejectReasons((prev) => ({ ...prev, [comment.id]: event.target.value }))
+                  }
+                  placeholder="例如：评论含人身攻击 / 站外引流"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button
+                    size="xs"
+                    variant="quiet"
+                    disabled={!(rejectReasons[comment.id] ?? '').trim()}
+                    onClick={() =>
+                      adminRejectCommentWithReason(
+                        comment.postId,
+                        comment.id,
+                        rejectReasons[comment.id] ?? '',
+                      )
+                    }
+                  >
+                    驳回并记录理由
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="primary"
+                    onClick={() => adminApproveComment(comment.postId, comment.id)}
+                  >
+                    审核通过并展示
+                  </Button>
+                </div>
+              </div>
+            </section>
+          ))}
+
+          {pendingOrders.length > 0 ? (
+            <section className="nl-alert nl-alert--info">
+              <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                还有 {pendingOrders.length} 条求助单处于待审状态，需要在 A+ 受理工作台按登记流程处理；
+                B 端后台只负责社区内容的先审后发。
+              </span>
+            </section>
+          ) : null}
         </div>
+      ) : null}
 
-        {/* Tab Navigation */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-50 px-4 text-xs font-bold text-slate-600 shrink-0 overflow-x-auto">
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('audit');
-            }}
-            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'audit' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-purple-600" />
-            <span>内容审核队列（{pendingPosts.length + pendingOrders.length}）</span>
-          </button>
+      {tab === 'complaints' ? (
+        <div className="grid gap-3">
+          <p className="text-[10.5px] leading-relaxed text-muted">
+            每条 UGC 都可被举报；处置结论会写入举报记录，并作为站内消息回给举报人。
+          </p>
 
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('complaints');
-            }}
-            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'complaints' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>举报处置工单（{complaints.filter(c => c.status === 'pending').length}）</span>
-          </button>
+          {complaints.length === 0 ? (
+            <EmptyState title="还没有举报工单" hint="在信息流、评论或订单留言上使用「举报」后会出现。" />
+          ) : null}
 
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('ledger');
-            }}
-            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'ledger' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <Coins className="w-4 h-4 text-amber-500" />
-            <span>时间账本（只读·未结算）</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('users');
-            }}
-            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'users' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4 text-blue-600" />
-            <span>演练身份与志愿者</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveTab('storage');
-            }}
-            className={`py-3 px-4 border-b-2 transition-colors flex items-center gap-1.5 ${
-              activeTab === 'storage' ? 'border-purple-600 text-purple-900 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <Database className="w-4 h-4 text-slate-600" />
-            <span>存档与恢复</span>
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* 1. 审核队列 */}
-          {activeTab === 'audit' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800">
-                  待审内容与求助单（先审后发）
-                </h3>
-                <span className="text-xs text-slate-500">
-                  审核结论会写入审核日志；驳回必须填写理由
+          {complaints.map((ticket) => (
+            <section key={ticket.id} className="nl-card nl-card--sm px-4 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-[10.5px] font-semibold text-text2">
+                  工单编号：{ticket.ticketNo}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Tag tone="neutral">
+                    {ticket.targetType === 'comment'
+                      ? '演练评论'
+                      : ticket.targetType === 'message'
+                        ? '订单留言'
+                        : '信息流内容'}
+                  </Tag>
+                  <Tag tone={ticket.status === 'resolved' ? 'accent' : 'warn'}>{ticket.statusLabel}</Tag>
                 </span>
               </div>
 
-              {pendingPosts.length === 0 && pendingOrders.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
-                  <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-700">当前没有积压的待审核内容</p>
-                  <p className="text-xs text-slate-400 mt-1">等待新的发布提交；先审后发不会跳过队列</p>
+              <div className="mt-2 grid gap-1 text-[11px] leading-relaxed text-text2">
+                <p>
+                  <strong className="text-text">举报人：</strong>
+                  {ticket.userName || '演练用户'}
+                  <span className="mx-1 text-line-strong">|</span>
+                  <strong className="text-text">被举报内容：</strong>
+                  {ticket.orderTitle ?? ticket.targetUser ?? '演练内容'}
+                  {ticket.targetId ? (
+                    <span className="ml-1 font-mono text-[9.5px] text-faint">（{ticket.targetId}）</span>
+                  ) : null}
+                </p>
+                <p>
+                  <strong className="text-text">举报原因：</strong>
+                  {ticket.reason}
+                </p>
+                <p className="rounded-[8px] bg-page px-2.5 py-2">{ticket.detail}</p>
+              </div>
+
+              {ticket.status === 'pending' ? (
+                <div className="mt-2.5 border-t border-line pt-2.5">
+                  <label className="nl-label" htmlFor={`reply-${ticket.id}`}>
+                    处置结论（写入举报记录，留痕）
+                  </label>
+                  <input
+                    id={`reply-${ticket.id}`}
+                    type="text"
+                    className="nl-field"
+                    value={replyOf(ticket.id)}
+                    onChange={(event) =>
+                      setComplaintReplies((prev) => ({ ...prev, [ticket.id]: event.target.value }))
+                    }
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      size="xs"
+                      variant="primary"
+                      onClick={() => adminResolveComplaint(ticket.id, replyOf(ticket.id))}
+                    >
+                      确认办结（只写本机站内消息）
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {pendingPosts.map(post => (
-                    <div key={post.id} className="p-4 rounded-xl border border-purple-200 bg-purple-50/30 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded">
-                          待审内容 · {post.categoryLabel}
-                        </span>
-                        <span className="text-xs text-slate-400 font-mono">{post.createdAt}</span>
-                      </div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-800">{post.title || '动态分享'}</p>
-                      <p className="text-xs text-slate-600">{post.content}</p>
-                      <div className="space-y-2 pt-2 border-t border-purple-100">
-                        <label className="block text-[11px] font-semibold text-slate-500" htmlFor={`reject-${post.id}`}>
-                          驳回理由（必填，会写入审核日志并通知发布者）
-                        </label>
-                        <input
-                          id={`reject-${post.id}`}
-                          type="text"
-                          value={rejectReasons[post.id] ?? ''}
-                          onChange={(e) =>
-                            setRejectReasons((prev) => ({ ...prev, [post.id]: e.target.value }))
-                          }
-                          placeholder="例如：包含未脱敏的联系方式 / 与互助无关的推广内容"
-                          className="w-full p-2 rounded-lg border border-slate-200 text-xs text-slate-800 focus:ring-2 focus:ring-purple-500 outline-none"
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => adminRejectPostWithReason(post.id, rejectReasons[post.id] ?? '')}
-                            disabled={!((rejectReasons[post.id] ?? '').trim())}
-                            className="px-3 py-1.5 rounded-lg border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed min-h-[36px]"
-                          >
-                            驳回并记录理由
-                          </button>
-                          <button
-                            onClick={() => adminApprovePost(post.id)}
-                            className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs min-h-[36px]"
-                          >
-                            审核通过并公开
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-2 rounded-[8px] bg-accent-tint px-2.5 py-2 text-[10.5px] leading-relaxed text-[#174f42]">
+                  <p>
+                    <strong>经办人：</strong>
+                    {ticket.handlerName}（{ticket.resolvedAt}）
+                  </p>
+                  <p className="mt-0.5">
+                    <strong>处理说明：</strong>
+                    {ticket.resolutionNote}
+                  </p>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* 2. 投诉维权工单 */}
-          {activeTab === 'complaints' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800">
-                  举报与处置（每条 UGC 都可举报，处置结果写入站内消息）
-                </h3>
-              </div>
-
-              {complaints.map(ticket => (
-                <div key={ticket.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-slate-700">
-                      工单编号：{ticket.ticketNo}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                      ticket.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {ticket.statusLabel}
-                    </span>
-                  </div>
-
-                  <div className="text-xs sm:text-sm text-slate-700 space-y-1">
-                    <p>
-                      <strong>举报人：</strong>{ticket.userName} | <strong>被举报内容：</strong>
-                      {ticket.orderTitle ?? ticket.targetUser ?? '演练内容'}
-                      {ticket.targetId ? (
-                        <span className="text-slate-400 font-mono">（{ticket.targetId}）</span>
-                      ) : null}
-                    </p>
-                    <p><strong>举报原因：</strong>{ticket.reason}</p>
-                    <p className="p-2.5 rounded-lg bg-slate-50 border text-slate-600">{ticket.detail}</p>
-                  </div>
-
-                  {ticket.status === 'pending' ? (
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <label className="text-xs text-slate-500 font-semibold">处置结论（写入举报记录，留痕）：</label>
-                      <input
-                        type="text"
-                        value={complaintReplyOf(ticket.id)}
-                        onChange={(e) => setComplaintReplies((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
-                        className="w-full p-2 text-xs border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                      />
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => adminResolveComplaint(ticket.id, complaintReplyOf(ticket.id))}
-                          className="px-4 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs"
-                        >
-                          确认办结（只写本机站内消息）
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-2.5 rounded-lg bg-emerald-50 text-xs text-emerald-800 space-y-1">
-                      <p><strong>经办人：</strong>{ticket.handlerName} ({ticket.resolvedAt})</p>
-                      <p><strong>处理说明：</strong>{ticket.resolutionNote}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 3. 时间币账本与调账 */}
-          {activeTab === 'ledger' && (
-            <div className="space-y-4">
-              {/* Manual Adjustment Form */}
-              <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-3">
-                <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Coins className="w-4 h-4 text-amber-600" />
-                  <span>人工调账（本演示禁用：账本只读）</span>
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-slate-600">目标居民/志愿者：</label>
-                    <select
-                      value={selectedUserForCoin}
-                      onChange={(e) => setSelectedUserForCoin(e.target.value)}
-                      className="w-full mt-1 p-2 rounded-lg border border-slate-200 text-xs bg-white"
-                    >
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.roleLabel} - 余额: {u.timeCoins}币)</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-slate-600">调整额度（可正可负）：</label>
-                    <input
-                      type="number"
-                      value={adjustCoinAmount}
-                      onChange={(e) => setAdjustCoinAmount(Number(e.target.value))}
-                      className="w-full mt-1 p-2 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-slate-600">核准调账原因：</label>
-                    <input
-                      type="text"
-                      value={adjustCoinReason}
-                      onChange={(e) => setAdjustCoinReason(e.target.value)}
-                      className="w-full mt-1 p-2 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  时间账本在演示环境里是只读的：不存在结算、兑现或转让，也不伪造管理员流水（R18 / T11）。
-                  生产环境若保留人工调账，必须双人复核 + 独立操作日志。
-                </p>
-
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => {
-                      // 保留入口但禁用：让「缺能力」可见，而不是把 UI 删掉（需求 §8.4）。
-                      adminAdjustTimeCoin(selectedUserForCoin, adjustCoinAmount, adjustCoinReason);
-                      toast('演练数据只读：时间账本不支持调账、兑现或转让。');
-                    }}
-                    aria-disabled="true"
-                    title="演示环境账本只读"
-                    className="px-4 py-1.5 rounded-lg bg-slate-300 text-slate-600 text-xs font-bold shadow-none cursor-not-allowed"
-                  >
-                    调账不可用（演练只读）
-                  </button>
-                </div>
-              </div>
-
-              {/* Ledger Table */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  本机演练时间记录（只读 · 全部未结算）
-                </h4>
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                      <tr>
-                        <th className="p-2.5">交易流水号</th>
-                        <th className="p-2.5">事项说明</th>
-                        <th className="p-2.5">变动分钟数</th>
-                        <th className="p-2.5">交易时间</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {timeLedger.map(tx => (
-                        <tr key={tx.id} className="hover:bg-slate-50">
-                          <td className="p-2.5 font-mono text-slate-500">{tx.txHash}</td>
-                          <td className="p-2.5 text-slate-800">{tx.description}</td>
-                          <td className={`p-2.5 font-bold ${tx.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {tx.amount > 0 ? `+${tx.amount}` : tx.amount} 分钟
-                          </td>
-                          <td className="p-2.5 text-slate-400">{tx.createdAt}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 4. 实名住户 */}
-          {activeTab === 'users' && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-800">
-                演练身份与派生志愿者（无真实手机号/身份证）
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {users.map(u => (
-                  <div key={u.id} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center gap-3">
-                    <div
-                      aria-hidden="true"
-                      className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-purple-400 shrink-0"
-                    >
-                      {u.nickname.slice(0, 1)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 text-sm truncate">{u.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-medium">
-                          {u.roleLabel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
-                        {u.address} | 未结算: <strong>{u.timeCoins}</strong> 币
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        身份信息：演练不采集（无身份证号、无手机号）
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 5. 存档与恢复（§7 存储契约：坏档必须可自愈） */}
-          {activeTab === 'storage' && <StoragePanel />}
+            </section>
+          ))}
         </div>
-      </div>
-    </div>
+      ) : null}
+
+      {tab === 'ledger' ? (
+        <div className="grid gap-3">
+          <section className="rounded-[12px] bg-warn-tint px-4 py-3.5">
+            <h4 className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[#6f5327]">
+              <Coins className="h-3.5 w-3.5" aria-hidden="true" />
+              人工调账（演示禁用：账本只读）
+            </h4>
+
+            <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div>
+                <label className="nl-label" htmlFor="coin-user">
+                  目标居民 / 志愿者
+                </label>
+                <select
+                  id="coin-user"
+                  className="nl-select"
+                  value={selectedUserForCoin}
+                  onChange={(event) => setSelectedUserForCoin(event.target.value)}
+                >
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}（余额 {user.timeCoins.toFixed(1)}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="nl-label" htmlFor="coin-amount">
+                  调整额度（可正可负）
+                </label>
+                <input
+                  id="coin-amount"
+                  type="number"
+                  className="nl-field"
+                  value={adjustCoinAmount}
+                  onChange={(event) => setAdjustCoinAmount(Number(event.target.value))}
+                />
+              </div>
+              <div>
+                <label className="nl-label" htmlFor="coin-reason">
+                  核准调账原因
+                </label>
+                <input
+                  id="coin-reason"
+                  type="text"
+                  className="nl-field"
+                  value={adjustCoinReason}
+                  onChange={(event) => setAdjustCoinReason(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <p className="mt-2 text-[9.5px] leading-relaxed text-[#6f5327]">
+              时间账本在演示环境里是只读的：不存在结算、兑现或转让。生产环境若保留人工调账，
+              必须双人复核并保留独立操作日志。
+            </p>
+
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="xs"
+                variant="quiet"
+                aria-disabled="true"
+                title="演示环境账本只读"
+                onClick={() => {
+                  adminAdjustTimeCoin(selectedUserForCoin, adjustCoinAmount, adjustCoinReason);
+                  toast('演练数据只读：时间账本不支持调账、兑现或转让。');
+                }}
+              >
+                调账不可用（演练只读）
+              </Button>
+            </div>
+          </section>
+
+          <section>
+            <h4 className="mb-1.5 text-[10px] font-semibold tracking-wide text-muted">
+              本机演练时间记录（只读 · 全部未结算）
+            </h4>
+            <div className="overflow-hidden rounded-[12px] border border-line">
+              <table className="w-full text-left text-[10.5px]">
+                <thead className="bg-page text-text2">
+                  <tr>
+                    <th className="px-2.5 py-2 font-semibold">流水号</th>
+                    <th className="px-2.5 py-2 font-semibold">事项说明</th>
+                    <th className="px-2.5 py-2 font-semibold">变动</th>
+                    <th className="px-2.5 py-2 font-semibold">时间</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {timeLedger.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-page">
+                      <td className="px-2.5 py-2 font-mono text-[9.5px] text-muted">{tx.txHash}</td>
+                      <td className="px-2.5 py-2 text-text">{tx.description}</td>
+                      <td
+                        className={`px-2.5 py-2 font-semibold ${
+                          tx.amount > 0 ? 'text-accent' : 'text-danger'
+                        }`}
+                      >
+                        {tx.amount > 0 ? `+${tx.amount}` : tx.amount} 分钟
+                      </td>
+                      <td className="px-2.5 py-2 text-[9.5px] text-muted">{tx.createdAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === 'users' ? (
+        <div className="grid gap-3">
+          <h3 className="text-[11.5px] font-semibold text-ink">
+            演练身份与派生志愿者（无真实手机号 / 身份证）
+          </h3>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {users.map((user) => (
+              <div key={user.id} className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3.5 py-3">
+                <Avatar name={user.nickname} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[12px] font-semibold text-ink">{user.name}</span>
+                    <Tag tone="neutral">{user.roleLabel}</Tag>
+                  </div>
+                  <p className="mt-0.5 truncate text-[10px] text-muted">
+                    {user.address} · 未结算{' '}
+                    <strong className="nl-num text-text2">{user.timeCoins.toFixed(1)}</strong> 币
+                  </p>
+                  <p className="mt-0.5 text-[9.5px] text-faint">身份信息：演练不采集</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'storage' ? <StoragePanel /> : null}
+
+      <p className="mt-3 flex items-center gap-1.5 text-[9.5px] text-muted">
+        <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+        后台操作只写本机存档，操作记录可在「存档与恢复」中导出核对
+      </p>
+    </Modal>
   );
 };

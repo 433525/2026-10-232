@@ -22,7 +22,7 @@ export const BANNER_ITEMS: BannerItem[] = [
     bgGradient: 'from-emerald-700 via-teal-800 to-slate-900',
     image: '',
     actionText: '查看规则',
-    actionType: 'help',
+    actionType: 'rules',
   },
   {
     id: 'b2',
@@ -43,6 +43,7 @@ export const BANNER_ITEMS: BannerItem[] = [
     image: '',
     actionText: '听科普',
     actionType: 'article',
+    targetId: 'art_2',
   },
   {
     id: 'b4',

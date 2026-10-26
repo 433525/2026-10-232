@@ -1,247 +1,287 @@
-import React, { useState } from 'react';
-import { Search, X, HeartHandshake, Users, BookOpen, FileText, ChevronRight } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { BookOpen, ChevronRight, FileText, Search, Users, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
+import { toast } from '../utils/toast';
+import { Modal } from '../ui/Modal';
+import { Tag } from '../ui/Tag';
+import { Avatar } from '../ui/Avatar';
+
+const HOT_KEYWORDS = ['陪同就医', '高血压', '修水龙头', '非遗剪纸', '助行器'];
+
+const TABS = [
+  { key: 'all', label: '综合' },
+  { key: 'orders', label: '求助' },
+  { key: 'volunteers', label: '志愿者' },
+  { key: 'posts', label: '动态' },
+  { key: 'articles', label: '科普' },
+];
 
 export const SearchModal: React.FC = () => {
-  const { 
-    orders, 
-    volunteers, 
-    posts, 
-    eldercareArticles, 
-    setActiveSubPage, 
-    setSelectedOrderId, 
-    setSelectedPostId, 
-    setSelectedArticleId 
+  const {
+    orders,
+    volunteers,
+    posts,
+    eldercareArticles,
+    setActiveSubPage,
+    setSelectedOrderId,
+    setSelectedPostId,
+    setSelectedArticleId,
+    setActiveTab,
   } = useApp();
 
   const [keyword, setKeyword] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'orders' | 'volunteers' | 'posts' | 'articles'>('all');
+  const [tab, setTab] = useState<'all' | 'orders' | 'volunteers' | 'posts' | 'articles'>('all');
 
   const q = keyword.trim().toLowerCase();
 
-  const matchedOrders = orders.filter(o => 
-    !q || o.title.toLowerCase().includes(q) || o.description.toLowerCase().includes(q) || o.categoryLabel.includes(q)
+  const matchedOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          !q ||
+          order.title.toLowerCase().includes(q) ||
+          order.description.toLowerCase().includes(q) ||
+          order.categoryLabel.includes(q),
+      ),
+    [orders, q],
   );
 
-  const matchedVolunteers = volunteers.filter(v => 
-    !q || v.name.toLowerCase().includes(q) || v.skills.some(s => s.toLowerCase().includes(q)) || v.bio.includes(q)
+  const matchedVolunteers = useMemo(
+    () =>
+      volunteers.filter(
+        (vol) =>
+          !q ||
+          vol.name.toLowerCase().includes(q) ||
+          vol.skills.some((skill) => skill.toLowerCase().includes(q)) ||
+          vol.bio.includes(q),
+      ),
+    [volunteers, q],
   );
 
-  const matchedPosts = posts.filter(p => 
-    !q || p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q) || (p.tags && p.tags.some(t => t.includes(q)))
+  const matchedPosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          !q ||
+          post.title.toLowerCase().includes(q) ||
+          post.content.toLowerCase().includes(q) ||
+          post.tags?.some((tag) => tag.includes(q)),
+      ),
+    [posts, q],
   );
 
-  const matchedArticles = eldercareArticles.filter(a => 
-    !q || a.title.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q) || a.tag.includes(q)
+  const matchedArticles = useMemo(
+    () =>
+      eldercareArticles.filter(
+        (article) =>
+          !q ||
+          article.title.toLowerCase().includes(q) ||
+          article.summary.toLowerCase().includes(q) ||
+          article.tag.includes(q),
+      ),
+    [eldercareArticles, q],
   );
 
-  const hotKeywords = ['陪同就医', '高血压', '修水龙头', '张大爷', '非遗剪纸', '助行器', '陈明'];
+  const counts: Record<string, number> = {
+    all: matchedOrders.length + matchedVolunteers.length + matchedPosts.length + matchedArticles.length,
+    orders: matchedOrders.length,
+    volunteers: matchedVolunteers.length,
+    posts: matchedPosts.length,
+    articles: matchedArticles.length,
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Search Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center gap-3 shrink-0">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              autoFocus
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="搜索服务需求、附近志愿者、社区动态、养老科普..."
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-800 text-white placeholder-slate-400 text-xs sm:text-sm border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            {keyword && (
-              <button
-                onClick={() => setKeyword('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+    <Modal
+      title="搜索"
+      subtitle="服务、志愿者、社区动态与养老科普"
+      onClose={() => setActiveSubPage(null)}
+      wide
+    >
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          autoFocus
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder="搜索服务需求、附近志愿者、社区动态、养老科普…"
+          className="nl-field nl-field--icon nl-field--lg pr-9"
+          aria-label="搜索关键词"
+        />
+        {keyword ? (
           <button
+            type="button"
+            onClick={() => setKeyword('')}
+            className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-muted hover:bg-page hover:text-ink"
+            aria-label="清空搜索"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="no-scrollbar mt-2 flex items-center gap-1.5 overflow-x-auto">
+        <span className="shrink-0 text-[9.5px] text-muted">热门搜索</span>
+        {HOT_KEYWORDS.map((word) => (
+          <button
+            key={word}
+            type="button"
+            className="nl-chip h-7 shrink-0 px-2.5 text-[10.5px]"
             onClick={() => {
               sound.playTap();
-              setActiveSubPage(null);
+              setKeyword(word);
             }}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white"
           >
-            <X className="w-5 h-5" />
+            {word}
           </button>
-        </div>
-
-        {/* Hot Tags */}
-        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto shrink-0">
-          <span className="text-[11px] font-bold text-slate-400 shrink-0">热门搜索:</span>
-          {hotKeywords.map(k => (
-            <button
-              key={k}
-              onClick={() => {
-                sound.playTap();
-                setKeyword(k);
-              }}
-              className="px-2.5 py-0.5 rounded-full bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-xs border border-slate-200 whitespace-nowrap transition-colors"
-            >
-              {k}
-            </button>
-          ))}
-        </div>
-
-        {/* Categories Tabs */}
-        <div className="flex border-b border-slate-200 bg-white px-4 text-xs font-semibold text-slate-500 shrink-0">
-          {[
-            { key: 'all', label: '综合' },
-            { key: 'orders', label: `求助订单 (${matchedOrders.length})` },
-            { key: 'volunteers', label: `志愿者 (${matchedVolunteers.length})` },
-            { key: 'posts', label: `社区动态 (${matchedPosts.length})` },
-            { key: 'articles', label: `养老科普 (${matchedArticles.length})` },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => {
-                sound.playTap();
-                setActiveTab(t.key as typeof activeTab);
-              }}
-              className={`py-2.5 px-3 border-b-2 transition-colors ${
-                activeTab === t.key ? 'border-emerald-600 text-emerald-800 font-bold' : 'border-transparent hover:text-slate-800'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Results List */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* Orders Section */}
-          {(activeTab === 'all' || activeTab === 'orders') && matchedOrders.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                <HeartHandshake className="w-3.5 h-3.5 text-emerald-600" />
-                <span>求助订单</span>
-              </div>
-              <div className="space-y-1.5">
-                {matchedOrders.slice(0, 3).map(order => (
-                  <button
-                    key={order.id}
-                    onClick={() => {
-                      sound.playTap();
-                      setSelectedOrderId(order.id);
-                      setActiveSubPage('order_detail');
-                    }}
-                    className="w-full p-2.5 text-left rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 transition-all flex items-center justify-between"
-                  >
-                    <div className="min-w-0 pr-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
-                          {order.categoryLabel}
-                        </span>
-                        <span className="text-xs font-bold text-slate-800 truncate">
-                          {order.title}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {order.locationArea} · +{order.timeCoinReward} 币
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Volunteers Section */}
-          {(activeTab === 'all' || activeTab === 'volunteers') && matchedVolunteers.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                <Users className="w-3.5 h-3.5 text-blue-600" />
-                <span>认证志愿者</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {matchedVolunteers.map(vol => (
-                  <div
-                    key={vol.id}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5"
-                  >
-                    <img src={vol.avatar} alt={vol.name} className="w-10 h-10 rounded-full object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 truncate">{vol.name}</span>
-                        <span className="text-[10px] text-amber-600 font-bold">★ {vol.rating}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                        {vol.skills.join(' / ')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Posts Section */}
-          {(activeTab === 'all' || activeTab === 'posts') && matchedPosts.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                <FileText className="w-3.5 h-3.5 text-amber-600" />
-                <span>社区动态与帖子</span>
-              </div>
-              <div className="space-y-1.5">
-                {matchedPosts.slice(0, 3).map(post => (
-                  <button
-                    key={post.id}
-                    onClick={() => {
-                      sound.playTap();
-                      setSelectedPostId(post.id);
-                      setActiveSubPage('post_detail');
-                    }}
-                    className="w-full p-2.5 text-left rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 transition-all flex items-center justify-between"
-                  >
-                    <div className="min-w-0 pr-2">
-                      <p className="text-xs font-bold text-slate-800 truncate">{post.title || post.content.slice(0, 30)}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{post.userName} · {post.categoryLabel}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Articles Section */}
-          {(activeTab === 'all' || activeTab === 'articles') && matchedArticles.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                <BookOpen className="w-3.5 h-3.5 text-sky-600" />
-                <span>养老科普指南</span>
-              </div>
-              <div className="space-y-1.5">
-                {matchedArticles.map(art => (
-                  <button
-                    key={art.id}
-                    onClick={() => {
-                      sound.playTap();
-                      setSelectedArticleId(art.id);
-                      setActiveSubPage('eldercare_detail');
-                    }}
-                    className="w-full p-2.5 text-left rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 transition-all flex items-center justify-between"
-                  >
-                    <div className="min-w-0 pr-2">
-                      <p className="text-xs font-bold text-slate-800 truncate">{art.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{art.categoryLabel} · {art.tag}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        ))}
       </div>
-    </div>
+
+      <div className="no-scrollbar mt-3 flex gap-1.5 overflow-x-auto border-b border-line pb-2">
+        {TABS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`nl-chip h-8 shrink-0 px-3 text-[11px]${tab === item.key ? ' nl-chip--active' : ''}`}
+            aria-pressed={tab === item.key}
+            onClick={() => {
+              sound.playTap();
+              setTab(item.key as typeof tab);
+            }}
+          >
+            {item.label}
+            <span className={`nl-num text-[9.5px] ${tab === item.key ? 'text-white/80' : 'text-muted'}`}>
+              {counts[item.key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-4">
+        {counts.all === 0 ? (
+          <div className="nl-empty">
+            <p className="nl-empty__title">没有找到匹配内容</p>
+            <p className="nl-empty__hint">试试更短的关键词，或换一个分类。</p>
+          </div>
+        ) : null}
+
+        {(tab === 'all' || tab === 'orders') && matchedOrders.length > 0 ? (
+          <section className="grid gap-1.5">
+            <h3 className="text-[10px] font-semibold tracking-wide text-muted">求助订单</h3>
+            {matchedOrders.slice(0, 4).map((order) => (
+              <button
+                key={order.id}
+                type="button"
+                className="nl-row rounded-[12px] border border-line bg-white"
+                onClick={() => {
+                  sound.playTap();
+                  setSelectedOrderId(order.id);
+                  setActiveSubPage('order_detail');
+                }}
+              >
+                <div className="nl-row__main">
+                  <span className="nl-row__title">
+                    <Tag tone={order.isUrgent ? 'danger' : 'neutral'}>{order.categoryLabel}</Tag>
+                    <span className="truncate">{order.title}</span>
+                  </span>
+                  <span className="nl-row__sub">
+                    {order.locationArea} · +{order.timeCoinReward} 时间币
+                  </span>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            ))}
+          </section>
+        ) : null}
+
+        {(tab === 'all' || tab === 'volunteers') && matchedVolunteers.length > 0 ? (
+          <section className="grid gap-1.5">
+            <h3 className="flex items-center gap-1 text-[10px] font-semibold tracking-wide text-muted">
+              <Users className="h-3 w-3" aria-hidden="true" />
+              志愿者
+            </h3>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {matchedVolunteers.map((vol) => (
+                <div
+                  key={vol.id}
+                  className="flex items-center gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2.5"
+                >
+                  <Avatar name={vol.name} size="sm" tone="accent" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11.5px] font-semibold text-ink">{vol.name}</p>
+                    <p className="mt-0.5 truncate text-[9.5px] text-muted">{vol.skills.join(' / ')}</p>
+                  </div>
+                  <span className="nl-tag nl-tag--accent shrink-0">{vol.badge}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {(tab === 'all' || tab === 'posts') && matchedPosts.length > 0 ? (
+          <section className="grid gap-1.5">
+            <h3 className="flex items-center gap-1 text-[10px] font-semibold tracking-wide text-muted">
+              <FileText className="h-3 w-3" aria-hidden="true" />
+              社区动态
+            </h3>
+            {matchedPosts.slice(0, 4).map((post) => (
+              <button
+                key={post.id}
+                type="button"
+                className="nl-row rounded-[12px] border border-line bg-white"
+                onClick={() => {
+                  sound.playTap();
+                  setSelectedPostId(post.id);
+                  setActiveSubPage(null);
+                  setActiveTab('community');
+                  toast('已跳到社区信息流；演示不提供单帖详情页。');
+                }}
+              >
+                <div className="nl-row__main">
+                  <span className="nl-row__title truncate">{post.title || post.content.slice(0, 30)}</span>
+                  <span className="nl-row__sub">
+                    {post.userName} · {post.categoryLabel}
+                  </span>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            ))}
+          </section>
+        ) : null}
+
+        {(tab === 'all' || tab === 'articles') && matchedArticles.length > 0 ? (
+          <section className="grid gap-1.5">
+            <h3 className="flex items-center gap-1 text-[10px] font-semibold tracking-wide text-muted">
+              <BookOpen className="h-3 w-3" aria-hidden="true" />
+              养老科普
+            </h3>
+            {matchedArticles.map((article) => (
+              <button
+                key={article.id}
+                type="button"
+                className="nl-row rounded-[12px] border border-line bg-white"
+                onClick={() => {
+                  sound.playTap();
+                  setSelectedArticleId(article.id);
+                  setActiveSubPage('eldercare_detail');
+                }}
+              >
+                <div className="nl-row__main">
+                  <span className="nl-row__title truncate">{article.title}</span>
+                  <span className="nl-row__sub">
+                    {article.categoryLabel} · {article.tag}
+                  </span>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            ))}
+          </section>
+        ) : null}
+      </div>
+    </Modal>
   );
 };

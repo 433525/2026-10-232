@@ -1,479 +1,581 @@
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  MapPin, 
-  Clock, 
-  Coins, 
-  ShieldCheck, 
-  CheckCircle, 
-  AlertCircle, 
-  X, 
-  Star, 
-  MessageSquare, 
-  CheckCircle2, 
-  Sparkles,
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Coins,
+  Flag,
+  History,
   Lock,
-  Flag
+  MapPin,
+  MessageSquare,
+  ShieldCheck,
+  Star,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
-import { SmartImage } from './SmartImage';
-import { useDialog } from '../hooks/useDialog';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Tag } from '../ui/Tag';
+import { Avatar } from '../ui/Avatar';
+
+const STATUS_TEXT: Record<string, string> = {
+  published: '正在接单大厅公示 · 等待志愿者认领',
+  accepted: '志愿者已认领 · 待上门签到服务',
+  completed: '服务已圆满完成 · 时长已入账',
+  cancelled: '订单已取消',
+  pending_audit: '待审核',
+  pending_confirm: '待双方确认',
+  disputed: '申诉处理中',
+};
 
 export const OrderDetailModal: React.FC = () => {
-  const { 
-    orders, 
-    selectedOrderId, 
-    setActiveSubPage, 
-    currentUser, 
-    acceptOrder, 
-    clockInOrder, 
-    completeOrder, 
+  const {
+    orders,
+    selectedOrderId,
+    setActiveSubPage,
+    currentUser,
+    acceptOrder,
+    clockInOrder,
+    counterpartAcceptOrder,
+    completeOrder,
     cancelOrder,
+    raiseOrderDispute,
+    resolveOrderDispute,
     setActiveTab,
-    elderlyMode,
-    submitComplaint
+    setChatFocusPostId,
+    submitComplaint,
   } = useApp();
 
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('服务非常准时细心，老人非常满意，感谢志愿者付出！');
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-
-  // 评价与取消确认弹层：Esc 关闭 + 焦点管理
-  useDialog(showRatingModal, () => setShowRatingModal(false));
-  useDialog(showCancelModal, () => setShowCancelModal(false));
+  const [showRating, setShowRating] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('时间安排冲突');
+  const [showDispute, setShowDispute] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [resolveAction, setResolveAction] = useState<'resume' | 'close' | null>(null);
+  const [resolveReason, setResolveReason] = useState('');
 
-  const order = orders.find(o => o.id === selectedOrderId);
-
+  const order = orders.find((item) => item.id === selectedOrderId);
   if (!order) return null;
 
   const isMyOrder = order.userId === currentUser.id;
   const isMyClaimed = order.volunteerId === currentUser.id;
+  const isParticipant = isMyOrder || isMyClaimed;
   const canClaim = currentUser.role === 'volunteer' && order.status === 'published';
+  const canSeeDetail = isMyOrder || isMyClaimed || currentUser.role === 'admin';
 
-  const handleStartChat = () => {
+  // 争议流程：接单方与发布方都能发起（领域层同口径）；撤销 / 关闭只在争议态可用，
+  // 三者都必须带理由，写入 orderEvents 后立即出现在下面的「演练留痕」时间线。
+  const canRaiseDispute = isParticipant && ['accepted', 'pending_confirm'].includes(order.status);
+  const canResolveDispute = isParticipant && order.status === 'disputed';
+
+  const close = () => setActiveSubPage(null);
+
+  const openResolve = (action: 'resume' | 'close') => {
     sound.playTap();
-    setActiveSubPage(null);
+    setResolveReason('');
+    setResolveAction(action);
+  };
+
+  const openDispute = () => {
+    sound.playTap();
+    setDisputeReason('');
+    setShowDispute(true);
+  };
+
+  // 发布者视角的完成确认：本人订单在已接单 / 待确认 / 服务中都可发起
+  // （合成接单方代发起申请，本人确认）；接单者仍需先上门签到再确认。
+  const canConfirmCompletion =
+    (isMyClaimed && order.status === 'in_progress')
+    || (isMyOrder && ['accepted', 'pending_confirm', 'in_progress'].includes(order.status));
+
+  const startChat = () => {
+    sound.playTap();
+    // 先记住要沟通的订单：消息页据此定位（或准备创建）该订单的留言会话，
+    // 不再固定落在第一条会话上。
+    setChatFocusPostId(order.id);
+    close();
     setActiveTab('messages');
   };
 
+  const statusText =
+    order.status === 'in_progress'
+      ? `志愿服务进行中（签到时间：${order.clockInTime ?? '本机记录'}）`
+      : STATUS_TEXT[order.status] ?? order.status;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-              <FileText className="w-4 h-4" />
+    <>
+      <Modal
+        title="互助求助订单详情"
+        subtitle={`#${order.id} · 发布于 ${order.createdAt}`}
+        onClose={close}
+        wide
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {(isMyOrder || isMyClaimed) && (
+                <Button variant="ghost" size="sm" onClick={startChat}>
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                  订单内沟通留言
+                </Button>
+              )}
+              {(isMyOrder || currentUser.role === 'admin') && order.status === 'published' ? (
+                <Button variant="quiet" size="sm" onClick={() => setShowCancel(true)}>
+                  取消订单
+                </Button>
+              ) : null}
+              {canRaiseDispute ? (
+                <Button variant="quiet" size="sm" onClick={openDispute}>
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  发起争议（演练）
+                </Button>
+              ) : null}
             </div>
-            <div>
-              <span className="font-bold text-sm sm:text-base">
-                互助求助订单详情
-              </span>
-              <span className="text-[11px] text-slate-400 ml-2 font-mono">
-                #{order.id}
-              </span>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {canResolveDispute ? (
+                <>
+                  <Button variant="quiet" size="sm" onClick={() => openResolve('resume')}>
+                    撤销争议并继续履约
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => openResolve('close')}>
+                    因争议关闭订单
+                  </Button>
+                </>
+              ) : null}
+
+              {canClaim ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    acceptOrder(order.id);
+                    close();
+                  }}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  认领并提供志愿服务
+                </Button>
+              ) : null}
+
+              {isMyClaimed && order.status === 'accepted' ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => clockInOrder(order.id)}
+                >
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  上门签到（本机记录）
+                </Button>
+              ) : null}
+
+              {isMyOrder && order.status === 'published' ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => counterpartAcceptOrder(order.id)}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  代合成邻居接单（演练）
+                </Button>
+              ) : null}
+
+              {canConfirmCompletion ? (
+                <Button variant="primary" size="sm" onClick={() => setShowRating(true)}>
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  双方确认完成（本机演练，不结算）
+                </Button>
+              ) : null}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  sound.playTap();
+                  submitComplaint({
+                    orderId: order.id,
+                    orderTitle: order.title,
+                    reason: '接单大厅内容举报（演练）',
+                    detail: '对当前查看的求助订单发起举报；只写本机记录，不通知任何机构。',
+                  });
+                }}
+              >
+                <Flag className="h-3.5 w-3.5" aria-hidden="true" />
+                举报该内容
+              </Button>
             </div>
           </div>
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage(null);
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* Status Banner */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between ${
-            order.status === 'completed' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' :
-            order.status === 'in_progress' ? 'bg-blue-50 border-blue-200 text-blue-900 animate-pulse' :
-            order.status === 'accepted' ? 'bg-amber-50 border-amber-200 text-amber-900' :
-            order.status === 'cancelled' ? 'bg-slate-100 border-slate-300 text-slate-600' :
-            'bg-teal-50 border-teal-200 text-teal-900'
-          }`}>
-            <div className="flex items-center gap-2.5">
-              {order.status === 'completed' ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-              ) : order.status === 'in_progress' ? (
-                <Clock className="w-6 h-6 text-blue-600 animate-spin" />
-              ) : (
-                <Sparkles className="w-6 h-6 text-amber-600" />
-              )}
+        }
+      >
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-[14px] bg-page px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-tint text-brand">
+                <Clock className="h-4 w-4" aria-hidden="true" />
+              </span>
               <div>
-                <h3 className="font-bold text-sm sm:text-base">
-                  {order.status === 'published' && '正在接单大厅公示 · 等待志愿者认领'}
-                  {order.status === 'accepted' && '志愿者已认领 · 待上门签到服务'}
-                  {order.status === 'in_progress' && `志愿服务进行中 (签到时间: ${order.clockInTime})`}
-                  {order.status === 'completed' && '服务已圆满完成 · 时间币已入账'}
-                  {order.status === 'cancelled' && '订单已取消'}
-                </h3>
-                <p className="text-xs opacity-80 mt-0.5">
-                  {order.isUrgent ? '【置顶紧急需求】' : '【普通互助】'} · 发布时间：{order.createdAt}
+                <p className="text-[12.5px] font-semibold text-ink">{statusText}</p>
+                <p className="mt-1 text-[10px] text-muted">
+                  {order.isUrgent ? '置顶紧急需求' : '普通互助'} · 更新时间 {order.createdAt}
                 </p>
               </div>
             </div>
-
-            <div className="text-right shrink-0">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white shadow-xs border">
-                +{order.timeCoinReward} 时长币
-              </span>
-            </div>
+            <Tag tone="brand">+{order.timeCoinReward} 时间币</Tag>
           </div>
 
-          {/* Title & Core Details */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <h2 className={`font-bold text-slate-900 leading-snug ${elderlyMode ? 'text-xl' : 'text-base sm:text-lg'}`}>
-                {order.title}
-              </h2>
-              <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium shrink-0">
-                {order.categoryLabel}
+          {order.status === 'disputed' ? (
+            <section className="nl-alert nl-alert--warn" aria-label="争议处理中">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                <strong className="block text-[11.5px]">争议处理中（本机演练）</strong>
+                <span className="mt-1 block">{order.disputeReason ?? '未填写争议原因'}</span>
+                <span className="mt-1 block text-[10.5px] text-muted">
+                  页面不会向任何机构发出仲裁或投诉；撤销争议会回到履约中，关闭则整单终止，
+                  两种处理都必须填写说明并留痕。
+                </span>
+              </span>
+            </section>
+          ) : null}
+
+          <section className="nl-card nl-card--sm px-4 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h3 className="text-[15px] font-semibold leading-snug text-ink">{order.title}</h3>
+              <Tag tone={order.isUrgent ? 'danger' : 'neutral'}>{order.categoryLabel}</Tag>
+            </div>
+            <p className="mt-2 text-[12px] leading-[1.8] text-text">{order.description}</p>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-line pt-3 text-[11px] text-text2 sm:grid-cols-2">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
+                服务时间：{order.dateStr} {order.timeStr}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Coins className="h-3.5 w-3.5 text-[#9a6a1f]" aria-hidden="true" />
+                预估时长：{order.durationHours} 小时（结算 {order.timeCoinReward} 币）
               </span>
             </div>
+          </section>
 
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              {order.description}
-            </p>
-
-            {/* Photos */}
-            {order.photos && order.photos.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto py-1">
-                {order.photos.map((img, i) => (
-                  <SmartImage
-                    key={i}
-                    src={img}
-                    alt="现场参考"
-                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-cover border border-slate-200 shadow-xs"
-                    fallbackLabel="现场参考"
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Key Meta Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 text-xs text-slate-600 border-t border-slate-200">
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-emerald-600" />
-                <span>服务时间：{order.dateStr} {order.timeStr}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Coins className="w-4 h-4 text-amber-500" />
-                <span>预估时长：{order.durationHours} 小时（结算 {order.timeCoinReward} 币）</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Address & Privacy Desensitization Box */}
-          <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2 shadow-xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
+          <section className="nl-card nl-card--sm px-4 py-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-text2">
+                <MapPin className="h-3.5 w-3.5 text-danger" aria-hidden="true" />
                 服务地点与脱敏保护
               </span>
-              <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <Lock className="w-3 h-3" />
-                敏感隐私受控加密
+              <span className="nl-tag nl-tag--accent">
+                <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+                敏感隐私受控
               </span>
             </div>
 
-            <div className="text-sm font-bold text-slate-800">
-              {order.locationArea}
-            </div>
+            <p className="mt-2 text-[13px] font-semibold text-ink">{order.locationArea}</p>
 
-            {/* Reveal detail address only to parties */}
-            {isMyOrder || isMyClaimed || currentUser.role === 'admin' ? (
-              <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-xs sm:text-sm text-emerald-950 font-medium flex items-center justify-between">
-                <span>门牌详细地址：<strong>{order.locationDetail}</strong></span>
-                <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded shadow-xs">
-                  接单后凭证可见
+            {canSeeDetail ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-accent-tint px-3 py-2 text-[11px] text-[#174f42]">
+                <span>
+                  门牌详细地址：<strong>{order.locationDetail || '本机演练不采集门牌号'}</strong>
                 </span>
+                <span className="rounded bg-white px-2 py-0.5 text-[9.5px] text-accent">接单后凭证可见</span>
               </div>
             ) : (
-              <div className="p-2.5 rounded-lg bg-slate-100 text-slate-500 text-xs flex items-center gap-2">
-                <Lock className="w-4 h-4 text-slate-400" />
+              <div className="mt-2 flex items-start gap-2 rounded-[10px] bg-subtle px-3 py-2 text-[11px] text-text2">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
                 <span>详细单元及门牌号已脱敏隐藏，志愿者成功认领后方可解锁查看。</span>
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Medical Notes (Sensitive health information) */}
-          {order.medicalNotes && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                <ShieldCheck className="w-4 h-4 text-amber-700" />
-                <span>长者健康与照护注意事项（单独授权）</span>
-              </div>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                {order.medicalNotes}
-              </p>
-            </div>
-          )}
+          {order.medicalNotes ? (
+            <section className="nl-alert nl-alert--warn">
+              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                <strong className="block text-[11.5px]">长者健康与照护注意事项（单独授权）</strong>
+                <span className="mt-1 block">{order.medicalNotes}</span>
+              </span>
+            </section>
+          ) : null}
 
-          {/* Parties Information: Help Requester & Volunteer */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Requester Box */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                求助居民信息
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div
-                  aria-hidden="true"
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-emerald-500 shrink-0"
-                >
-                  {order.userName.slice(0, 1)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-slate-800 text-xs sm:text-sm truncate">
-                    {order.userName}
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    {isMyOrder || isMyClaimed || currentUser.role === 'admin' ? order.userPhoneReal : order.userPhoneMasked}
-                  </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <section className="nl-card nl-card--sm px-4 py-3.5">
+              <p className="text-[9.5px] font-semibold tracking-wide text-muted">求助居民信息</p>
+              <div className="mt-2 flex items-center gap-2.5">
+                <Avatar name={order.userName} />
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-semibold text-ink">{order.userName}</p>
+                  <p className="mt-0.5 text-[10px] text-muted">
+                    {canSeeDetail ? order.userPhoneReal : order.userPhoneMasked}
+                  </p>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Volunteer Box */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                认领志愿者信息
-              </div>
+            <section className="nl-card nl-card--sm px-4 py-3.5">
+              <p className="text-[9.5px] font-semibold tracking-wide text-muted">认领志愿者信息</p>
               {order.volunteerName ? (
-                <div className="flex items-center gap-2.5">
-                  <div
-                    aria-hidden="true"
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white font-bold flex items-center justify-center ring-2 ring-amber-500 shrink-0"
-                  >
-                    {order.volunteerName.slice(0, 1)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1 font-bold text-slate-800 text-xs sm:text-sm truncate">
-                      <span>{order.volunteerName}</span>
-                      <span className="text-[10px] text-amber-600 bg-amber-50 px-1 py-0.2 rounded">
-                        {order.volunteerRating ? `★ ${order.volunteerRating}` : '暂无评分（演练）'}
+                <div className="mt-2 flex items-center gap-2.5">
+                  <Avatar name={order.volunteerName} tone="accent" />
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 truncate text-[12px] font-semibold text-ink">
+                      {order.volunteerName}
+                      <span className="nl-tag nl-tag--warn">
+                        {order.volunteerRating ? `★ ${order.volunteerRating}` : '暂无评分'}
                       </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-mono">
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted">
                       {order.volunteerPhone || '未提供（演练不采集手机号）'}
-                    </div>
+                    </p>
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-slate-400 py-2 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>暂无志愿者认领</span>
-                </div>
+                <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted">
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  暂无志愿者认领
+                </p>
               )}
-            </div>
+            </section>
           </div>
 
-          {/* Rating Comment Display if completed */}
-          {order.status === 'completed' && order.ratingScore && (
-            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-900">长者服务评价与反馈</span>
-                <div className="flex items-center text-amber-500">
-                  {[...Array(5)].map((_, i) => (
-                    <Star 
-                      key={i} 
-                      className={`w-3.5 h-3.5 ${i < (order.ratingScore || 5) ? 'fill-amber-400' : 'text-slate-300'}`} 
+          {order.events && order.events.length > 0 ? (
+            <section className="nl-card nl-card--sm px-4 py-3.5" aria-label="订单留痕">
+              <p className="mb-2 text-[9.5px] font-semibold tracking-wide text-muted">
+                演练留痕 · 本机记录的时间线，不代表真实履约或结算
+              </p>
+              <div className="nl-timeline">
+                {order.events.map((event) => (
+                  <div key={event.id} className="nl-timeline__row">
+                    <span
+                      className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-page text-brand"
+                      aria-hidden="true"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="nl-timeline__main">
+                      <p className="nl-timeline__title">{event.typeLabel}</p>
+                      <p className="mt-0.5 text-[10.5px] leading-relaxed text-muted">{event.note}</p>
+                      <p className="nl-timeline__meta">
+                        {event.actorLabel} · {event.time}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {order.status === 'completed' && order.ratingScore ? (
+            <section className="rounded-[12px] bg-accent-tint px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-accent">长者服务评价</span>
+                <span className="flex items-center gap-0.5 text-brand">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-3 w-3 ${star <= (order.ratingScore ?? 5) ? 'fill-brand' : 'text-line-strong'}`}
+                      aria-hidden="true"
                     />
                   ))}
-                </div>
+                </span>
               </div>
-              <p className="text-xs text-emerald-800 leading-relaxed">
-                “{order.ratingComment}”
-              </p>
-            </div>
-          )}
+              {order.ratingComment ? (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-text">“{order.ratingComment}”</p>
+              ) : null}
+            </section>
+          ) : null}
         </div>
+      </Modal>
 
-        {/* Footer Actions */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            {/* Start Chat Button */}
-            {(isMyOrder || isMyClaimed) && (
-              <button
-                onClick={handleStartChat}
-                className="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span>订单内沟通留言</span>
-              </button>
-            )}
-
-            {/* Cancel Button */}
-            {(isMyOrder || currentUser.role === 'admin') && order.status === 'published' && (
-              <button
-                onClick={() => setShowCancelModal(true)}
-                className="px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 text-xs font-medium transition-colors"
-              >
-                取消订单
-              </button>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            {/* Claim Order */}
-            {canClaim && (
-              <button
+      {showRating ? (
+        <Modal
+          title="服务完成确认与长者满意度评价"
+          subtitle="本机演练记账，不产生真实支付"
+          onClose={() => setShowRating(false)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setShowRating(false)}>
+                取消
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
-                  acceptOrder(order.id);
-                  setActiveSubPage(null);
+                  completeOrder(order.id, ratingScore, ratingComment);
+                  setShowRating(false);
+                  close();
                 }}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white font-bold text-xs sm:text-sm hover:from-emerald-700 hover:to-teal-800 shadow-md hover:shadow-emerald-500/20 transition-all flex items-center gap-1.5"
               >
-                <CheckCircle className="w-4 h-4" />
-                <span>认领并提供志愿服务</span>
-              </button>
-            )}
-
-            {/* Volunteer Clock-in */}
-            {isMyClaimed && order.status === 'accepted' && (
-              <button
-                onClick={() => clockInOrder(order.id)}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
-              >
-                <Clock className="w-4 h-4" />
-                <span>上门签到（本机记录）</span>
-              </button>
-            )}
-
-            {/* Complete Order Confirmation */}
-            {(isMyOrder || isMyClaimed) && order.status === 'in_progress' && (
-              <button
-                onClick={() => setShowRatingModal(true)}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>双方确认完成（本机演练，不结算）</span>
-              </button>
-            )}
-
-            {/* 举报入口：订单也是 UGC，同样必须可举报（R7） */}
-            <button
-              onClick={() => {
-                sound.playTap();
-                submitComplaint({
-                  orderId: order.id,
-                  orderTitle: order.title,
-                  reason: '接单大厅内容举报（演练）',
-                  detail: '对当前查看的求助订单发起举报；只写本机记录，不通知任何机构。',
-                });
-              }}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5"
-            >
-              <Flag className="w-4 h-4" />
-              <span>举报该内容</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Rating / Complete Modal */}
-        {showRatingModal && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white rounded-2xl p-5 space-y-4 shadow-2xl animate-in zoom-in-95">
-              <h3 className="text-base font-bold text-slate-900">
-                服务完成确认与长者满意度评价
-              </h3>
-              
-              <div className="space-y-2">
-                <label className="text-xs text-slate-500">服务打分：</label>
-                <div className="flex items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setRatingScore(s)}
-                      className="p-1 text-amber-400 hover:scale-110 transition-transform"
-                    >
-                      <Star className={`w-7 h-7 ${s <= ratingScore ? 'fill-amber-400' : 'text-slate-200'}`} />
-                    </button>
-                  ))}
-                  <span className="text-xs font-bold text-amber-700 ml-2">
-                    {ratingScore} 星好评
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs text-slate-500">评价评语：</label>
-                <textarea
-                  value={ratingComment}
-                  onChange={(e) => setRatingComment(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowRatingModal(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100 font-medium"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => {
-                    completeOrder(order.id, ratingScore, ratingComment);
-                    setShowRatingModal(false);
-                    setActiveSubPage(null);
-                  }}
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
-                >
-                  提交确认并记账（未结算 {order.timeCoinReward} 币）
-                </button>
+                提交确认并记账（未结算 {order.timeCoinReward} 币）
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-4">
+            <div>
+              <span className="nl-label">服务打分</span>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    aria-label={`${score} 星`}
+                    aria-pressed={ratingScore === score}
+                    onClick={() => setRatingScore(score)}
+                    className="p-0.5"
+                  >
+                    <Star
+                      className={`h-7 w-7 ${score <= ratingScore ? 'fill-brand text-brand' : 'text-line-strong'}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                ))}
+                <span className="ml-1 text-[11px] font-semibold text-brand-ink">{ratingScore} 星好评</span>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Cancel Confirmation Modal */}
-        {showCancelModal && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm bg-white rounded-2xl p-5 space-y-4 shadow-2xl">
-              <h3 className="text-base font-bold text-slate-900">
-                确认取消该求助订单？
-              </h3>
-              <select
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full p-2 rounded-lg border border-slate-200 text-xs"
-              >
-                <option value="时间安排冲突">时间安排冲突</option>
-                <option value="已通过其他途径解决">已通过其他途径解决</option>
-                <option value="需求内容填写有误">需求内容填写有误</option>
-              </select>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowCancelModal(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
-                >
-                  再想想
-                </button>
-                <button
-                  onClick={() => {
-                    cancelOrder(order.id, cancelReason);
-                    setShowCancelModal(false);
-                    setActiveSubPage(null);
-                  }}
-                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
-                >
-                  确认取消
-                </button>
-              </div>
+            <div>
+              <label className="nl-label" htmlFor="rating-comment">
+                评价评语
+              </label>
+              <textarea
+                id="rating-comment"
+                className="nl-textarea"
+                value={ratingComment}
+                onChange={(event) => setRatingComment(event.target.value)}
+                rows={3}
+              />
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </Modal>
+      ) : null}
+
+      {showDispute ? (
+        <Modal
+          title="发起争议（本机演练）"
+          subtitle="只写本机记录；不发起真实仲裁、投诉或通知"
+          onClose={() => setShowDispute(false)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setShowDispute(false)}>
+                再想想
+              </Button>
+              <Button
+                variant="danger"
+                disabled={!disputeReason.trim()}
+                onClick={() => {
+                  raiseOrderDispute(order.id, disputeReason.trim());
+                  setShowDispute(false);
+                }}
+              >
+                确认发起争议
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-2">
+            <label className="nl-label" htmlFor="dispute-reason">
+              争议原因（必填）
+            </label>
+            <textarea
+              id="dispute-reason"
+              className="nl-textarea"
+              rows={3}
+              value={disputeReason}
+              onChange={(event) => setDisputeReason(event.target.value)}
+              placeholder="例如：两次约定的上门时间都未能成行"
+            />
+            <p className="text-[10.5px] leading-relaxed text-muted">
+              理由会原样写入本条订单的「演练留痕」，撤销或关闭后仍保留；没有真实仲裁方受理。
+            </p>
+          </div>
+        </Modal>
+      ) : null}
+
+      {resolveAction ? (
+        <Modal
+          title={resolveAction === 'resume' ? '撤销争议并继续履约' : '因争议关闭订单'}
+          subtitle="只写本机记录；不涉及真实退款、仲裁或通知"
+          onClose={() => setResolveAction(null)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setResolveAction(null)}>
+                取消
+              </Button>
+              <Button
+                variant={resolveAction === 'close' ? 'danger' : 'primary'}
+                disabled={!resolveReason.trim()}
+                onClick={() => {
+                  resolveOrderDispute(order.id, resolveAction, resolveReason.trim());
+                  setResolveAction(null);
+                }}
+              >
+                {resolveAction === 'resume' ? '确认撤销并恢复履约' : '确认关闭该订单'}
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-2">
+            <label className="nl-label" htmlFor="resolve-reason">
+              处理说明（必填）
+            </label>
+            <textarea
+              id="resolve-reason"
+              className="nl-textarea"
+              rows={3}
+              value={resolveReason}
+              onChange={(event) => setResolveReason(event.target.value)}
+              placeholder={
+                resolveAction === 'resume'
+                  ? '例如：双方已重新约好上门时间'
+                  : '例如：需求已由家属另行安排，双方确认终止'
+              }
+            />
+            <p className="text-[10.5px] leading-relaxed text-muted">
+              {resolveAction === 'resume'
+                ? '撤销后订单回到「志愿者已认领」，可继续上门签到与完成确认。'
+                : '关闭后订单终止，不再产生新的履约事件，也不会结算时间币。'}
+            </p>
+          </div>
+        </Modal>
+      ) : null}
+
+      {showCancel ? (
+        <Modal
+          title="确认取消该求助订单？"
+          subtitle="取消后不会产生时间币结算"
+          onClose={() => setShowCancel(false)}
+          footer={
+            <>
+              <Button variant="quiet" onClick={() => setShowCancel(false)}>
+                再想想
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  cancelOrder(order.id, cancelReason);
+                  setShowCancel(false);
+                  close();
+                }}
+              >
+                确认取消
+              </Button>
+            </>
+          }
+        >
+          <label className="nl-label" htmlFor="cancel-reason">
+            取消原因
+          </label>
+          <select
+            id="cancel-reason"
+            className="nl-select"
+            value={cancelReason}
+            onChange={(event) => setCancelReason(event.target.value)}
+          >
+            <option value="时间安排冲突">时间安排冲突</option>
+            <option value="已通过其他途径解决">已通过其他途径解决</option>
+            <option value="需求内容填写有误">需求内容填写有误</option>
+          </select>
+        </Modal>
+      ) : null}
+    </>
   );
 };

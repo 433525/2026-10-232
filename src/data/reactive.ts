@@ -10,6 +10,8 @@
  * - `ref` 只承担「读得到最新值 + 写入时通知订阅者」，不做深层代理；
  *   两个 store 都以不可变快照方式写回（`xxx.value = nextState.xxx`），
  *   因此不需要 Proxy 级别的依赖追踪。
+ * - 一次动作要写多个 ref 时用 `batch()` 包起来：通知合并到批末一次，
+ *   避免 useSyncExternalStore 的连环同步重渲染。
  * - `computed` 是惰性 getter，不缓存。展示层每次渲染重算，规模在千级以内，
  *   代价可以接受；换来的是没有失效标记这块最容易出错的状态。
  * - `createReactiveStore` 返回的对象同时是「store 实例」和「订阅源」：
@@ -21,6 +23,33 @@ type Listener = () => void
 
 /** 创建 ref 时所在的 store；ref 的写入只通知自己所属的 store。 */
 let activeSink: Listener | null = null
+
+/** 批处理深度；>0 时各 store 的通知挂起，退到 0 时统一冲刷。 */
+let batchDepth = 0
+/** 批处理期间发生过写入的 store 的冲刷函数（每 store 至多冲刷一次）。 */
+const pendingFlushes = new Set<() => void>()
+
+/**
+ * 批处理：`fn` 内的所有 ref 写入只在结束时向订阅者通知一次。
+ *
+ * 一次业务动作往往连续改写多个 ref（提交快照要写状态、时间与多类数据），
+ * 逐次同步通知会让 useSyncExternalStore 连环触发同步重渲染，在挂载窗口内
+ * 甚至会叠加成 React #185。批内版本号仍随每次写入递增，getVersion 语义不变；
+ * 嵌套安全，`fn` 抛错也会在 finally 中冲刷与退出。
+ */
+export function batch<R>(fn: () => R): R {
+  batchDepth += 1
+  try {
+    return fn()
+  } finally {
+    batchDepth -= 1
+    if (batchDepth === 0) {
+      const flushes = [...pendingFlushes]
+      pendingFlushes.clear()
+      for (const flush of flushes) flush()
+    }
+  }
+}
 
 export interface Ref<T> {
   value: T
@@ -72,9 +101,16 @@ export function createReactiveStore<T extends object>(id: string, setup: () => T
   let version = 0
   const listeners = new Set<Listener>()
 
+  const flush = () => {
+    for (const listener of [...listeners]) listener()
+  }
   const emit: Listener = () => {
     version += 1
-    for (const listener of [...listeners]) listener()
+    if (batchDepth > 0) {
+      pendingFlushes.add(flush)
+      return
+    }
+    flush()
   }
 
   const resolve = (): T => {

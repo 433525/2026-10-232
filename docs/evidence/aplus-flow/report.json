@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-24T02:41:24.057Z",
-  "summary": "演练-功能验收-mvlslfm0",
+  "checkedAt": "2026-10-26T04:14:45.104Z",
+  "summary": "演练-功能验收-mvoqt6v4",
   "total": 24,
   "passed": 24,
   "results": [
@@ -38,7 +38,7 @@
     {
       "name": "新建记录自动选中",
       "ok": true,
-      "detail": "演练-功能验收-mvlslfm0"
+      "detail": "演练-功能验收-mvoqt6v4"
     },
     {
       "name": "重复登记进入人工复核",
@@ -103,7 +103,7 @@
     {
       "name": "备份文本非空",
       "ok": true,
-      "detail": "length=9897"
+      "detail": "length=10428"
     },
     {
       "name": "备份文本是合法 JSON",

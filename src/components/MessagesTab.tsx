@@ -1,490 +1,585 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Bell, 
-  FileText, 
-  MessageSquare, 
-  AlertCircle, 
-  Send, 
-  MapPin, 
-  Image as ImageIcon, 
-  CheckCircle2, 
-  ChevronRight, 
-  ShieldCheck, 
-  PhoneCall,
-  Flag
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Bell,
+  CheckCheck,
+  ChevronRight,
+  FileText,
+  Flag,
+  MessageSquare,
+  Send,
+  ShieldAlert,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
+import { Segmented } from '../ui/Segmented';
+import { Button } from '../ui/Button';
+import { Tag } from '../ui/Tag';
+import { EmptyState } from '../ui/EmptyState';
+
+type ChannelKey = 'system' | 'order' | 'chat' | 'complaint';
+
+const CHANNEL_ICON: Record<ChannelKey, React.ComponentType<{ className?: string }>> = {
+  system: Bell,
+  order: FileText,
+  chat: MessageSquare,
+  complaint: ShieldAlert,
+};
+
+const CHANNEL_TINT: Record<ChannelKey, string> = {
+  system: 'bg-warn-tint text-[#9a6a1f]',
+  order: 'bg-brand-tint text-brand',
+  chat: 'bg-accent-tint text-accent',
+  complaint: 'bg-danger-tint text-danger',
+};
+
+const COMPLAINT_TONE: Record<string, 'warn' | 'accent' | 'neutral' | 'danger'> = {
+  pending: 'warn',
+  investigating: 'warn',
+  resolved: 'accent',
+  dismissed: 'neutral',
+};
+
+const QUICK_REPLIES = ['我马上到楼下', '老人已准备好，门虚掩着', '需要带什么工具吗？', '已确认，谢谢'];
+
+/**
+ * 列表按「今天 / 更早」分组：设计稿用小标题把时间轴拉开，
+ * 这里用消息自带的相对时间文案判断，不额外解析时间戳。
+ */
+function groupByDay<T extends { timestamp: string }>(items: T[]) {
+  const isToday = (value: string) =>
+    value.startsWith('今天') || value.includes('分钟前') || value.includes('小时前');
+  const today = items.filter((item) => isToday(item.timestamp));
+  const earlier = items.filter((item) => !isToday(item.timestamp));
+  return [
+    today.length > 0 ? { label: '今天', items: today } : null,
+    earlier.length > 0 ? { label: '更早', items: earlier } : null,
+  ].filter(Boolean) as { label: string; items: T[] }[];
+}
 
 export const MessagesTab: React.FC = () => {
-  const { 
-    messages, 
-    chatMessages, 
-    complaints, 
-    sendChatMessage, 
-    submitComplaint, 
-    setActiveSubPage, 
-    setSelectedOrderId, 
-    elderlyMode 
+  const {
+    messages,
+    chatMessages,
+    complaints,
+    orders,
+    chatFocusPostId,
+    sendChatMessage,
+    submitComplaint,
+    setActiveSubPage,
+    setSelectedOrderId,
+    isMessageRead,
+    markAllMessagesRead,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'system' | 'order' | 'chat' | 'complaint'>('order');
+  const [channel, setChannel] = useState<ChannelKey>('system');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [showComplaintForm, setShowComplaintForm] = useState(false);
-  const [complaintReason, setComplaintReason] = useState('服务未按约定时间到达');
-  const [complaintDetail, setComplaintDetail] = useState('');
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const systemItems = useMemo(() => messages.filter((item) => item.type === 'system'), [messages]);
+  const orderItems = useMemo(() => messages.filter((item) => item.type === 'order'), [messages]);
+  const chatItems = useMemo(() => messages.filter((item) => item.type === 'chat'), [messages]);
 
-  // Auto scroll chat
+  const channelCounts = useMemo(() => {
+    const countUnread = (list: typeof messages) =>
+      list.filter((item) => item.unread && !isMessageRead(item.id)).length;
+    return {
+      system: countUnread(systemItems),
+      order: countUnread(orderItems),
+      chat: countUnread(chatItems),
+      complaint: complaints.filter((item) => item.status === 'pending').length,
+    };
+  }, [systemItems, orderItems, chatItems, complaints, isMessageRead]);
+
   useEffect(() => {
-    if (activeTab === 'chat') {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setSelectedId(null);
+    setMobileDetail(false);
+  }, [channel]);
+
+  const messageList =
+    channel === 'system' ? systemItems : channel === 'order' ? orderItems : channel === 'chat' ? chatItems : [];
+  const activeMessage = messageList.find((item) => item.id === selectedId) ?? messageList[0] ?? null;
+  const activeComplaint =
+    complaints.find((item) => item.id === selectedId) ?? complaints[0] ?? null;
+
+  /* 订单留言会话：按会话分组，并把每条会话绑回所属订单（postId）。
+   * 修复前固定取 chatMessages[0]，多订单时留言会落到别的订单线程上；
+   * 焦点订单还没有会话时给一个占位条目，保证第一条留言能按订单建会话。 */
+  const conversations = useMemo(() => {
+    const byId = new Map<
+      string,
+      { key: string; conversationId: string; postId?: string; title: string; lastText: string; lastTime: string }
+    >();
+    for (const item of chatMessages) {
+      const current = byId.get(item.conversationId);
+      if (current) {
+        current.lastText = item.text;
+        current.lastTime = item.timestamp;
+      } else {
+        byId.set(item.conversationId, {
+          key: item.conversationId,
+          conversationId: item.conversationId,
+          postId: item.postId,
+          title: item.conversationTitle ?? '订单留言会话',
+          lastText: item.text,
+          lastTime: item.timestamp,
+        });
+      }
     }
-  }, [chatMessages, activeTab]);
+    return [...byId.values()];
+  }, [chatMessages]);
 
-  const systemMessages = messages.filter(m => m.type === 'system');
-  // 会话来自 mvp 的 order 线程；没有数据时给空态，而不是回落到假订单号。
-  const activeConversationId = chatMessages[0]?.conversationId ?? null;
-  const activeChatMessages = activeConversationId
-    ? chatMessages.filter((chat) => chat.conversationId === activeConversationId)
-    : [];
-  const orderMessages = messages.filter(m => m.type === 'order');
+  const focusedOrder = useMemo(
+    () => orders.find((item) => item.id === chatFocusPostId) ?? null,
+    [orders, chatFocusPostId],
+  );
 
-  const handleSendText = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    if (!activeConversationId) {
+  const chatConversations = useMemo(() => {
+    if (!focusedOrder) return conversations;
+    if (conversations.some((item) => item.postId === focusedOrder.id)) return conversations;
+    return [
+      {
+        key: `pending:${focusedOrder.id}`,
+        conversationId: '',
+        postId: focusedOrder.id,
+        title: focusedOrder.title,
+        lastText: '',
+        lastTime: '',
+      },
+      ...conversations,
+    ];
+  }, [conversations, focusedOrder]);
+
+  // 焦点订单变化（从另一张订单详情跳过来）时清掉手动选择，回到焦点会话。
+  useEffect(() => {
+    setSelectedId(null);
+  }, [chatFocusPostId]);
+
+  const activeConversation =
+    chatConversations.find((item) => item.key === selectedId)
+    ?? (focusedOrder
+      ? chatConversations.find((item) => item.postId === focusedOrder.id)
+      : undefined)
+    ?? chatConversations[0]
+    ?? null;
+
+  const thread = useMemo(
+    () =>
+      activeConversation?.conversationId
+        ? chatMessages.filter((item) => item.conversationId === activeConversation.conversationId)
+        : [],
+    [chatMessages, activeConversation],
+  );
+
+  useEffect(() => {
+    if (channel === 'chat' && threadRef.current) {
+      threadRef.current.scrollTop = threadRef.current.scrollHeight;
+    }
+  }, [channel, thread.length, activeConversation?.key]);
+
+  const totalUnread =
+    channelCounts.system + channelCounts.order + channelCounts.chat + channelCounts.complaint;
+
+  const send = (text: string) => {
+    if (!text.trim()) return;
+    if (!activeConversation) {
       toast('当前没有可留言的订单会话。');
       return;
     }
-    sendChatMessage(activeConversationId, chatInput.trim(), 'text');
+    // 会话已存在走会话 id；占位会话（新接单订单）带 postId 由领域层建线程。
+    sendChatMessage(
+      activeConversation.conversationId,
+      text.trim(),
+      'text',
+      activeConversation.postId,
+    );
     setChatInput('');
   };
 
-  const handleSendQuickReply = (text: string) => {
-    if (!activeConversationId) {
-      toast('当前没有可留言的订单会话。');
-      return;
-    }
-    sendChatMessage(activeConversationId, text, 'text');
+  const openItem = (id: string) => {
+    sound.playTap();
+    setSelectedId(id);
+    setMobileDetail(true);
   };
 
-  // 定位与图片都不在本轮范围（§1.4）：按钮保留但禁用，并说明原因。
-  const explainUnavailable = (feature: string) => {
-    toast(`${feature}不在本轮演示范围：没有定位授权、没有对象存储，也不会采集门牌号。`);
-  };
-
-  const handleCreateComplaint = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!complaintDetail.trim()) {
-      toast('请填写具体投诉事实说明');
-      return;
+  const renderDetail = () => {
+    if (channel === 'complaint') {
+      if (!activeComplaint) {
+        return (
+          <EmptyState
+            title="还没有投诉或举报记录"
+            hint="在信息流、评论或订单留言上使用「举报」，记录会出现在这里；本演示不会通知任何机构。"
+          />
+        );
+      }
+      return (
+        <>
+          <div className="nl-detail__head">
+            <div>
+              <h2 className="nl-detail__title">{activeComplaint.reason}</h2>
+              <p className="nl-detail__meta">
+                工单 {activeComplaint.ticketNo} · {activeComplaint.createdAt}
+              </p>
+            </div>
+            <Tag tone={COMPLAINT_TONE[activeComplaint.status] ?? 'neutral'}>
+              {activeComplaint.statusLabel}
+            </Tag>
+          </div>
+          <hr className="nl-detail__hr" />
+          <p className="nl-detail__body">{activeComplaint.detail}</p>
+          {activeComplaint.resolutionNote ? (
+            <div className="nl-alert nl-alert--accent mt-4">
+              <span>
+                <strong>复核记录{activeComplaint.handlerName ? `（${activeComplaint.handlerName}）` : ''}：</strong>
+                {activeComplaint.resolutionNote}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-4 text-[10.5px] leading-relaxed text-muted">
+              本演示只在本机记录举报，没有外部处置时限，也不会通知被举报人。
+            </p>
+          )}
+        </>
+      );
     }
-    submitComplaint({
-      reason: complaintReason,
-      detail: complaintDetail.trim(),
-      orderTitle: '社区互助服务订单'
-    });
-    setComplaintDetail('');
-    setShowComplaintForm(false);
-    toast('举报已记录在本机演练中（未通知任何机构）', 'success');
+
+    if (channel === 'chat') {
+      return (
+        <>
+          <div className="nl-detail__head">
+            <div>
+              <h2 className="nl-detail__title">{activeConversation?.title ?? '演练联系人（虚构）'}</h2>
+              <p className="nl-detail__meta">订单留言 · 非实时 · 仅保存在本机</p>
+            </div>
+            {activeConversation?.postId ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  sound.playTap();
+                  setSelectedOrderId(activeConversation.postId ?? null);
+                  setActiveSubPage('order_detail');
+                }}
+              >
+                查看订单详情
+              </Button>
+            ) : (
+              <Tag tone="neutral">演示会话</Tag>
+            )}
+          </div>
+          <hr className="nl-detail__hr" />
+
+          <div className="nl-thread">
+            <div className="nl-thread__body" ref={threadRef}>
+              <p className="text-center text-[9.5px] text-faint">
+                留言未加密、未上传，不会通知任何人
+              </p>
+              {thread.length === 0 ? (
+                <p className="py-6 text-center text-[11px] text-muted">
+                  {activeConversation?.postId && !activeConversation.conversationId
+                    ? '这条订单还没有留言；发出的第一条会绑定到该订单。'
+                    : '还没有留言。先在接单大厅认领一条求助，或等待对方发起会话。'}
+                </p>
+              ) : (
+                thread.map((item) => (
+                  <div key={item.id} className={`flex flex-col ${item.isMe ? 'items-end' : 'items-start'}`}>
+                    <div className={`nl-bubble ${item.isMe ? 'nl-bubble--me' : 'nl-bubble--peer'}`}>
+                      {item.text}
+                      <div className="nl-bubble__meta">
+                        {item.senderName} · {item.timestamp}
+                      </div>
+                    </div>
+                    {!item.isMe ? (
+                      <button
+                        type="button"
+                        className="mt-1 inline-flex items-center gap-1 text-[9px] text-muted hover:text-danger"
+                        aria-label={`举报这条留言：${item.text.slice(0, 12)}`}
+                        onClick={() =>
+                          submitComplaint({
+                            targetType: 'message',
+                            targetId: item.id,
+                            orderTitle: `留言：${item.text.slice(0, 14)}`,
+                            reason: '订单留言举报（演练）',
+                            detail: '在订单留言中举报单条留言；只写本机记录，不通知任何机构。',
+                          })
+                        }
+                      >
+                        <Flag className="h-2.5 w-2.5" aria-hidden="true" />
+                        举报
+                      </button>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="nl-quick-reply" aria-label="快捷回复">
+              {QUICK_REPLIES.map((text) => (
+                <button
+                  key={text}
+                  type="button"
+                  className="nl-chip shrink-0"
+                  onClick={() => send(text)}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+
+            <form
+              className="nl-composer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                send(chatInput);
+              }}
+            >
+              <input
+                type="text"
+                className="nl-field"
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                placeholder="输入沟通留言…"
+                aria-label="留言内容"
+              />
+              <Button type="submit" variant="primary" size="sm" disabled={!chatInput.trim()}>
+                <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                发送
+              </Button>
+            </form>
+          </div>
+        </>
+      );
+    }
+
+    if (!activeMessage) {
+      return (
+        <EmptyState
+          title="这个通道还没有消息"
+          hint="消息只在本机生成：发布、接单、审核与举报都会在这里留下记录。"
+        />
+      );
+    }
+
+    const read = isMessageRead(activeMessage.id);
+    return (
+      <>
+        <div className="nl-detail__head">
+          <div>
+            <h2 className="nl-detail__title">{activeMessage.title}</h2>
+            <p className="nl-detail__meta">
+              {channel === 'system' ? '系统通知' : '订单消息'} · {activeMessage.timestamp} · 来源：演练系统
+            </p>
+          </div>
+          <Tag tone={read ? 'accent' : 'brand'}>{read ? '已读' : '未读'}</Tag>
+        </div>
+        <hr className="nl-detail__hr" />
+        <p className="nl-detail__body">{activeMessage.content}</p>
+
+        <div className="nl-detail__actions">
+          {channel === 'order' && activeMessage.orderId ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                sound.playTap();
+                setSelectedOrderId(activeMessage.orderId ?? null);
+                setActiveSubPage('order_detail');
+              }}
+            >
+              查看订单详情
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                sound.playTap();
+                setActiveSubPage('time_ledger_page');
+              }}
+            >
+              查看存折明细
+            </Button>
+          )}
+          <button
+            type="button"
+            className="nl-detail__link"
+            onClick={() => {
+              sound.playTap();
+              setActiveSubPage('help_center');
+            }}
+          >
+            消息有异常？提交申诉
+          </button>
+        </div>
+      </>
+    );
   };
 
   return (
-    <div className="space-y-4 pb-12 animate-in fade-in duration-150">
-      {/* 4 Tabs Header */}
-      <div className="p-1.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs grid grid-cols-4 gap-1 text-center font-bold text-xs sm:text-sm">
+    <div>
+      <div className="nl-pagehead">
+        <div>
+          <h1 className="nl-page-title">消息</h1>
+          <p className="nl-page-sub">
+            {totalUnread > 0 ? `${totalUnread} 条未读` : '全部已读'} · 系统通知、订单进度、私信与投诉都在这里
+          </p>
+        </div>
         <button
+          type="button"
+          className="inline-flex min-h-[32px] items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-strong disabled:text-faint"
           onClick={() => {
             sound.playTap();
-            setActiveTab('order');
+            markAllMessagesRead();
+            toast('已把当前消息全部标为已读', 'success');
           }}
-          className={`py-2 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            activeTab === 'order' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
+          disabled={totalUnread === 0}
         >
-          <FileText className="w-4 h-4" />
-          <span>订单进度</span>
-        </button>
-
-        <button
-          onClick={() => {
-            sound.playTap();
-            setActiveTab('chat');
-          }}
-          className={`py-2 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 relative ${
-            activeTab === 'chat' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>订单留言</span>
-          <span className="w-2 h-2 rounded-full bg-amber-400 absolute top-1.5 right-1.5 ring-1 ring-white" />
-        </button>
-
-        <button
-          onClick={() => {
-            sound.playTap();
-            setActiveTab('system');
-          }}
-          className={`py-2 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            activeTab === 'system' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          <span>系统通知</span>
-        </button>
-
-        <button
-          onClick={() => {
-            sound.playTap();
-            setActiveTab('complaint');
-          }}
-          className={`py-2 px-1 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            activeTab === 'complaint' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <AlertCircle className="w-4 h-4" />
-          <span>投诉反馈</span>
+          <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          全部已读
         </button>
       </div>
 
-      {/* Tab 1: 订单进度消息 */}
-      {activeTab === 'order' && (
-        <div className="space-y-3">
-          {orderMessages.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 bg-white rounded-2xl border">
-              暂无订单变动消息
-            </div>
+      <Segmented
+        label="消息通道"
+        className="nl-seg--inline"
+        value={channel}
+        onChange={(key) => setChannel(key as ChannelKey)}
+        items={[
+          { key: 'system', label: '系统通知', count: channelCounts.system },
+          { key: 'order', label: '订单消息', count: channelCounts.order },
+          {
+            key: 'chat',
+            label: (
+              <>
+                私信
+                <span className="nl-sr-only">订单留言</span>
+              </>
+            ),
+            count: channelCounts.chat,
+          },
+          { key: 'complaint', label: '投诉反馈', count: channelCounts.complaint },
+        ]}
+      />
+
+      <div className={`nl-msg mt-4 ${mobileDetail ? 'nl-msg--detail' : ''}`}>
+        <div className="nl-card nl-card--sm nl-msg__list" aria-label="消息列表">
+          {channel === 'complaint' ? (
+            complaints.length === 0 ? (
+              <p className="px-4 py-8 text-center text-[11px] text-muted">暂无投诉或举报记录</p>
+            ) : (
+              complaints.map((item) => {
+                const Icon = CHANNEL_ICON.complaint;
+                const active = activeComplaint?.id === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="nl-msg__item"
+                    aria-current={active}
+                    onClick={() => openItem(item.id)}
+                  >
+                    <span className={`nl-msg__icon ${CHANNEL_TINT.complaint}`}>
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="nl-msg__main">
+                      <span className="nl-msg__title">
+                        <span className="truncate">{item.reason}</span>
+                        {item.status === 'pending' ? <span className="nl-msg__unread" /> : null}
+                      </span>
+                      <span className="nl-msg__preview">{item.ticketNo}</span>
+                    </span>
+                    <span className="nl-msg__time">{item.createdAt.slice(5, 10)}</span>
+                  </button>
+                );
+              })
+            )
+          ) : messageList.length === 0 && channel !== 'chat' ? (
+            <p className="px-4 py-8 text-center text-[11px] text-muted">这个通道还没有消息</p>
+          ) : channel === 'chat' ? (
+            chatConversations.length === 0 ? (
+              <p className="px-4 py-8 text-center text-[11px] text-muted">这个通道还没有消息</p>
+            ) : (
+              chatConversations.map((conversation) => {
+                const active = activeConversation?.key === conversation.key;
+                return (
+                  <button
+                    key={conversation.key}
+                    type="button"
+                    className="nl-msg__item"
+                    aria-current={active}
+                    onClick={() => openItem(conversation.key)}
+                  >
+                    <span className={`nl-msg__icon ${CHANNEL_TINT.chat}`}>
+                      <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="nl-msg__main">
+                      <span className="nl-msg__title">
+                        <span className="truncate">{conversation.title}</span>
+                      </span>
+                      <span className="nl-msg__preview">
+                        {conversation.lastText || '订单留言会话 · 仅保存在本机'}
+                      </span>
+                    </span>
+                    <span className="nl-msg__time">{conversation.lastTime || '今天'}</span>
+                  </button>
+                );
+              })
+            )
           ) : (
-            orderMessages.map((msg) => (
-              <div
-                key={msg.id}
-                onClick={() => {
-                  sound.playTap();
-                  if (msg.orderId) {
-                    setSelectedOrderId(msg.orderId);
-                    setActiveSubPage('order_detail');
-                  }
-                }}
-                className="cursor-pointer p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-md transition-all space-y-2 group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                      {msg.title}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    {msg.timestamp}
-                  </span>
-                </div>
-
-                <p className={`text-slate-600 leading-relaxed ${elderlyMode ? 'text-base' : 'text-xs sm:text-sm'}`}>
-                  {msg.content}
-                </p>
-
-                {msg.extra && (
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold border border-emerald-100">
-                      {msg.extra.statusBadge}
-                    </span>
-                    <span className="text-emerald-700 font-bold group-hover:translate-x-0.5 transition-transform flex items-center">
-                      {msg.extra.actionText || '查看订单'} <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                )}
-              </div>
+            groupByDay(messageList).map((group) => (
+              <React.Fragment key={group.label}>
+                <p className="nl-msg__day">{group.label}</p>
+                {group.items.map((item) => {
+                  const Icon = CHANNEL_ICON[channel];
+                  const active = activeMessage?.id === item.id;
+                  const unread = item.unread && !isMessageRead(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="nl-msg__item"
+                      aria-current={active}
+                      onClick={() => openItem(item.id)}
+                    >
+                      <span className={`nl-msg__icon ${CHANNEL_TINT[channel]}`}>
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="nl-msg__main">
+                        <span className="nl-msg__title">
+                          <span className="truncate">{item.title}</span>
+                          {unread ? <span className="nl-msg__unread" /> : null}
+                        </span>
+                        <span className="nl-msg__preview">{item.content}</span>
+                      </span>
+                      <span className="nl-msg__time">{item.timestamp}</span>
+                    </button>
+                  );
+                })}
+              </React.Fragment>
             ))
           )}
         </div>
-      )}
 
-      {/* Tab 2: 订单内留言 / 互动私信 */}
-      {activeTab === 'chat' && (
-        <div className="rounded-2xl bg-white border border-slate-200/80 shadow-xs overflow-hidden flex flex-col h-[520px]">
-          {/* Chat Target Header */}
-          <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div
-                aria-hidden="true"
-                className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-bold flex items-center justify-center ring-2 ring-emerald-500 shrink-0"
-              >
-                邻
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
-                  <span>订单内留言（演练）</span>
-                  <span className="text-[10px] bg-amber-500/30 text-amber-200 px-1.5 py-0.2 rounded">
-                    非实时
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  会话：{activeConversationId ?? '暂无订单会话'}
-                </div>
-              </div>
-            </div>
-
-            <span
-              className="px-2 py-1 rounded-lg bg-white/10 text-slate-300 text-[10px] font-bold"
-              title="演练不采集手机号，无法拨打"
-            >
-              <PhoneCall className="w-4 h-4 inline" />
-            </span>
-          </div>
-
-          {/* Chat Messages Body */}
-          <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-50">
-            <div className="text-center">
-              <span className="text-[10px] text-slate-400 bg-white/80 px-2 py-0.5 rounded-full border shadow-2xs">
-                留言只保存在本机浏览器 · 未加密、未上传、不会通知任何人
-              </span>
-            </div>
-
-            {activeChatMessages.length === 0 && (
-              <p className="text-center text-[11px] text-slate-400 py-6">
-                暂无订单留言。先在「接单大厅」认领一条求助，或由发布者模拟接单后即可留言。
-              </p>
-            )}
-            {activeChatMessages.map((chat) => (
-              <div
-                key={chat.id}
-                className={`flex items-start gap-2 ${chat.isMe ? 'flex-row-reverse' : ''}`}
-              >
-                <div
-                  aria-hidden="true"
-                  className={`w-8 h-8 rounded-full shrink-0 mt-0.5 ring-1 ring-slate-200 flex items-center justify-center text-[11px] font-bold text-white ${
-                    chat.isMe ? 'bg-emerald-600' : 'bg-slate-400'
-                  }`}
-                >
-                  {chat.isMe ? '我' : '邻'}
-                </div>
-                <div className={`space-y-1 max-w-[78%] ${chat.isMe ? 'items-end' : 'items-start'}`}>
-                  <div className={`text-[10px] text-slate-400 ${chat.isMe ? 'text-right' : ''}`}>
-                    {chat.senderName} · {chat.timestamp}
-                  </div>
-                  
-                  {chat.type === 'location' ? (
-                    <div className="p-2.5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 text-slate-800">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
-                        <MapPin className="w-4 h-4" />
-                        <span>{chat.locationInfo?.name || '实时位置共享'}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        {chat.locationInfo?.address}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-xs ${
-                      chat.isMe
-                        ? 'bg-emerald-600 text-white rounded-tr-xs'
-                        : 'bg-white text-slate-800 border border-slate-200 rounded-tl-xs'
-                    }`}>
-                      {chat.text}
-                    </div>
-                  )}
-
-                  {/* 留言也是 UGC：只对对方的留言给举报入口（R7）。目标为 message，不是父帖。 */}
-                  {!chat.isMe && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playTap();
-                        submitComplaint({
-                          targetType: 'message',
-                          targetId: chat.id,
-                          orderTitle: `留言：${chat.text.slice(0, 14)}`,
-                          reason: '订单留言举报（演练）',
-                          detail: '在订单留言中举报单条留言；只写本机记录，不通知任何机构。',
-                        });
-                      }}
-                      aria-label={`举报这条留言：${chat.text.slice(0, 12)}`}
-                      className="text-[10px] text-slate-400 hover:text-rose-600 inline-flex items-center gap-1 px-1 py-1"
-                    >
-                      <Flag className="w-3 h-3" /> 举报
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div ref={chatBottomRef} />
-          </div>
-
-          {/* Fast Response Chips */}
-          <div className="p-2 bg-white border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto shrink-0">
-            <span className="text-[10px] text-slate-400 font-bold shrink-0">快捷语:</span>
-            {[
-              '老人已准备好，门虚掩着',
-              '我带好维修工具了，马上到达',
-              '身体感觉如何？随身药带了吗？',
-              '已到达楼下，请确认'
-            ].map((text, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendQuickReply(text)}
-                className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 text-[11px] border border-slate-200 whitespace-nowrap transition-colors"
-              >
-                {text}
-              </button>
-            ))}
-          </div>
-
-          {/* Chat Input Bar */}
-          <form onSubmit={handleSendText} className="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => explainUnavailable('发送定位')}
-              className="p-2 rounded-xl text-slate-300 hover:bg-slate-100 transition-colors"
-              title="本轮不含定位"
-            >
-              <MapPin className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => explainUnavailable('发送图片')}
-              className="p-2 rounded-xl text-slate-300 hover:bg-slate-100 transition-colors"
-              title="本轮不含图片上传"
-            >
-              <ImageIcon className="w-5 h-5" />
-            </button>
-
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="输入沟通留言..."
-              className="flex-1 px-3.5 py-2 rounded-xl bg-slate-100 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>发送</span>
-            </button>
-          </form>
+        <div className="nl-card nl-card--sm nl-detail">
+          <button
+            type="button"
+            className="mb-3 inline-flex items-center gap-1 text-[10.5px] text-muted hover:text-brand lg:hidden"
+            onClick={() => setMobileDetail(false)}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            返回消息列表
+          </button>
+          {renderDetail()}
         </div>
-      )}
+      </div>
 
-      {/* Tab 3: 系统通知 */}
-      {activeTab === 'system' && (
-        <div className="space-y-3">
-          {systemMessages.map((msg) => (
-            <div key={msg.id} className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  {msg.title}
-                </span>
-                <span className="text-[11px] text-slate-400 font-mono">{msg.timestamp}</span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{msg.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tab 4: 投诉反馈工单 */}
-      {activeTab === 'complaint' && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-amber-950 text-xs sm:text-sm">
-                遇到服务纠纷或不合规行为？
-              </h3>
-              <p className="text-[11px] text-amber-800 mt-0.5">
-                可对具体内容提交举报；本演示只写本机记录，不会通知任何机构，也没有处置时限承诺。
-              </p>
-            </div>
-            <button
-              onClick={() => setShowComplaintForm(!showComplaintForm)}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shadow-xs shrink-0"
-            >
-              {showComplaintForm ? '收起表单' : '提交申诉'}
-            </button>
-          </div>
-
-          {/* Complaint Submission Form */}
-          {showComplaintForm && (
-            <form onSubmit={handleCreateComplaint} className="p-4 rounded-2xl bg-white border border-slate-200 space-y-3 animate-in fade-in duration-150">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">投诉纠纷类型：</label>
-                <select
-                  value={complaintReason}
-                  onChange={(e) => setComplaintReason(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white"
-                >
-                  <option value="服务未按约定时间到达">服务未按约定时间到达（爽约）</option>
-                  <option value="服务态度不佳或存在安全隐患">服务态度不佳或存在安全隐患</option>
-                  <option value="时间币结算争议">时间币结算争议 / 恶意记账</option>
-                  <option value="线下涉及违规收费">线下涉及违规收费 / 违规变现</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">具体事实说明：</label>
-                <textarea
-                  value={complaintDetail}
-                  onChange={(e) => setComplaintDetail(e.target.value)}
-                  placeholder="请详细描述发生的时间、经过以及您的诉求..."
-                  rows={3}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowComplaintForm(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-xs"
-                >
-                  确认提交演练复核
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Existing Complaints */}
-          <div className="space-y-3">
-            {complaints.map((item) => (
-              <div key={item.id} className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-slate-800">
-                    工单：{item.ticketNo}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800">
-                    {item.statusLabel}
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-700 space-y-1">
-                  <p><strong>事由：</strong>{item.reason}</p>
-                  <p className="text-slate-600">{item.detail}</p>
-                </div>
-
-                {item.resolutionNote && (
-                  <div className="p-2.5 rounded-xl bg-emerald-50 text-xs text-emerald-900 border border-emerald-200 space-y-1">
-                    <p className="font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                      演练复核办结记录 ({item.handlerName})：
-                    </p>
-                    <p>{item.resolutionNote}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <p className="mt-6 text-center text-[9.5px] text-muted">
+        消息只保存在本机浏览器，不接入真实通知通道
+        <ChevronRight className="inline h-3 w-3" aria-hidden="true" />
+      </p>
     </div>
   );
 };

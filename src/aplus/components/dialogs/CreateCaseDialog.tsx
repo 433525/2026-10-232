@@ -1,4 +1,4 @@
-import { HIGH_RISK_STOP_NEXT_STEP, SYNTHETIC_SOURCE_CHANNELS, getSyntheticSourceChannelLabel, type SyntheticSourceChannel } from '../../../data/intake/intake'
+import { HIGH_RISK_STOP_NEXT_STEP, MANUAL_SOURCE_CHANNELS, getSyntheticSourceChannelLabel, type SyntheticSourceChannel } from '../../../data/intake/intake'
 import { INTAKE_PAUSED_NOTICE } from '../../../data/intake/store'
 import { useAplusContext } from '../../context'
 
@@ -92,9 +92,9 @@ export default function CreateCaseDialog() {
               <div className="field">
                 <label htmlFor="record-source">来源渠道演练标记 <span aria-hidden="true">*</span></label>
                 <select id="record-source" required aria-required="true" value={form.sourceChannel} onChange={(event) => setForm('create', { sourceChannel: event.target.value as SyntheticSourceChannel })}>
-                  {SYNTHETIC_SOURCE_CHANNELS.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
+                  {MANUAL_SOURCE_CHANNELS.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
                 </select>
-                <div className="hint">仅标记本条合成演练记录的虚构来源，不会创建或连接真实居民入口、社区渠道、外部机构或受理系统。默认“人工录入演练”。</div>
+                <div className="hint">仅标记本条合成演练记录的虚构来源，不会创建或连接真实居民入口、社区渠道、外部机构或受理系统。默认“人工录入演练”；“社区入口演练”只能从社区桥登记，不在此手选。</div>
               </div>
               <div className="form-row">
                 <div className="field"><label htmlFor="record-owner">负责人 <span aria-hidden="true">*</span></label><input id="record-owner" maxLength={40} required aria-required="true" placeholder="演练-受理席-01" value={form.owner} onChange={(event) => setForm('create', { owner: event.target.value })} /></div>

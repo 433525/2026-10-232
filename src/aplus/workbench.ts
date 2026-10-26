@@ -28,7 +28,7 @@
  * → 交互（焦点 / 滚动 / 深链 / 受理开关）→ 动作（备份 / 表单复位 / 提交 / 投诉 / 社区桥）
  * → 生命周期。
  */
-import { computed, createReactiveStore, ref, type Ref } from '../data/reactive'
+import { batch, computed, createReactiveStore, ref, type Ref } from '../data/reactive'
 import {
   COMPLAINT_REVIEWER_ROLES,
   DEFAULT_SYNTHETIC_SOURCE_CHANNEL,
@@ -220,6 +220,28 @@ function compactLayout(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 1020px)').matches
 }
 
+/**
+ * 指纹记忆化单元：指纹不变时返回同一份缓存（引用稳定），变化才重算。
+ *
+ * 背景：`computed` 是无缓存惰性求值，重派生列表（队列过滤、社区桥映射）
+ * 会被每个消费组件在每次渲染时重算，且每次返回新数组——引用不稳定也让
+ * 下游的任何 memo 失效。指纹必须覆盖 getter 读到的**全部**状态
+ * （intake store 版本号 + 显式列出的本工作台字段），任何一处变化都会
+ * 改变指纹，因此结果不会比原来的「每次重算」更陈旧。
+ */
+function memoCell<K, T>(fingerprint: () => K, compute: () => T): () => T {
+  let key: { value: K } | null = null
+  let cached: T
+  return () => {
+    const nextKey = fingerprint()
+    if (key === null || !Object.is(key.value, nextKey)) {
+      cached = compute()
+      key = { value: nextKey }
+    }
+    return cached
+  }
+}
+
 export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
   // `useIntakeStore` 在 React 侧是单例对象（见 data/reactive.ts 的说明），不是函数。
   const store = useIntakeStore
@@ -339,23 +361,29 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
   const communityDuplicateExplanation = ref('')
   const communityBridgeError = ref('')
 
-  const communityRegisteredCases = computed(() => {
-    const candidates = new Map<string, { intakeCase: IntakeCase; reopenedDepth: number }>()
-    for (const item of store.cases.value) {
-      const sourceLink = resolveIntakeSourceLink(item, store.cases.value)
-      if (!sourceLink) continue
-      const previous = candidates.get(sourceLink.sourcePostId)
-      if (
-        !previous
-        || sourceLink.reopenedDepth > previous.reopenedDepth
-        || (sourceLink.reopenedDepth === previous.reopenedDepth
-          && Date.parse(item.updatedAt) >= Date.parse(previous.intakeCase.updatedAt))
-      ) {
-        candidates.set(sourceLink.sourcePostId, { intakeCase: item, reopenedDepth: sourceLink.reopenedDepth })
+  // 源链接解析对每条记录都要全量扫描（O(n²)），用指纹记忆化收敛为
+  // 「记录集每变化一次才算一次」，并让 Map 引用在无关渲染间保持稳定。
+  const communityRegisteredCasesCell = memoCell(
+    () => store.getVersion(),
+    () => {
+      const candidates = new Map<string, { intakeCase: IntakeCase; reopenedDepth: number }>()
+      for (const item of store.cases.value) {
+        const sourceLink = resolveIntakeSourceLink(item, store.cases.value)
+        if (!sourceLink) continue
+        const previous = candidates.get(sourceLink.sourcePostId)
+        if (
+          !previous
+          || sourceLink.reopenedDepth > previous.reopenedDepth
+          || (sourceLink.reopenedDepth === previous.reopenedDepth
+            && Date.parse(item.updatedAt) >= Date.parse(previous.intakeCase.updatedAt))
+        ) {
+          candidates.set(sourceLink.sourcePostId, { intakeCase: item, reopenedDepth: sourceLink.reopenedDepth })
+        }
       }
-    }
-    return new Map([...candidates].map(([sourcePostId, candidate]) => [sourcePostId, candidate.intakeCase]))
-  })
+      return new Map([...candidates].map(([sourcePostId, candidate]) => [sourcePostId, candidate.intakeCase]))
+    },
+  )
+  const communityRegisteredCases = computed(() => communityRegisteredCasesCell())
   const communityReviewRequired = computed(() =>
     communityPendingInput.value !== null && communityDuplicateCandidates.value.length > 0,
   )
@@ -381,15 +409,28 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
     const result = communityReadResult.value
     return result && result.status !== 'ready' ? result.message : ''
   })
-  const communityPostsWithStatus = computed(() => {
-    const result = communityReadResult.value
-    if (!result || result.status !== 'ready') return []
-    return result.posts.map((post) => ({
-      post,
-      mapping: mapCommunityHelpPostToIntake(post),
-      registered: communityRegisteredCases.value.get(post.id) ?? null,
-    }))
-  })
+  // 社区桥列表：单一记忆化单元，指纹 = intake 版本（「已登记」匹配随它变）
+  // + 读取序号（每次读取/清空都递增）。不能用「双层单元」：外层重算只会
+  // 重新读取内层缓存，而内层看不见 intake 版本——登记后同弹层就不刷新了。
+  const EMPTY_COMMUNITY_POSTS: Array<{
+    post: CommunityHelpPost
+    mapping: ReturnType<typeof mapCommunityHelpPostToIntake>
+    registered: IntakeCase | null
+  }> = []
+  const communityReadSeq = ref(0)
+  const communityPostsWithStatusCell = memoCell(
+    () => `${store.getVersion()}|${communityReadSeq.value}`,
+    () => {
+      const result = communityReadResult.value
+      if (!result || result.status !== 'ready') return EMPTY_COMMUNITY_POSTS
+      return result.posts.map((post) => ({
+        post,
+        mapping: mapCommunityHelpPostToIntake(post),
+        registered: communityRegisteredCasesCell().get(post.id) ?? null,
+      }))
+    },
+  )
+  const communityPostsWithStatus = computed(() => communityPostsWithStatusCell())
 
   // ── 角色与文案 ──────────────────────────────────────────────────────
   const roles = DEMO_ROLES
@@ -402,28 +443,42 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
   // ── 派生：队列 ──────────────────────────────────────────────────────
   const isCaseOverdue = (item: IntakeCase) => isIntakeOverdue(item, new Date(store.clockNow.value).toISOString())
 
-  const filteredCases = computed(() => {
-    const normalizedSearch = search.value.trim().toLocaleLowerCase()
-    return store.cases.value.filter((item) => {
-      const matchesSearch = !normalizedSearch || [
-        item.id,
-        item.label,
-        item.summary,
-        item.status,
-        item.owner ?? '',
-        getSyntheticSourceChannelLabel(item.sourceChannel),
-        item.sourcePostId ?? '',
-      ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch))
-      if (!matchesSearch) return false
-      if (activeFilter.value === '待处理') return isOpenIntakeStatus(item.status)
-      if (activeFilter.value === '待分诊') return store.triageCases.value.some((candidate) => candidate.id === item.id)
-      if (activeFilter.value === '初筛中') return store.screeningCases.value.some((candidate) => candidate.id === item.id)
-      if (activeFilter.value === '演练逾期') return isCaseOverdue(item)
-      if (activeFilter.value === '高风险') return caseHasHighRisk(item)
-      if (activeFilter.value === '已结束') return !isOpenIntakeStatus(item.status)
-      return true
-    })
-  })
+  // 队列过滤：指纹 = intake 版本（cases / 时钟 / 派生子集都随它变）
+  // + 筛选与搜索词。分诊/初筛子集先落成 Set，把逐条的 some() 全量
+  // 扫描（O(n²)）降为 O(1) 命中判断；列表引用在无关渲染间保持稳定。
+  const filteredCasesCell = memoCell(
+    () => `${store.getVersion()}|${activeFilter.value}|${search.value}`,
+    () => {
+      const normalizedSearch = search.value.trim().toLocaleLowerCase()
+      const filter = activeFilter.value
+      const triageIds = filter === '待分诊'
+        ? new Set(store.triageCases.value.map((candidate) => candidate.id))
+        : null
+      const screeningIds = filter === '初筛中'
+        ? new Set(store.screeningCases.value.map((candidate) => candidate.id))
+        : null
+      return store.cases.value.filter((item) => {
+        const matchesSearch = !normalizedSearch || [
+          item.id,
+          item.label,
+          item.summary,
+          item.status,
+          item.owner ?? '',
+          getSyntheticSourceChannelLabel(item.sourceChannel),
+          item.sourcePostId ?? '',
+        ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch))
+        if (!matchesSearch) return false
+        if (filter === '待处理') return isOpenIntakeStatus(item.status)
+        if (filter === '待分诊') return triageIds !== null && triageIds.has(item.id)
+        if (filter === '初筛中') return screeningIds !== null && screeningIds.has(item.id)
+        if (filter === '演练逾期') return isCaseOverdue(item)
+        if (filter === '高风险') return caseHasHighRisk(item)
+        if (filter === '已结束') return !isOpenIntakeStatus(item.status)
+        return true
+      })
+    },
+  )
+  const filteredCases = computed(() => filteredCasesCell())
 
   // ── 派生：详情 ──────────────────────────────────────────────────────
   const selectedCase = computed(() => store.selectedCase.value)
@@ -705,9 +760,14 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
       notify('没有可导出的旧存档')
       return
     }
-    downloadTextFile('a-plus-unreadable-local-save.txt', backup, 'text/plain;charset=utf-8')
-    unreadableDownloaded.value = true
-    notify('已下载无法读取的旧存档原文')
+    try {
+      downloadTextFile('a-plus-unreadable-local-save.txt', backup, 'text/plain;charset=utf-8')
+      unreadableDownloaded.value = true
+      notify('已下载无法读取的旧存档原文')
+    } catch {
+      // 下载失败不能标记「已下载」，否则会解锁重置/导入，用户却始终拿不到原文。
+      notify('原文下载失败：浏览器拒绝创建下载。请改用桌面浏览器重试；尚未标记为已下载。')
+    }
   }
 
   function chooseBackup(): void {
@@ -1173,6 +1233,7 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
   function resetCommunityBridge(): void {
     resetCommunityReview()
     communityReadResult.value = null
+    communityReadSeq.value += 1
     communitySyntheticConfirmed.value = false
   }
 
@@ -1180,6 +1241,7 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
     resetCommunityReview()
     communitySyntheticConfirmed.value = false
     communityReadResult.value = readCommunityHelpPosts()
+    communityReadSeq.value += 1
   }
 
   function openCommunityBridge(): void {
@@ -1343,8 +1405,16 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
 
   /** 由 App 的 effect 调用一次；返回的清理函数在卸载时执行。 */
   function init(): () => void {
-    store.refreshClock()
-    overdueClockTimer = window.setInterval(store.refreshClock, 60_000)
+    // 首次时钟刷新等首帧绘制后再跑：init 在挂载 effect 里同步触发 refreshClock 的
+    // 连环写入（clockNow / lastSavedAt / cases 深拷贝），通知会撞进 React 的挂载
+    // 渲染窗口，与用户首个点击叠加时触发 React #185（最大更新深度）。延后一帧
+    // 只改变时机，不改逾期标记语义；60s 轮询照旧。
+    // refreshClock 再套一层 batch：时钟与可能的逾期提交合并为一次通知。
+    let disposed = false
+    afterPaint(() => {
+      if (!disposed) batch(store.refreshClock)
+    })
+    overdueClockTimer = window.setInterval(() => batch(store.refreshClock), 60_000)
     window.addEventListener(APP_ERROR_EVENT, onAppError)
     stopKeydown = dialogFocus.attach()
     stopCaseRoutePop = onRoutePop(() => applyCaseRouteFromLocation())
@@ -1352,6 +1422,7 @@ export const aplusWorkbench = createReactiveStore('aplus-workbench', () => {
     ensureSelection()
 
     return () => {
+      disposed = true
       if (overdueClockTimer !== undefined) window.clearInterval(overdueClockTimer)
       window.removeEventListener(APP_ERROR_EVENT, onAppError)
       stopKeydown?.()

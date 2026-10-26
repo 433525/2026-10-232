@@ -11,11 +11,11 @@ export default function AppSideRail() {
       </div>
       <div className="nav-label">A+ 内部演练原型</div>
       <nav className="nav-list">
-        <button className="nav-item active" type="button" aria-current="page"><span className="nav-icon" aria-hidden="true">▦</span><span>登记队列</span></button>
+        <button className="nav-item active" type="button" aria-current="page" title="登记队列"><span className="nav-icon" aria-hidden="true">▦</span><span>登记队列</span></button>
       </nav>
       <div className="nav-label nav-label-secondary">相关入口</div>
       <nav className="nav-list" aria-label="相关入口">
-        <a className="nav-item nav-link" href="/">
+        <a className="nav-item nav-link" href="/" title="社区演练入口">
           <span className="nav-icon" aria-hidden="true">◎</span><span className="nav-label">社区演练</span><span className="nav-arrow" aria-hidden="true">↗</span>
         </a>
       </nav>

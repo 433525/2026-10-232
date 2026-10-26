@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -20,6 +21,7 @@ import type {
   VolunteerProfile,
 } from '../types';
 import { useCommunityStore } from '../data/community/store';
+import { onRoutePop, readRouteParam, writeRoute } from '../shared/route-state';
 import { SYNTHETIC_DEMO_AUTHOR } from '../data/community/fixtures';
 import {
   ANNOUNCEMENTS,
@@ -31,6 +33,7 @@ import {
   membershipFromUserId,
   projectCommunity,
 } from '../selectors/community';
+import type { PendingCommentItem } from '../selectors/community';
 import type { PostMode, CommunityStorageStatus } from '../data/community/types';
 import { sound } from '../utils/audio';
 import { safeRead, safeWrite } from '../utils/storage';
@@ -39,6 +42,7 @@ import { dateStamp, downloadTextFile } from '../shared/download';
 
 export type SubPageType =
   | null
+  | 'publish_modal'
   | 'tasks_hall'
   | 'order_detail'
   | 'eldercare_detail'
@@ -52,7 +56,8 @@ export type SubPageType =
   | 'realname_verify'
   | 'terms_modal'
   | 'search_page'
-  | 'time_ledger_page';
+  | 'time_ledger_page'
+  | 'rules_modal';
 
 /**
  * 与 232 原实现完全一致的上下文契约（字段名与签名不变）。
@@ -85,6 +90,9 @@ export interface AppContextType {
   // Data entities
   orders: HelpOrder[];
   posts: Post[];
+  /** 审核队列视图：待审帖子与待审评论（公开信息流之外，先审后发）。 */
+  pendingPosts: Post[];
+  pendingComments: PendingCommentItem[];
   messages: MessageItem[];
   chatMessages: ChatMessage[];
   timeLedger: TimeLedger[];
@@ -101,17 +109,50 @@ export interface AppContextType {
   stopArticleAudio: () => void;
 
   // Actions
-  createHelpOrder: (order: Partial<HelpOrder>) => void;
-  createPost: (post: Partial<Post>) => void;
+  /**
+   * 返回受理结果：true = 已受理进入待审队列；false = 被拦下（未实名 / 校验失败 /
+   * 存档异常等），具体原因已通过 toast 告知，草稿与界面状态由调用方决定是否保留。
+   */
+  createHelpOrder: (order: Partial<HelpOrder>) => boolean;
+  createPost: (post: Partial<Post>) => boolean;
   acceptOrder: (orderId: string) => void;
   clockInOrder: (orderId: string) => void;
+  /**
+   * 追加能力：代合成邻居接单（演练）。发布者视角走完履约链路的第一步——
+   * store.counterpartAcceptOrder 的透传；事件来源标记 synthetic-counterpart。
+   */
+  counterpartAcceptOrder: (orderId: string) => void;
   completeOrder: (orderId: string, ratingScore?: number, ratingComment?: string) => void;
   cancelOrder: (orderId: string, reason: string) => void;
+  /**
+   * 追加能力（争议流程）：store.raiseOrderDispute 的透传。只有本人参与（发布者
+   * 或本机接单）且处于「已接单 / 待确认」的演练订单可发起，必须带理由；
+   * 事件类型 dispute 会立即出现在订单详情的「演练留痕」时间线里。
+   */
+  raiseOrderDispute: (orderId: string, reason: string) => void;
+  /**
+   * 追加能力（争议流程）：store.resolveOrderDispute 的透传。
+   * resume = 撤销争议回到履约中；close = 因争议关闭订单。两者都要求理由。
+   */
+  resolveOrderDispute: (
+    orderId: string,
+    resolution: 'resume' | 'close',
+    reason: string,
+  ) => void;
   likePost: (postId: string) => void;
   bookmarkPost: (postId: string) => void;
   addComment: (postId: string, content: string) => void;
   enrollActivity: (postId: string) => void;
-  sendChatMessage: (conversationId: string, text: string, type?: 'text' | 'location') => void;
+  /**
+   * 第四个参数为追加能力（可选）：订单会话尚未建立（新接单订单的第一条留言）时，
+   * 传 postId 按订单直接建立会话；已有会话时仍按会话 id 走原路径。
+   */
+  sendChatMessage: (
+    conversationId: string,
+    text: string,
+    type?: 'text' | 'location',
+    postId?: string,
+  ) => void;
   submitComplaint: (data: Partial<ComplaintTicket>) => void;
   triggerSos: () => void;
   verifyRealName: (name: string, idCard: string) => void;
@@ -124,8 +165,18 @@ export interface AppContextType {
    * 232 原实现没有理由收集，R7 要求「驳回必须有理由」，所以后台改用这个入口。
    */
   adminRejectPostWithReason: (postId: string, reason: string) => void;
+  /** 追加能力：评论先审后发的审核入口（store.moderateComment 的透传）。 */
+  adminApproveComment: (postId: string, commentId: string) => void;
+  adminRejectCommentWithReason: (postId: string, commentId: string, reason: string) => void;
   adminResolveComplaint: (ticketId: string, resolution: string) => void;
   adminAdjustTimeCoin: (userId: string, amount: number, note: string) => void;
+
+  /**
+   * 订单留言焦点：从订单详情跳到消息页时定位（或准备创建）该订单的留言会话。
+   * 仅存在于当前会话，不持久化。
+   */
+  chatFocusPostId: string | null;
+  setChatFocusPostId: (postId: string | null) => void;
 
   /**
    * 追加能力（不改变既有签名）：本机存档的可见状态与恢复动作（§7 存储契约）。
@@ -146,6 +197,10 @@ export interface AppContextType {
 
   // UI helpers
   unreadMessagesCount: number;
+  /** 已在本次演示中读过（本地持久化）的消息 id */
+  readMessageIds: string[];
+  isMessageRead: (id: string) => boolean;
+  markAllMessagesRead: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -155,6 +210,7 @@ const UI_KEYS = {
   viewMode: 'community.ui.view-mode',
   elderlyMode: 'community.ui.elderly-mode',
   activeTab: 'community.ui.active-tab',
+  readMessages: 'community.ui.read-messages',
 } as const;
 
 const TAB_STORAGE_IDS: Record<AppContextType['activeTab'], string> = {
@@ -165,7 +221,24 @@ const TAB_STORAGE_IDS: Record<AppContextType['activeTab'], string> = {
   profile: 'profile',
 };
 
+/** 可分享的页签白名单（publish 不是页签，只是弹层别名）。 */
+const ROUTABLE_TABS = ['home', 'community', 'messages', 'profile'] as const;
+
+function tabFromRoute(): AppContextType['activeTab'] | null {
+  const value = readRouteParam('tab');
+  if (!value) return null;
+  return (ROUTABLE_TABS as readonly string[]).includes(value)
+    ? (value as AppContextType['activeTab'])
+    : null;
+}
+
+/**
+ * 初始页签优先级：URL > 本机记住的页签 > 首页。
+ * 链接优先，才能让「复制链接」分享出去的那一页真的打开同一页。
+ */
 function readTab(): AppContextType['activeTab'] {
+  const fromRoute = tabFromRoute();
+  if (fromRoute) return fromRoute;
   const stored = safeRead<string>(UI_KEYS.activeTab, 'home');
   const found = (Object.keys(TAB_STORAGE_IDS) as AppContextType['activeTab'][]).find(
     (tab) => TAB_STORAGE_IDS[tab] === stored,
@@ -197,11 +270,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeRead<boolean>(UI_KEYS.elderlyMode, false),
   );
   const [activeTab, setActiveTabState] = useState<AppContextType['activeTab']>(readTab);
+  const [readMessageIds, setReadMessageIds] = useState<string[]>(() =>
+    safeRead<string[]>(UI_KEYS.readMessages, [], Array.isArray),
+  );
   const [activeSubPage, setActiveSubPage] = useState<SubPageType>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [chatFocusPostId, setChatFocusPostId] = useState<string | null>(null);
   const [playingArticleId, setPlayingArticleId] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
@@ -232,7 +309,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setActiveTab = useCallback((tab: AppContextType['activeTab']) => {
     setActiveTabState(tab);
     safeWrite(UI_KEYS.activeTab, TAB_STORAGE_IDS[tab]);
+    // 写进查询串：可分享、刷新还原、后退回到上一页；首页是默认值，不写。
+    writeRoute({ tab: tab === 'home' ? null : tab }, { clearHash: true });
   }, []);
+
+  // 浏览器前进/后退：地址已经变了，这里只同步界面，不再回写历史。
+  useEffect(
+    () =>
+      onRoutePop(() => {
+        const next = tabFromRoute() ?? 'home';
+        setActiveTabState(next);
+        safeWrite(UI_KEYS.activeTab, TAB_STORAGE_IDS[next]);
+        setActiveSubPage(null);
+        window.scrollTo({ top: 0 });
+      }),
+    [],
+  );
+
+  const isMessageRead = useCallback(
+    (id: string) => readMessageIds.includes(id),
+    [readMessageIds],
+  );
+
+  const markAllMessagesRead = useCallback(() => {
+    const ids = projection.messages.map((message) => message.id);
+    const merged = Array.from(new Set([...readMessageIds, ...ids]));
+    setReadMessageIds(merged);
+    safeWrite(UI_KEYS.readMessages, merged);
+  }, [projection.messages, readMessageIds]);
 
   const switchUser = useCallback(
     (userId: string) => {
@@ -271,13 +375,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   /* ------------------------------ 发布 ------------------------------ */
   const createHelpOrder = useCallback(
-    (order: Partial<HelpOrder>) => {
+    (order: Partial<HelpOrder>): boolean => {
       // 实名前置（R5）：未实名不进入 store，直接拦在门口并给出可执行下一步。
       if (membership === 'visitor') {
         sound.playSosAlert();
         toast('发布求助订单需先完成演练实名（仅切换身份，不采集身份证号）。');
         setActiveSubPage('realname_verify');
-        return;
+        return false;
       }
 
       const title = order.title?.trim() ?? '';
@@ -296,23 +400,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!result.ok) {
         toast(result.errors[0] ?? '发布失败');
-        return;
+        return false;
       }
       sound.playSuccess();
       toast('已提交审核；通过后才会出现在接单大厅（本机演练，不会通知任何人）。', 'success');
       setActiveTab('home');
+      return true;
     },
     [membership, store],
   );
 
   const createPost = useCallback(
-    (post: Partial<Post>) => {
+    (post: Partial<Post>): boolean => {
       const mode = resolvePublishMode(post);
       const result = store.publishPost({
         mode,
         title: post.title?.trim() || '（无标题）',
         content: post.content?.trim() ?? '',
-        category: post.categoryLabel,
+        // 服务分类仅用于求助登记：store 校验非 help 模式不得携带 category
+        // （此前照传 categoryLabel 导致志愿/邻里发布恒被拒，再被「成功」提示掩盖）。
+        // 232 的分类标签由选择器按 mode 派生，不依赖这个字段。
         location: post.locationTag,
         anonymous: mode === 'volunteer' ? post.isAnonymous === true : undefined,
         volunteerKind: mode === 'volunteer'
@@ -323,11 +430,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!result.ok) {
         toast(result.errors[0] ?? '发布失败');
-        return;
+        return false;
       }
       sound.playSuccess();
       toast('已提交审核；通过后才会进入社区信息流（本机演练）。', 'success');
       setActiveTab('community');
+      return true;
     },
     [store],
   );
@@ -359,21 +467,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [store],
   );
 
+  const counterpartAcceptOrder = useCallback(
+    (orderId: string) => {
+      const result = store.counterpartAcceptOrder(orderId);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '代接单失败');
+        return;
+      }
+      sound.playSuccess();
+      toast(result.message ?? '已由合成邻居标记接单（本机演练）。', 'success');
+    },
+    [store],
+  );
+
   const completeOrder = useCallback(
     (orderId: string, ratingScore = 5, ratingComment = '') => {
       // 双方确认在本机拆成两步：发起完成申请 → 确认完成。任一步失败就停下，不写账本。
+      // 两条路径按本机身份走（修复前不分角色都从接单方发起，发布者点「确认完成」必然报角色错误）：
+      // - 本人是接单者：本人发起申请，求助方是合成角色，由本机代其确认；
+      // - 本人是发布者：由合成接单方代发起申请，本人确认。
+      const post = store.posts.value.find((item) => item.id === orderId);
+      const isAuthor = post?.author.id === SYNTHETIC_DEMO_AUTHOR.id;
+
+      if (isAuthor) {
+        const requested = store.counterpartRequestOrderCompletion(orderId);
+        if (!requested.ok) {
+          // 若此前已发起过申请（状态已是待确认），直接进入确认；其余失败照常拦下。
+          const current = store.posts.value.find((item) => item.id === orderId);
+          if (current?.orderStatus !== 'completion-requested') {
+            toast(requested.errors[0] ?? '发起完成申请失败');
+            return;
+          }
+        }
+        const confirmed = store.confirmOrderCompletion(orderId);
+        if (!confirmed.ok) {
+          toast(confirmed.errors[0] ?? '确认完成失败');
+          return;
+        }
+        if (ratingComment.trim()) {
+          store.submitOrderFeedback(orderId, ratingScore, ratingComment.trim());
+        }
+        sound.playSuccess();
+        toast('合成接单方已发起完成申请，你已确认完成（本机演练）；账本新增一条「未结算」记录。', 'success');
+        return;
+      }
+
       const requested = store.requestOrderCompletion(orderId, '');
       if (!requested.ok) {
         toast(requested.errors[0] ?? '发起完成申请失败');
         return;
       }
-      // 第二步的确认方取决于本机身份：
-      // - 本人是求助发布者时，由本人确认（confirmOrderCompletion）；
-      // - 本人是接单者时，求助方是合成角色，只能由本机代其确认
-      //   （counterpartConfirmOrderCompletion，事件来源标记 synthetic-counterpart）。
-      //   之前只调前者，接单者会卡在「等待确认」且账本永远不新增，验收链路断在这里。
-      const byAuthor = store.confirmOrderCompletion(orderId);
-      const confirmed = byAuthor.ok ? byAuthor : store.counterpartConfirmOrderCompletion(orderId);
+      // 第二步的确认方：求助方是合成角色，只能由本机代其确认
+      // （counterpartConfirmOrderCompletion，事件来源标记 synthetic-counterpart）。
+      const confirmed = store.counterpartConfirmOrderCompletion(orderId);
       if (!confirmed.ok) {
         toast(confirmed.errors[0] ?? '确认完成失败');
         return;
@@ -382,12 +528,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         store.submitOrderFeedback(orderId, ratingScore, ratingComment.trim());
       }
       sound.playSuccess();
-      toast(
-        byAuthor.ok
-          ? '已完成双方确认（本机演练），时间账本新增一条「未结算」记录。'
-          : '已记录你方完成申请，并由合成求助方代确认（本机演练）；账本新增一条「未结算」记录。',
-        'success',
-      );
+      toast('已记录你方完成申请，并由合成求助方代确认（本机演练）；账本新增一条「未结算」记录。', 'success');
     },
     [store],
   );
@@ -401,6 +542,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       sound.playTap();
       toast('已取消（本机演练），取消原因已写入订单事件。');
+    },
+    [store],
+  );
+
+  const raiseOrderDispute = useCallback(
+    (orderId: string, reason: string) => {
+      const result = store.raiseOrderDispute(orderId, reason);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '发起争议失败');
+        return;
+      }
+      sound.playTap();
+      toast('已在本机演练中标记争议，事件已写入演练留痕；没有真实仲裁或通知。');
+    },
+    [store],
+  );
+
+  const resolveOrderDispute = useCallback(
+    (orderId: string, resolution: 'resume' | 'close', reason: string) => {
+      const result = store.resolveOrderDispute(orderId, resolution, reason);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '争议处理失败');
+        return;
+      }
+      sound.playTap();
+      toast(
+        resolution === 'resume'
+          ? '已撤销争议并恢复为履约中（本机演练），处理说明已写入演练留痕。'
+          : '已因争议关闭该订单（本机演练），处理说明已写入演练留痕；不涉及真实退款。',
+      );
     },
     [store],
   );
@@ -455,11 +626,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const sendChatMessage = useCallback(
-    (conversationId: string, text: string) => {
+    (conversationId: string, text: string, _type?: 'text' | 'location', postId?: string) => {
       // 路线 B：自由私信关闭，私信降级为「订单内留言」（T9）。
       const thread = store.threads.value.find((item) => item.id === conversationId);
       if (!thread) {
-        toast('找不到这条演练会话。');
+        // 新接单订单可能还没有会话：带 postId 时按订单建立会话并发第一条留言，
+        // 否则旧逻辑只能报「找不到会话」，第一条留言永远发不出去。
+        if (!postId) {
+          toast('找不到这条演练会话。');
+          return;
+        }
+        const created = store.sendOrderMessage(postId, text);
+        if (!created.ok) {
+          toast(created.errors[0] ?? '留言失败');
+          return;
+        }
+        sound.playTap();
         return;
       }
       if (thread.kind !== 'order' || !thread.postId) {
@@ -565,6 +747,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       adminRejectPostWithReason(postId, '');
     },
     [adminRejectPostWithReason],
+  );
+
+  const adminApproveComment = useCallback(
+    (postId: string, commentId: string) => {
+      const result = store.moderateComment(postId, commentId, 'approved', '评论符合演练社区规范');
+      if (!result.ok) {
+        toast(result.errors[0] ?? '审核失败');
+        return;
+      }
+      sound.playSuccess();
+      toast('评论已通过审核，会在原帖下展示。', 'success');
+    },
+    [store],
+  );
+
+  const adminRejectCommentWithReason = useCallback(
+    (postId: string, commentId: string, reason: string) => {
+      const trimmed = reason.trim();
+      if (!trimmed) {
+        toast('驳回必须填写理由（会写入审核日志并通知发布者）。');
+        return;
+      }
+      const result = store.moderateComment(postId, commentId, 'rejected', trimmed);
+      if (!result.ok) {
+        toast(result.errors[0] ?? '审核失败');
+        return;
+      }
+      sound.playTap();
+      toast('评论已驳回并记录理由。');
+    },
+    [store],
   );
 
   const adminResolveComplaint = useCallback(
@@ -708,7 +921,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [store, unreadableArchiveExported],
   );
 
-  const unreadMessagesCount = projection.messages.filter((message) => message.unread).length;
+  const unreadMessagesCount = projection.messages.filter(
+    (message) => message.unread && !readMessageIds.includes(message.id),
+  ).length;
 
   const value: AppContextType = {
     currentUser,
@@ -732,6 +947,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSearchKeyword,
     orders: projection.orders,
     posts: projection.posts,
+    pendingPosts: projection.pendingPosts,
+    pendingComments: projection.pendingComments,
     messages: projection.messages,
     chatMessages: projection.chatMessages,
     timeLedger: projection.timeLedger,
@@ -748,8 +965,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createPost,
     acceptOrder,
     clockInOrder,
+    counterpartAcceptOrder,
     completeOrder,
     cancelOrder,
+    raiseOrderDispute,
+    resolveOrderDispute,
     likePost,
     bookmarkPost,
     addComment,
@@ -761,8 +981,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adminApprovePost,
     adminRejectPost,
     adminRejectPostWithReason,
+    adminApproveComment,
+    adminRejectCommentWithReason,
     adminResolveComplaint,
     adminAdjustTimeCoin,
+    chatFocusPostId,
+    setChatFocusPostId,
     storageStatus,
     storageError,
     lastSavedAt,
@@ -774,6 +998,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     resetDemoData,
     importBackupFile,
     unreadMessagesCount,
+    readMessageIds,
+    isMessageRead,
+    markAllMessagesRead,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

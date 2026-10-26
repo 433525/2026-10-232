@@ -1,95 +1,109 @@
 import React, { useState } from 'react';
-import { ShieldCheck, X, FileText, Lock, HeartHandshake } from 'lucide-react';
+import { FileText, HeartHandshake, Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Segmented } from '../ui/Segmented';
 
 export const TermsModal: React.FC = () => {
   const { setActiveSubPage } = useApp();
   const [tab, setTab] = useState<'terms' | 'privacy' | 'elderly'>('terms');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <h2 className="font-bold text-base">社区服务合规协议与隐私政策说明</h2>
-          </div>
-          <button
-            onClick={() => {
-              sound.playTap();
-              setActiveSubPage(null);
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-4 text-xs font-bold text-slate-600 shrink-0">
-          {[
-            { key: 'terms', label: '用户服务协议', icon: FileText },
-            { key: 'privacy', label: '隐私保护政策', icon: Lock },
-            { key: 'elderly', label: '邻里互助公约与免责', icon: HeartHandshake },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => {
-                sound.playTap();
-                setTab(t.key as typeof tab);
-              }}
-              className={`py-2.5 px-3 border-b-2 flex items-center gap-1 transition-colors ${
-                tab === t.key ? 'border-emerald-600 text-emerald-800 font-bold bg-white' : 'border-transparent hover:text-slate-900'
-              }`}
-            >
-              <t.icon className="w-3.5 h-3.5" />
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed font-sans">
-          {tab === 'terms' && (
-            <div className="space-y-3">
-              <h3 className="font-bold text-slate-900 text-base">梧桐里（虚构）社区服务演练 使用说明</h3>
-              <p>版本生效日期：2026年10月18日</p>
-              <p><strong>1. 主体与服务定位：</strong>本项目是课程/校内演练原型，由项目组维护。它<strong>未获得任何社区、街道或机构的授权</strong>，不代表任何官方主体，也不提供真实服务；页面内的社区名称、居民与志愿者均为虚构。时间银行机制仅用于演示互助流程。</p>
-              <p><strong>2. 纯公益免费属性：</strong>平台所有助老求助、接单、时间币流转均属于纯公益行为，严禁任何个人或第三方以平台名义进行变相收费、非法集资或中介牟利。</p>
-              <p><strong>3. 内容管理与先审后发：</strong>为保障健康向上的社区交流环境，用户发布的所有求助订单、风采动态及评论均须经过敏感词检测与项目组人工复核后方可对外公开。</p>
-            </div>
-          )}
-
-          {tab === 'privacy' && (
-            <div className="space-y-3">
-              <h3 className="font-bold text-slate-900 text-base">敏感个人信息保护与脱敏规则</h3>
-              <p><strong>1. 最小必要原则：</strong>平台仅在您使用特定服务时收集手机号、真实姓名、脱敏住址等必要信息。</p>
-              <p><strong>2. 门牌住址脱敏分级：</strong>公开展示时默认仅模糊显示至“梧桐里3期（虚构）”等大范围；长者具体的单元与房间号仅在志愿者成功接单并完成安全凭证校验后，在订单内限时授权可见。</p>
-              <p><strong>3. 既往病史与特殊健康说明：</strong>长者的身体禁忌与慢性病信息属于敏感个人信息，须在发布时经本人或家属单独勾选同意后，采用高等级加密存储，严禁泄露。</p>
-            </div>
-          )}
-
-          {tab === 'elderly' && (
-            <div className="space-y-3">
-              <h3 className="font-bold text-slate-900 text-base">邻里互助公约与急救免责声明</h3>
-              <p><strong>1. 友善守信公约：</strong>志愿者接单后应准时履约，如遇特殊情况需提前在订单内留言告知；求助长者及家属应如实说明需求与照护要点。</p>
-              <p><strong>2. 紧急险情处置通道：</strong>本平台为邻里志愿协作工具，非 120 急救专线。遇急性疾病突发、摔倒骨折昏迷等危及生命险情，家属或现场志愿者应第一时间直接拨打 120/110，切勿延误急救时机。</p>
-              <p><strong>3. 纠纷仲裁机制：</strong>本原型没有真实仲裁能力。演练中的争议只能提交到演示用的“演练复核席”，由演示角色记录处理说明；不构成任何真实调解、裁决或信誉处置。</p>
-            </div>
-          )}
-        </div>
-
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-right shrink-0">
-          <button
-            onClick={() => setActiveSubPage(null)}
-            className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700"
-          >
+    <Modal
+      title="社区服务合规协议与隐私政策"
+      subtitle="演练环境 · 不具备真实法律效力"
+      onClose={() => setActiveSubPage(null)}
+      footer={
+        <>
+          <p className="nl-modal__foot-note">继续使用即表示你理解本页的演练边界。</p>
+          <Button variant="primary" onClick={() => setActiveSubPage(null)}>
             我已知晓并同意
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      <Segmented
+        label="协议类型"
+        value={tab}
+        onChange={(key) => {
+          sound.playTap();
+          setTab(key as typeof tab);
+        }}
+        items={[
+          { key: 'terms', label: '用户服务协议' },
+          { key: 'privacy', label: '隐私保护政策' },
+          { key: 'elderly', label: '互助公约与免责' },
+        ]}
+      />
+
+      <div className="mt-4 grid gap-3 text-[12px] leading-[1.9] text-text">
+        {tab === 'terms' ? (
+          <>
+            <h3 className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+              <FileText className="h-4 w-4 text-brand" aria-hidden="true" />
+              梧桐里（虚构）社区服务演练 使用说明
+            </h3>
+            <p className="text-[10px] text-muted">版本生效日期：2026 年 10 月 18 日</p>
+            <p>
+              <strong>1. 主体与服务定位：</strong>
+              本项目是课程/校内演练原型，由项目组维护。它<strong>未获得任何社区、街道或机构的授权</strong>
+              ，不代表任何官方主体，也不提供真实服务；页面内的社区名称、居民与志愿者均为虚构。
+            </p>
+            <p>
+              <strong>2. 纯公益免费属性：</strong>
+              所有助老求助、接单与时间币流转均属纯公益行为，严禁以平台名义变相收费、非法集资或中介牟利。
+            </p>
+            <p>
+              <strong>3. 内容管理与先审后发：</strong>
+              求助订单、风采动态与评论均须经敏感词检测与人工复核后方可公开。
+            </p>
+          </>
+        ) : null}
+
+        {tab === 'privacy' ? (
+          <>
+            <h3 className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+              <Lock className="h-4 w-4 text-accent" aria-hidden="true" />
+              敏感个人信息保护与脱敏规则
+            </h3>
+            <p>
+              <strong>1. 最小必要原则：</strong>
+              演练环境不采集手机号、身份证号与门牌号；页面不出现任何真实联系方式。
+            </p>
+            <p>
+              <strong>2. 住址脱敏分级：</strong>
+              公开展示只到社区一级；具体单元与房间号在真实环境需单独授权、限时可见。
+            </p>
+            <p>
+              <strong>3. 健康信息：</strong>
+              病史与照护禁忌属敏感个人信息，需本人或家属单独勾选同意，且只在认领后向志愿者展示。
+            </p>
+          </>
+        ) : null}
+
+        {tab === 'elderly' ? (
+          <>
+            <h3 className="flex items-center gap-2 text-[14px] font-semibold text-ink">
+              <HeartHandshake className="h-4 w-4 text-brand" aria-hidden="true" />
+              邻里互助公约与急救免责声明
+            </h3>
+            <p>
+              <strong>1. 友善守信：</strong>
+              志愿者接单后应准时履约，如遇特殊情况需提前在订单内留言告知；求助方应如实说明需求。
+            </p>
+            <p>
+              <strong>2. 紧急险情：</strong>
+              本平台不是 120 急救专线。遇急性疾病、跌倒骨折昏迷等险情，请立即拨打 120/110。
+            </p>
+            <p>
+              <strong>3. 纠纷处理：</strong>
+              本原型没有真实仲裁能力，争议只写入本机演练记录，不构成调解、裁决或信誉处置。
+            </p>
+          </>
+        ) : null}
       </div>
-    </div>
+    </Modal>
   );
 };

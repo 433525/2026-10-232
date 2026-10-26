@@ -51,12 +51,12 @@ export const StorageBanner: React.FC = () => {
     <div
       role={danger ? 'alert' : 'status'}
       className={`mb-3 rounded-xl border px-3 py-2.5 text-xs ${
-        danger ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-amber-300 bg-amber-50 text-amber-950'
+        danger ? 'border-danger bg-danger-tint text-rose-950' : 'border-amber-300 bg-amber-50 text-amber-950'
       }`}
     >
       <div className="flex items-start gap-2">
         {danger ? (
-          <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-rose-700" />
+          <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-danger" />
         ) : (
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-700" />
         )}
@@ -71,7 +71,7 @@ export const StorageBanner: React.FC = () => {
                   sound.playTap();
                   exportUnreadableArchive();
                 }}
-                className="min-h-[44px] px-3 rounded-lg bg-rose-700 hover:bg-rose-800 text-white font-bold inline-flex items-center gap-1.5"
+                className="min-h-[44px] px-3 rounded-lg bg-danger hover:bg-danger-ink text-white font-bold inline-flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 {unreadableArchiveExported ? '再下载一次原文' : '下载旧存档原文'}
@@ -102,8 +102,8 @@ export const StorageBanner: React.FC = () => {
                 }}
                 className={`min-h-[44px] px-3 rounded-lg font-bold inline-flex items-center gap-1.5 border ${
                   recoveryBlocked
-                    ? 'bg-white/60 text-rose-300 border-rose-200 cursor-not-allowed'
-                    : 'bg-white text-rose-900 border-rose-300 hover:bg-rose-100'
+                    ? 'bg-surface/60 text-rose-300 border-rose-200 cursor-not-allowed'
+                    : 'bg-surface text-danger-ink border-danger hover:bg-rose-100'
                 }`}
               >
                 <RotateCcw className="w-3.5 h-3.5" /> 恢复初始演练数据
@@ -116,7 +116,7 @@ export const StorageBanner: React.FC = () => {
                 sound.playTap();
                 exportBackup();
               }}
-              className="min-h-[44px] px-3 rounded-lg bg-white/70 hover:bg-white border border-current/20 font-bold inline-flex items-center gap-1.5"
+              className="min-h-[44px] px-3 rounded-lg bg-surface/70 hover:bg-surface border border-current/20 font-bold inline-flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5" /> 导出当前备份
             </button>
