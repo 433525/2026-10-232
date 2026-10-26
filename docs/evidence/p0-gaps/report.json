@@ -1,0 +1,69 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-10-26T14:03:16.600Z",
+  "stamp": "mvpbtgen",
+  "total": 12,
+  "passed": 12,
+  "results": [
+    {
+      "name": "[neg] 评论驳回：理由为空时提交禁用，点击不写审核日志",
+      "ok": true,
+      "detail": "done disabled=true sideEffect=false audit=2→2"
+    },
+    {
+      "name": "[neg] 评论驳回：仅空白仍禁用，审核状态与队列保持待审",
+      "ok": true,
+      "detail": "disabled=true moderation=pending card=true"
+    },
+    {
+      "name": "评论驳回：落库 rejected、理由入审核日志、待审卡下架",
+      "ok": true,
+      "detail": "mod=rejected note=评论含站外引流-mvpb audit=moderate-comment/SYNTH-COMMENT-007 listed=false"
+    },
+    {
+      "name": "[edge] 评论驳回：同帖已通过评论不变，公开评论只少一条",
+      "ok": true,
+      "detail": "approved=1/2 okId=true content=true"
+    },
+    {
+      "name": "取消订单：终态为已取消，详情标签与弹层同步",
+      "ok": true,
+      "detail": "done status=cancelled-local-demo label=true closed=true"
+    },
+    {
+      "name": "取消订单：留痕新增 cancel 事件且原因写入说明",
+      "ok": true,
+      "detail": "events=0→1 type=cancel note=取消/关闭订单：时间安排冲突"
+    },
+    {
+      "name": "[neg] 取消订单：不产生结算，账本条目集合完全不变",
+      "ok": true,
+      "detail": "ledgerUnchanged=true"
+    },
+    {
+      "name": "全部已读：入口角标清零、副标题与按钮禁用态同步",
+      "ok": true,
+      "detail": "done dot=1→0 disabled=false→true sub=全部已读 · 系统通知、订单进度、私"
+    },
+    {
+      "name": "[edge] 全部已读：刷新后未读不回弹，已读集合只增不减",
+      "ok": true,
+      "detail": "dot=0 tags=0 read=9→9"
+    },
+    {
+      "name": "[neg] 实名：未勾选同意被拒，弹层与未实名身份均保持",
+      "ok": true,
+      "detail": "done alert=请先确认你已了解本演练的 open=true tag=未实名→未实名"
+    },
+    {
+      "name": "实名：勾选后切换为演练成员，且不落任何证件号",
+      "ok": true,
+      "detail": "tag=未实名→已实名 closed=true id=false key=false"
+    },
+    {
+      "name": "[edge] 实名：状态仅存内存，刷新回落访客且无实名残留键",
+      "ok": true,
+      "detail": "tag=未实名 key=false"
+    }
+  ]
+}

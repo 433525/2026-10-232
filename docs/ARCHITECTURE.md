@@ -110,8 +110,8 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 ### 6.1 断言数量：只认运行时真值
 
 - **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
-- **禁止**用 `grep -c "check("` 计数。静态调用点 201 与运行时 210 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
-- 当前基线：210 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes 93）。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 214 与运行时 223 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：223 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
 
 ### 6.2 断言密度：双口径并列，A 为考核口径
 
@@ -120,7 +120,7 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 | **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12693 行 | 全量核心模块 |
 | B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 6004 行 | v1.0 历史口径 |
 
-当前密度：A = 1.65 条/百行，B = 3.50 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+当前密度：A = 1.76 条/百行，B = 3.71 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
 
 ### 6.3 构建体积：固定字节总量
 

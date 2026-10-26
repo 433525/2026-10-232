@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T09:57:35.836Z",
-  "summary": "演练-功能验收-mvp323dj",
+  "checkedAt": "2026-10-26T13:57:28.029Z",
+  "summary": "演练-功能验收-mvpbmkjg",
   "total": 24,
   "passed": 24,
   "results": [
@@ -38,7 +38,7 @@
     {
       "name": "新建记录自动选中",
       "ok": true,
-      "detail": "演练-功能验收-mvp323dj"
+      "detail": "演练-功能验收-mvpbmkjg"
     },
     {
       "name": "重复登记进入人工复核",

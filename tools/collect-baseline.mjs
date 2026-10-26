@@ -48,7 +48,9 @@ const SCRIPTS = [
   { slug: 'community-flow', file: 'tools/check-community-flow.mjs', label: '社区流程' },
   { slug: 'acceptance', file: 'tools/check-acceptance.mjs', label: '验收' },
   { slug: 'recovery', file: 'tools/check-recovery.mjs', label: '坏档恢复' },
-  { slug: 'fixes', file: 'tools/check-fixes.mjs', label: '修复补测' },
+  { slug: 'fixes-a', file: 'tools/check-fixes-a.mjs', label: '补测 A 段' },
+  { slug: 'fixes-b', file: 'tools/check-fixes-b.mjs', label: '补测 B 段' },
+  { slug: 'p0-gaps', file: 'tools/check-p0-gaps.mjs', label: 'P0 缺口' },
 ]
 
 const CORE_DIRS = ['src/context', 'src/data', 'src/aplus', 'src/selectors']
@@ -236,7 +238,7 @@ function gateTiming(assertions) {
     {
       id: '分段断言/通过与 report.json 一致',
       ok: perScript.every((item) => item.ok),
-      detail: perScript.filter((item) => !item.ok).map((item) => item.file).join(', ') || '6/6',
+      detail: perScript.filter((item) => !item.ok).map((item) => item.file).join(', ') || `${SCRIPTS.length}/${SCRIPTS.length}`,
     },
     {
       id: '分项合计等于总计',

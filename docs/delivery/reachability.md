@@ -20,13 +20,13 @@
 
 | 端 | 动作数 | covered | gap | unused | unreachable | 覆盖率 |
 |---|---|---|---|---|---|---|
-| B 端（社区/订单/审核） | 34 | 23 | 10 | 1 | 0 | 67.6% |
+| B 端（社区/订单/审核） | 34 | 27 | 6 | 1 | 0 | 79.4% |
 | A+ 端（受理工作台） | 19 | 14 | 5 | 0 | 0 | 73.7% |
-| **合计** | **53** | **37** | **15** | **1** | **0** | **69.8%** |
+| **合计** | **53** | **41** | **11** | **1** | **0** | **77.4%** |
 
-- M4 目标为 ≥90%，当前 69.8%，缺口 15 条动作（W1 序 6 补测后由 64.2% 提升 5.6 个百分点）。
+- M4 目标为 ≥90%，当前 **77.4%**；W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点。
 - `unreachable` 为 0：不存在「有实现无入口」的静默能力，这是 P6–P10 修复的直接成果。
-- 但 `gap` 15 条说明断言仍集中在「主链路」，**旁路能力基本裸奔**；这不是可达性问题，是断言覆盖问题。
+- `gap` 仍有 11 条，集中在活动报名、点赞/收藏、文章朗读、长辈模式、消息已读等旁路能力；这不是可达性问题，是断言覆盖问题。
 
 ## 三、B 端动作矩阵
 
@@ -45,7 +45,7 @@
 | B-09 | `clockInOrder` | 订单详情 → 上门签到 | `acc#8`–`#10` | covered |
 | B-10 | `counterpartAcceptOrder` | 审核后台 → 代合成邻居接单 | `fix#40`、`fix#42` | covered |
 | B-11 | `completeOrder` | 订单详情 → 双方确认完成 | `acc#11`–`#14`、`fix#41`–`#45` | covered |
-| B-12 | `cancelOrder` | 订单详情 → 取消订单 | 仅 `fix#83`/`#84` 以「订单已取消」状态标签间接出现 | **gap** |
+| B-12 | `cancelOrder` | 订单详情 → 取消订单 | `p0#5`–`#7`（终态 / 留痕 / 不结算） | covered |
 | B-13 | `raiseOrderDispute` | 订单详情 → 发起争议 | `fix#76`–`#80` | covered |
 | B-14 | `resolveOrderDispute` | 订单详情 → 撤销争议 / 因争议关闭 | `fix#81`–`#84` | covered |
 | B-15 | `likePost` | 信息流卡片 → 点赞 | — | **gap** |
@@ -55,11 +55,11 @@
 | B-19 | `sendChatMessage` | 消息页 → 会话输入 | `fix#28`–`#34` | covered |
 | B-20 | `submitComplaint` | 信息流/评论/订单留言 → 举报 | `acc#15`–`#18`、`rec#15`、`rec#23` | covered |
 | B-21 | `triggerSos` | 首页 SOS 入口 | `fix#49`、`fix#50` | covered |
-| B-22 | `verifyRealName` | 「我的」→ 实名认证 | 无（`comm#4` 只做「切换到已实名成员」，不验认证流程本身） | **gap** |
+| B-22 | `verifyRealName` | 「我的」→ 实名认证 | `p0#10`–`#12`（未同意被拒 / 切换 / 刷新回落） | covered |
 | B-23 | `adminApprovePost` | 审核后台 → 通过 | `fix#14`、`fix#16` | covered |
 | B-24 | `adminRejectPostWithReason` | 审核后台 → 驳回（需理由） | `fix#89`–`#91` | covered |
 | B-25 | `adminApproveComment` | 审核后台 → 通过评论 | `fix#15`、`fix#17` | covered |
-| B-26 | `adminRejectCommentWithReason` | 审核后台 → 驳回评论 | — | **gap** |
+| B-26 | `adminRejectCommentWithReason` | 审核后台 → 驳回评论 | `p0#1`–`#4`（理由门禁 / 落库 / 审计 / 同帖旁路不变） | covered |
 | B-27 | `adminResolveComplaint` | 审核后台 → 举报处置 | `acc#19`–`#23` | covered |
 | B-28 | `adminAdjustTimeCoin` | 审核后台 → 时间币调整 | `fix#92`（只读不变量） | covered |
 | B-29 | `exportBackup` | 存档与恢复 → 导出备份 | `rec#4` | covered |
@@ -67,7 +67,7 @@
 | B-31 | `importBackupFile` | 存档面板 → 导入备份 | `rec#19`–`rec#22`、`fix#24` | covered |
 | B-32 | `reloadArchive` | 存档面板 / 冲突警示条 → 载入最新 | `rec#12`–`rec#14` | covered |
 | B-33 | `resetDemoData` | 存档面板 → 重置演练数据 | `rec#8`–`rec#10` | covered |
-| B-34 | `markAllMessagesRead` | 消息页 → 全部已读 | — | **gap** |
+| B-34 | `markAllMessagesRead` | 消息页 → 全部已读 | `p0#8`–`#9`（角标清零与刷新不回弹） | covered |
 
 ## 四、A+ 端动作矩阵
 

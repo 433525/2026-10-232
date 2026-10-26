@@ -24,7 +24,7 @@ dist/assets/aplus-*.js         172.07 kB │ gzip 42.42 kB
 dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 ```
 
-## 二、自动化验收（210 项，全部通过）
+## 二、自动化验收（223 项，全部通过）
 
 | 脚本 | 结果 | 覆盖 |
 |---|---|---|
@@ -33,9 +33,11 @@ dist/assets/types-*.js         196.72 kB │ gzip 62.52 kB   ← 两端共享
 | `npm run check:community` | **11/11** | 实名前置拦截、拦截时不写存档、身份切换、成员发布写入存档、先审后发（待审不进公开流）、A+ 读取 B 的存档 |
 | `npm run check:acceptance` | **27/27** | §9 前三个脚本漏掉的主链路：接单→签到→确认→账本、病史可见性、每帖举报入口与落点、举报处置与留痕、A+ 高风险拦截 |
 | `npm run check:recovery` | **28/28** | §7 异常路径 + 数据恢复：存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法 / 版本不符 / 超 5 MB）、五档溢出、静态扫描 |
-| `npm run check:fixes` | **93/93** | 修复轮补测：待审队列与先审后发、发布失败保草稿、订单留言绑定、发布者履约、留痕时间线、订单争议（发起/撤销/因争议关闭）、接单大厅筛选、时间存折明细、A+ 投诉转介席视角与桥登记/备份导入失败分支、负向/边界补测 5 条（驳回空理由、只读账本、暂停受理） |
+| `npm run check:fixes:a` | **55/55** | 修复轮补测 A 段：接单大厅筛选、先审后发、发布失败保草稿、订单留言绑定、发布者履约与留痕、空动作如实化、A+ 新建来源与坏档导出失败分支 |
+| `npm run check:fixes:b` | **39/39** | 修复轮补测 B 段：社区桥登记与重复复核、A+ 投诉复核与转介席回避、A+ 备份导入、订单争议（发起/撤销/因争议关闭）、时间存折明细、负向/边界补测 5 条 |
+| `npm run check:p0` | **12/12** | P0 覆盖缺口（W2 序 2）：评论驳回理由门禁与留痕（4）、取消订单终态/留痕/不结算（3）、演练实名三条门禁与零证件号落盘（3）、全部已读角标与刷新不回弹（2） |
 
-机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes}/report.json`。
+机器可读结果：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json`。
 截图（不入库，本地复现）：`docs/evidence/dual-entry/*.png`。
 
 
