@@ -24,7 +24,7 @@
 | A+ 端（受理工作台） | 19 | 14 | 5 | 0 | 0 | 73.7% |
 | **合计** | **53** | **41** | **11** | **1** | **0** | **77.4%** |
 
-- 判据（D-17）：W3 出口 **46/53 = 86.8%**、W4 出口 **52/53 = 98.1%**、D-03 删除 `viewMode` 后 **52/52 = 100%**；当前 **41/53 = 77.4%**。
+- 判据（D-17）：W3 出口 **46/53 = 86.8%**、W4 出口 **50/53 = 94.3%**、W5 出口 **52/53 = 98.1%**、D-03 删除 `viewMode` 后 **52/52 = 100%**；当前 **41/53 = 77.4%**。
 - W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 11 条。
 - `unreachable` 为 0：不存在「有实现无入口」的静默能力，这是 P6–P10 修复的直接成果。
 - `gap` 仍有 11 条，集中在互动（点赞/收藏/报名）、文章朗读、长辈模式、A+ 复核回退与跟进/联系模拟等旁路能力；这不是可达性问题，是断言覆盖问题。
@@ -100,7 +100,7 @@
 
 ## 五、缺口清单与批次划分（D-17）
 
-11 条缺口按「是否触及数据完整性」排序，拆两批：**W3 交前 5 条（46/53 = 86.8%）**，**W4 交余下 6 条（52/53 = 98.1%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
+11 条缺口按「是否触及数据完整性」排序，拆三批：**W3 交 5 条（46/53 = 86.8%）**、**W4 交 4 条（50/53 = 94.3%）**、**W5 交媒体 2 条（52/53 = 98.1%）**。W4 容量 2.2 人日已被 ADR 与四域设计占满，故不与契约拆分抢期；每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
 
 | 批次 | 序 | 动作 | 实现 | 为何优先 | 建议断言（选择器须现场复核） |
 |---|---|---|---|---|---|
@@ -113,10 +113,10 @@
 | W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | 联系结果决定后续流转分支 | 结果码写入记录、未选结果禁用提交 |
 | W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | 跨 case 关联，易产生孤儿记录 | 新记录带 `reopenedFrom`、原 case 终态不变 |
 | W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | 深链一致性，已有 `shared/clipboard.ts` 可复用 | 剪贴板内容含当前 case id、`?case=` 可直接打开该记录 |
-| W4 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 依赖浏览器音频能力，CDP 下需 mock | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
-| W4 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 与播放同组，同批交付 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
+| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 依赖浏览器音频能力，CDP 下需 mock | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
+| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 与播放同组，同批交付 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
 
-> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，其余并入本表。W4 的媒体与剪贴板项须先补 `Audio` / 剪贴板桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
+> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，其余并入本表。W4 的深链复制需剪贴板桩，W5 的媒体项需 `Audio` 桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
 
 ## 六、死接口
 
