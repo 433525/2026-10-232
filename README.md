@@ -135,7 +135,7 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 | [验收记录](docs/delivery/acceptance.md) | 223 项自动化（八段串行）+ 十条合规逐条验证 |
 | [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-18）、待决事项与引用规则，唯一事实源 |
 | [ADR-001：删除 viewMode](docs/delivery/adr/ADR-001-remove-viewmode.md) | 零消费契约字段的删除案：证据、影响面、三方案对比、回退路径（待批准） |
-| [可达性矩阵](docs/delivery/reachability.md) | 53 个写动作的覆盖状态、缺口清单与批次划分 |
+| [可达性矩阵](docs/delivery/reachability.md) | 52 个写动作的覆盖状态、缺口清单与批次划分 |
 | [交接文档](docs/HANDOVER.md) | 背景与目标、进度、待办与缺口、架构、文件地图、运行部署、接手注意事项 |
 | [架构说明](docs/ARCHITECTURE.md) | 分层、状态流、扩展点 |
 | [阶段调研](docs/research/) | P1–P7 的开源候选与取舍（P6 存档自愈、P7 备份导入） |

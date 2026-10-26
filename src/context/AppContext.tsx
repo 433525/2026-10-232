@@ -60,7 +60,9 @@ export type SubPageType =
   | 'rules_modal';
 
 /**
- * 与 232 原实现完全一致的上下文契约（字段名与签名不变）。
+ * 与 232 原实现的上下文契约保持一致：除 CIP-232 的 D-03 删除项
+ * （`viewMode` / `setViewMode` —— 全仓零消费方，见 docs/delivery/adr/ADR-001-remove-viewmode.md）
+ * 之外，字段名与签名不变。
  * 变化只发生在实现侧：数据来自 mvp 领域层，而不是 mockData。
  */
 export interface AppContextType {
@@ -68,8 +70,6 @@ export interface AppContextType {
   currentUser: User;
   users: User[];
   switchUser: (userId: string) => void;
-  viewMode: 'mobile_frame' | 'responsive_web';
-  setViewMode: (mode: 'mobile_frame' | 'responsive_web') => void;
   elderlyMode: boolean;
   setElderlyMode: (val: boolean) => void;
 
@@ -207,7 +207,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 /** UI 偏好键：与业务存档（community-mvp.synthetic-state.v1）分开，互不污染。 */
 const UI_KEYS = {
-  viewMode: 'community.ui.view-mode',
   elderlyMode: 'community.ui.elderly-mode',
   activeTab: 'community.ui.active-tab',
   readMessages: 'community.ui.read-messages',
@@ -263,9 +262,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 订阅 store 版本号：ref 写入后递增，用来触发重渲染。
   const version = useSyncExternalStore(store.subscribe, store.getVersion, store.getVersion);
 
-  const [viewMode, setViewModeState] = useState<'mobile_frame' | 'responsive_web'>(() =>
-    safeRead<'mobile_frame' | 'responsive_web'>(UI_KEYS.viewMode, 'responsive_web'),
-  );
   const [elderlyMode, setElderlyModeState] = useState<boolean>(() =>
     safeRead<boolean>(UI_KEYS.elderlyMode, false),
   );
@@ -295,11 +291,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const currentUser =
     projection.users.find((user) => user.id === MEMBERSHIP_USER_IDS[membership])
     ?? projection.users[1];
-
-  const setViewMode = useCallback((mode: 'mobile_frame' | 'responsive_web') => {
-    setViewModeState(mode);
-    safeWrite(UI_KEYS.viewMode, mode);
-  }, []);
 
   const setElderlyMode = useCallback((value: boolean) => {
     setElderlyModeState(value);
@@ -929,8 +920,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUser,
     users: projection.users,
     switchUser,
-    viewMode,
-    setViewMode,
     elderlyMode,
     setElderlyMode,
     activeTab,

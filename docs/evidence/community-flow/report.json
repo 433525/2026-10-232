@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T14:35:55.489Z",
-  "title": "演练-求助-mvpczyjc",
+  "checkedAt": "2026-10-26T15:18:00.132Z",
+  "title": "演练-求助-mvpei2gv",
   "total": 11,
   "passed": 11,
   "results": [
@@ -53,7 +53,7 @@
     {
       "name": "A+ 读到 B 写入的存档（不再提示未找到）",
       "ok": true,
-      "detail": "已读取 1 条合成求助 · 存档保存于 10/26 22:35"
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/26 23:17"
     },
     {
       "name": "B 主链路无控制台异常",

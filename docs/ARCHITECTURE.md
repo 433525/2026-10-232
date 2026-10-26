@@ -117,10 +117,12 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 
 | 口径 | 分母 | 定义 |
 |---|---|---|
-| **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12693 行 | 全量核心模块 |
-| B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 6004 行 | v1.0 历史口径 |
+| **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12682 行 | 全量核心模块 |
+| B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 5993 行 | v1.0 历史口径 |
 
-当前密度：A = 1.76 条/百行，B = 3.71 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+当前密度：A = 1.76 条/百行，B = 3.72 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+
+> 分母随代码增删而变（D-03 删除 `viewMode` 后 12693 → 12682、6004 → 5993），但**分母未纳入门禁正则**：`collect-baseline.mjs` 只校验断言总数与 `AppContext` 行数，密度分母须在改动 `src/` 后人工同步本节与 `docs/metrics/baseline.md`。
 
 ### 6.3 构建体积：固定字节总量
 
