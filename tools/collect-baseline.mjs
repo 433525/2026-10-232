@@ -38,6 +38,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
+import { surfaceHash } from './lib/surface-hash.mjs'
 
 const ROOT = process.cwd()
 const OUT_DEFAULT = join(ROOT, 'docs', 'metrics', 'baseline.md')
@@ -229,10 +230,19 @@ function gateTiming(assertions) {
   const baseExists = Boolean(json.baseRevision) && gitOk(`cat-file -e "${json.baseRevision}^{commit}"`)
   const baseIsAncestor = baseExists && gitOk(`merge-base --is-ancestor "${json.baseRevision}" HEAD`)
 
-  // 3) base..HEAD 是否触碰被测面（只改文档不算失效，避免每提交一次就重跑门禁）
+  // 3) 被测面内容指纹（I-12）：有记录时以指纹为准，无记录时退回提交区间判断。
   const changed = baseIsAncestor ? (git(`diff --name-only ${json.baseRevision}..HEAD`) ?? '') : ''
   const CODE_SURFACE = /^(?:src\/|tools\/check-|tools\/lib\/|index\.html$|aplus\.html$|vite\.config\.|package\.json$)/
   const touched = changed.split('\n').filter((line) => CODE_SURFACE.test(line.trim()))
+  const currentHash = surfaceHash(ROOT)
+  const hashRecorded = typeof json.surfaceHash === 'string' && json.surfaceHash.length > 0
+  const surfaceOk = hashRecorded ? json.surfaceHash === currentHash : baseIsAncestor && touched.length === 0
+
+  const concurrent = (json.concurrency ?? 1) > 1
+  const perMs = json.scripts.map((row) => row.ms ?? 0)
+  const timingOk = concurrent
+    ? json.totalMs === json.wallMs && json.totalMs >= Math.max(...perMs) && json.totalMs <= sumMs
+    : Math.abs(sumMs - json.totalMs) <= 1000
 
   const checks = [
     {
@@ -241,11 +251,9 @@ function gateTiming(assertions) {
       detail: perScript.filter((item) => !item.ok).map((item) => item.file).join(', ') || `${SCRIPTS.length}/${SCRIPTS.length}`,
     },
     {
-      id: '分项合计等于总计',
-      ok: sumAssertions === json.totalAssertions
-        && sumPassed === json.totalPassed
-        && Math.abs(sumMs - json.totalMs) <= 1000,
-      detail: `断言 ${sumAssertions}/${json.totalAssertions}、通过 ${sumPassed}/${json.totalPassed}、耗时 ${sumMs}/${json.totalMs} ms`,
+      id: concurrent ? '分项合计等于总计（并发口径）' : '分项合计等于总计',
+      ok: sumAssertions === json.totalAssertions && sumPassed === json.totalPassed && timingOk,
+      detail: `断言 ${sumAssertions}/${json.totalAssertions}、通过 ${sumPassed}/${json.totalPassed}、墙钟 ${json.totalMs}/${json.wallMs ?? json.totalMs} ms（各段之和 ${sumMs} ms，并发度 ${json.concurrency ?? 1}）`,
     },
     {
       id: '记录断言数等于本次运行时断言数',
@@ -258,9 +266,11 @@ function gateTiming(assertions) {
       detail: `${json.baseRevision ?? '—'} → HEAD ${head ?? '—'}`,
     },
     {
-      id: 'base..HEAD 未触碰被测面',
-      ok: baseIsAncestor && touched.length === 0,
-      detail: touched.length ? touched.slice(0, 3).join(', ') : '无',
+      id: '被测面内容指纹一致（I-12）',
+      ok: surfaceOk,
+      detail: hashRecorded
+        ? `${json.surfaceHash} vs ${currentHash}`
+        : `未记录指纹，退回提交区间判断：${touched.length ? touched.slice(0, 3).join(', ') : '无改动'}`,
     },
   ]
 
@@ -528,11 +538,18 @@ function toMarkdown(data) {
   if (data.gateTiming) {
     const g = data.gateTiming
     const totalSec = (g.totalMs / 1000).toFixed(1)
-    const mm = Math.floor(g.totalMs / 60000)
-    const ss = ((g.totalMs % 60000) / 1000).toFixed(0)
-    lines.push(`- 全量门禁（六段串行，端到端墙钟）：**${totalSec} s**（约 ${mm} 分 ${ss} 秒），断言 **${g.totalAssertions}** 条全绿`)
+    const totalSeconds = Math.round(g.totalMs / 1000)
+    const mm = Math.floor(totalSeconds / 60)
+    const ss = totalSeconds % 60
+    const mode = (g.concurrency ?? 1) > 1 ? `${g.scripts.length} 段并发（并发度 ${g.concurrency}）` : `${g.scripts.length} 段串行`
+    lines.push(`- 全量门禁（${mode}，端到端墙钟）：**${totalSec} s**（约 ${mm} 分 ${ss} 秒），断言 **${g.totalAssertions}** 条全绿`)
+    if (g.sumMs && (g.concurrency ?? 1) > 1) {
+      lines.push(`- 各段耗时之和 **${(g.sumMs / 1000).toFixed(1)} s**；并发节省 **${((g.sumMs - g.totalMs) / 1000).toFixed(1)} s**（${Math.round(((g.sumMs - g.totalMs) / g.sumMs) * 100)}%）`)
+    } else if (g.sumMs) {
+      lines.push(`- 各段耗时之和 **${(g.sumMs / 1000).toFixed(1)} s**（串行口径，与墙钟之差仅为进程间调度开销）`)
+    }
     lines.push(`- 环境：${g.machine}；基线 ${g.baseRevision}；base \`${g.base}\``)
-    lines.push(`- 来源：\`docs/metrics/gate-timing.json\`（人工实测落盘；采集器只读，不自行启动浏览器）`)
+    lines.push(`- 来源：\`tools/run-gate.mjs\` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 \`${g.surfaceHash ?? '未记录'}\``)
     lines.push('')
     lines.push('| 脚本 | 耗时 (s) | 断言 | 通过 |')
     lines.push('|---|---|---|---|')

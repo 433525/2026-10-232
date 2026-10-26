@@ -34,10 +34,13 @@ npm run check:aplus       # 24 项：A+ 主流程 + 去重 + 备份 + 持久化
 npm run check:community   # 11 项：实名拦截 + 先审后发 + 跨入口读取
 npm run check:acceptance  # 27 项：接单→签到→完成→账本、举报入口与处置、病史可见性、高风险拦截
 npm run check:recovery    # 28 项：坏档恢复、跨标签冲突、评论/留言举报、备份导入、官方措辞扫描
-npm run check:fixes       # 93 项：争议流程、留痕时间线、接单大厅筛选、时间存折、投诉复核、桥登记、负向补测
+npm run check:fixes:a     # 55 项：接单大厅筛选、先审后发、发布失败保草稿、订单留言、A+ 来源与坏档导出
+npm run check:fixes:b     # 39 项：投诉复核与转介席回避、A+ 备份导入、订单争议、时间存折、负向补测
+npm run check:p0          # 12 项：评论驳回门禁、取消订单终态、演练实名、全部已读角标
+npm run gate              # 上述八段串行编排 + 逐段计时，自动写 docs/metrics/gate-timing.json
 ```
 
-共 **210 项**，全部通过（含 5 条 `[neg]`/`[edge]` 负向边界用例）。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
+共 **223 项**，全部通过（含 12 条 `[neg]`/`[edge]` 负向边界用例）。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
 headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 
 ## 二、演示 vs 生产

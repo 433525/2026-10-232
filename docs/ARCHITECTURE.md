@@ -124,12 +124,12 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 
 ### 6.3 构建体积：固定字节总量
 
-M9 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -sh` 的 826 KB 含块对齐开销，换机器会漂移，不作为判据。
+M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -sh` 的 826 KB 含块对齐开销，换机器会漂移，不作为判据。（M9 是门禁耗时，定义见 §6.6。）
 
 ### 6.4 文档数字：分「契约」与「历史」
 
 - **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
-- **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做五项校验（I-11）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、`base..HEAD` 未触碰 `src/` 与 `tools/check-*`。只改文档的提交不会使耗时基线失效。
+- **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做五项校验（I-11/D-15）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、**被测面内容指纹与当前源码一致**。改 `src/` 或任一验收脚本即令耗时失效；只改文档不再失效。
 - **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
 - 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
 
@@ -144,3 +144,10 @@ M9 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -sh
 | 无前缀 | 正向路径（存量 93 条均为无前缀） | `发布后帖子进入待审状态` |
 
 统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言未加前缀，故 6.1 的启发式占比（30.3%）仅作趋势参考。
+
+### 6.6 门禁耗时：串行墙钟，分档判定
+
+- **唯一计时方式**：`node tools/run-gate.mjs`（先 `vite preview --port 5180`）。每段独立进程、独立 CDP 端口，逐段计时后**自动**写回 `gate-timing.json`，不再人工抄表（抄表是 D-06 错配的来源）。
+- **必须串行**：并发结果不得作为发布判据（D-14）。`--concurrency=N` 仅用于压测；2 路实测已出现 `fixes-b`/`p0-gaps` 连环失败，根因是固定时长等待在 CPU 争用下不足。
+- **M9 分档**：快检（前五段，不含 fixes-a/b、p0-gaps）≤210 s；全量 ≤480 s；单段 ≤150 s（D-02、D-16）。
+- **失效判定**：看 `surfaceHash`，不看提交时间；`serial`、`concurrency`、`wallMs`/`sumMs` 三字段同时存在才视为有效记录。

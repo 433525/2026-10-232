@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T14:00:56.803Z",
-  "stamp": "mvpbpzkf",
+  "checkedAt": "2026-10-26T14:38:48.813Z",
+  "stamp": "mvpd2ol3",
   "total": 55,
   "passed": 55,
   "results": [
@@ -113,12 +113,12 @@
     {
       "name": "失败后的草稿已自动暂存",
       "ok": true,
-      "detail": "draft=失败保留草稿-mvpbpzkf"
+      "detail": "draft=失败保留草稿-mvpd2ol3"
     },
     {
       "name": "重新打开发布弹层时草稿被恢复",
       "ok": true,
-      "detail": "restored=失败保留草稿-mvpbpzkf"
+      "detail": "restored=失败保留草稿-mvpd2ol3"
     },
     {
       "name": "含已接单订单的备份导入成功",
@@ -143,7 +143,7 @@
     {
       "name": "第一条留言按订单建立线程",
       "ok": true,
-      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvpbpzkf"
+      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvpd2ol3"
     },
     {
       "name": "另一订单（SYNTH-POST-001）线程未被串线",
@@ -163,12 +163,12 @@
     {
       "name": "焦点会话随订单切换（标题对得上）",
       "ok": true,
-      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvpbpzkf22:00"
+      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvpd2ol322:38"
     },
     {
       "name": "第二条留言落到所认领订单的线程",
       "ok": true,
-      "detail": "p1=3 last=第二条订单留言-mvpbpzkf"
+      "detail": "p1=3 last=第二条订单留言-mvpd2ol3"
     },
     {
       "name": "第一条订单线程保持 1 条不串线",

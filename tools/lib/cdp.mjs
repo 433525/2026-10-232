@@ -29,7 +29,12 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export async function launchChrome({ port = 9333, width = 1440, height = 900 } = {}) {
+export async function launchChrome({ port: requestedPort = 9333, width = 1440, height = 900 } = {}) {
+  // 端口优先级：环境变量 > 调用方显式指定 > 9333。编排器（run-gate.mjs）用环境变量
+  // 给每段分配独立端口；脚本里原本写死的端口只用于单独运行。
+  // 注意：check-recovery 与 check-fixes-a 都写 9351，并发时必须靠环境变量区分，
+  // 否则第二个 Chrome 绑不上端口，会静默连到前一个浏览器上（串状态）。
+  const port = Number(process.env.CDP_PORT ?? requestedPort)
   const profile = mkdtempSync(join(tmpdir(), 'wb-cdp-'))
   const child = spawn(findChrome(), [
     `--remote-debugging-port=${port}`,

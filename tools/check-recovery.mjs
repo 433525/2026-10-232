@@ -87,7 +87,7 @@ function walkFiles(dir, acc = []) {
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true })
-  const chrome = await launchChrome({ port: 9351 })
+  const chrome = await launchChrome({ port: 9354 })
   const connection = await new CDPConnection(chrome.version.webSocketDebuggerUrl).open()
 
   try {
