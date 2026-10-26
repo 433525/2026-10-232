@@ -541,7 +541,7 @@ function toMarkdown(data) {
     lines.push('')
     if (g.note) lines.push(`> 口径说明：${g.note}`)
     lines.push('')
-    lines.push(`一致性校验（I-11，HEAD \`${g.head}\`）：**${g.consistent ? '全部通过' : '存在失败项'}**`)
+    lines.push(`一致性校验（I-11，采集时 HEAD \`${g.head}\`）：**${g.consistent ? '全部通过' : '存在失败项'}**`)
     lines.push('')
     lines.push('| 校验项 | 结果 | 明细 |')
     lines.push('|---|---|---|')
