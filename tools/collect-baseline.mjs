@@ -26,6 +26,14 @@
  * 运行时项（不在本脚本自动采集，需另跑）：
  *   - 全量门禁耗时：启动 preview 后串行执行六段脚本并计时（脚本按序各自打印耗时）
  *   - 单次典型操作重算次数：需 I-05 渲染探针先落地，本脚本只登记为「待采集」
+ *
+ * I-11 一致性校验（`--strict` 视为硬失败）：
+ *   1. `gate-timing.json` 的分段断言/通过数与对应 `report.json` 一致；
+ *   2. 分项合计（断言、通过、毫秒）等于总计字段；
+ *   3. 记录的总断言数等于本次采集的运行时断言数；
+ *   4. `baseRevision` 存在且为 HEAD 祖先；
+ *   5. `baseRevision..HEAD` 未改动被测代码与验收脚本，否则耗时基线失效。
+ * 第 5 条的意义：仅改文档的提交不算失效，避免每提交一次就要重跑 331 s 门禁。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -55,7 +63,12 @@ const CORE_SINGLES = [
 ]
 
 /** 视为「当前状态声明」的文档：其余文档中的数字按历史流水处理，不计入偏差数。 */
-const CURRENT_DOCS = ['docs/delivery/acceptance.md', 'docs/delivery/gap-report.md', 'README.md']
+const CURRENT_DOCS = [
+  'docs/delivery/acceptance.md',
+  'docs/delivery/gap-report.md',
+  'docs/ARCHITECTURE.md',
+  'README.md',
+]
 
 /** 负向/边界语义关键词：命中即计入「非纯正向」断言。仅作趋势参考，不作考核值。 */
 const NEGATIVE_TOKENS = [
@@ -137,33 +150,119 @@ function extractAssertionNames(file) {
   return names
 }
 
+function git(args) {
+  try {
+    return execSync(`git ${args}`, { cwd: ROOT, encoding: 'utf8' }).trim()
+  } catch {
+    return null
+  }
+}
+
+function gitOk(args) {
+  try {
+    execSync(`git ${args}`, { cwd: ROOT, stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 工作区卫生。生成物（`docs/metrics/*`、`docs/evidence/*`）不计入「脏文件」：
+ * 前者是本脚本 `--write` 的产物，后者是验收运行写出的报告，二者未提交属正常态。
+ */
 function gitUntracked() {
   try {
     const raw = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8' })
-    const lines = raw.split('\n').filter((line) => line.startsWith('??'))
+    const paths = raw
+      .split('\n')
+      .filter((line) => line.startsWith('??'))
+      .map((line) => line.slice(3).trim().replace(/^"|"$/g, ''))
+    const isGenerated = (path) => /^docs\/(?:metrics|evidence)\//.test(path)
     return {
-      total: lines.length,
-      scratch: lines.filter((line) => /tools[/\\]_/.test(line)).length,
+      total: paths.filter((path) => !isGenerated(path)).length,
+      generated: paths.filter(isGenerated).length,
+      scratch: paths.filter((path) => /tools[/\\]_/.test(path)).length,
     }
   } catch {
-    return { total: null, scratch: null }
+    return { total: null, generated: null, scratch: null }
   }
 }
 
 /**
  * 门禁耗时：由 `docs/metrics/gate-timing.json` 提供（人工串行实测后落盘）。
- * 采集器本身只读、不启动浏览器，因此不自行计时，只做「有则填、无则待采集」。
+ * 采集器本身只读、不启动浏览器，因此不自行计时，只做「有则填、无则待采集」，
+ * 并对落盘数据做一致性校验（I-11），避免出现「修订号/断言数错配」的不可复核基线。
  */
-function gateTiming() {
+function gateTiming(assertions) {
   const path = join(ROOT, 'docs', 'metrics', 'gate-timing.json')
   if (!existsSync(path)) return null
+  let json
   try {
-    const json = JSON.parse(readText(path))
+    json = JSON.parse(readText(path))
     if (typeof json.totalMs !== 'number' || !Array.isArray(json.scripts)) return null
-    return json
   } catch {
     return null
   }
+
+  // 1) 分段与运行时报告逐条对齐。slug 以 SCRIPTS 为准：gate-timing.json 里的 slug
+  //    可能是短名（如 `dual`），与证据目录 `docs/evidence/dual-entry/` 不同名。
+  const perScript = json.scripts.map((row) => {
+    const slug = SCRIPTS.find((item) => item.file === row.file)?.slug ?? row.slug
+    const report = runtimeReport(slug)
+    return {
+      file: row.file,
+      recorded: row.assertions,
+      runtime: report?.total ?? null,
+      ok: report ? report.total === row.assertions && report.passed === row.passed : false,
+    }
+  })
+
+  const sumAssertions = json.scripts.reduce((sum, row) => sum + (row.assertions ?? 0), 0)
+  const sumPassed = json.scripts.reduce((sum, row) => sum + (row.passed ?? 0), 0)
+  const sumMs = json.scripts.reduce((sum, row) => sum + (row.ms ?? 0), 0)
+
+  // 2) base 修订号：必须存在且为 HEAD 祖先
+  const head = git('rev-parse --short HEAD')
+  const baseExists = Boolean(json.baseRevision) && gitOk(`cat-file -e "${json.baseRevision}^{commit}"`)
+  const baseIsAncestor = baseExists && gitOk(`merge-base --is-ancestor "${json.baseRevision}" HEAD`)
+
+  // 3) base..HEAD 是否触碰被测面（只改文档不算失效，避免每提交一次就重跑门禁）
+  const changed = baseIsAncestor ? (git(`diff --name-only ${json.baseRevision}..HEAD`) ?? '') : ''
+  const CODE_SURFACE = /^(?:src\/|tools\/check-|tools\/lib\/|index\.html$|aplus\.html$|vite\.config\.|package\.json$)/
+  const touched = changed.split('\n').filter((line) => CODE_SURFACE.test(line.trim()))
+
+  const checks = [
+    {
+      id: '分段断言/通过与 report.json 一致',
+      ok: perScript.every((item) => item.ok),
+      detail: perScript.filter((item) => !item.ok).map((item) => item.file).join(', ') || '6/6',
+    },
+    {
+      id: '分项合计等于总计',
+      ok: sumAssertions === json.totalAssertions
+        && sumPassed === json.totalPassed
+        && Math.abs(sumMs - json.totalMs) <= 1000,
+      detail: `断言 ${sumAssertions}/${json.totalAssertions}、通过 ${sumPassed}/${json.totalPassed}、耗时 ${sumMs}/${json.totalMs} ms`,
+    },
+    {
+      id: '记录断言数等于本次运行时断言数',
+      ok: json.totalAssertions === assertions,
+      detail: `${json.totalAssertions} vs ${assertions}`,
+    },
+    {
+      id: 'baseRevision 存在且为 HEAD 祖先',
+      ok: baseIsAncestor,
+      detail: `${json.baseRevision ?? '—'} → HEAD ${head ?? '—'}`,
+    },
+    {
+      id: 'base..HEAD 未触碰被测面',
+      ok: baseIsAncestor && touched.length === 0,
+      detail: touched.length ? touched.slice(0, 3).join(', ') : '无',
+    },
+  ]
+
+  return { ...json, head, perScript, checks, consistent: checks.every((item) => item.ok) }
 }
 
 function distStats() {
@@ -196,6 +295,8 @@ function docClaims(actual) {
   for (const file of docs) {
     const lines = readText(file).split('\n')
     lines.forEach((line, i) => {
+      // 目标值/阈值行（含 ≥ ≤）不是在陈述当前状态，计入会把目标误判为偏差。
+      if (/[≥≤]/.test(line)) return
       // AppContext 行数声明
       const ctx = /AppContext\.tsx[^\n]{0,60}?(\d{3,4})\s*行/g
       let m
@@ -221,6 +322,17 @@ function docClaims(actual) {
       }
       const a2 = /(\d{2,3})\s*(?:项|条)[^\n]{0,10}?(?:断言|验收)/g
       while ((m = a2.exec(line)) !== null) {
+        claims.push({
+          kind: '断言总数',
+          file: relative(ROOT, file).replace(/\\/g, '/'),
+          line: i + 1,
+          claimed: Number(m[1]),
+          actual: actual.assertions,
+        })
+      }
+      // 「当前基线：N 项」形（ARCHITECTURE §6.1 的口径锚点）
+      const a3 = /当前基线[：:]\s*(\d{2,3})\s*项/g
+      while ((m = a3.exec(line)) !== null) {
         claims.push({
           kind: '断言总数',
           file: relative(ROOT, file).replace(/\\/g, '/'),
@@ -320,7 +432,7 @@ function collect() {
       note: '静态断言名称启发式统计，模板串与循环展开未计入；仅作趋势参考',
     },
     docClaims: docClaims(actual),
-    gateTiming: gateTiming(),
+    gateTiming: gateTiming(assertions),
     pending: ['单次典型操作重算次数（需 I-05 渲染探针）'],
   }
 }
@@ -367,7 +479,7 @@ function toMarkdown(data) {
   lines.push('')
   lines.push('## C. 工作区与产物')
   lines.push('')
-  lines.push(`- 未跟踪文件：**${data.untracked.total ?? '—'}**（其中 \`tools/_*\` 调试脚本 ${data.untracked.scratch ?? '—'}）`)
+  lines.push(`- 未跟踪文件：**${data.untracked.total ?? '—'}**（其中 \`tools/_*\` 调试脚本 ${data.untracked.scratch ?? '—'}；已排除 \`docs/metrics\`、\`docs/evidence\` 生成物 ${data.untracked.generated ?? '—'} 个）`)
   lines.push(`- dist 总量：**${fmtBytes(data.dist.total)}**；最大 chunk：\`${data.dist.largest?.name ?? '—'}\` ${fmtBytes(data.dist.largest?.size)}`)
   lines.push('')
   lines.push('## D. 负向/边界断言占比（参考值）')
@@ -429,6 +541,14 @@ function toMarkdown(data) {
     lines.push('')
     if (g.note) lines.push(`> 口径说明：${g.note}`)
     lines.push('')
+    lines.push(`一致性校验（I-11，HEAD \`${g.head}\`）：**${g.consistent ? '全部通过' : '存在失败项'}**`)
+    lines.push('')
+    lines.push('| 校验项 | 结果 | 明细 |')
+    lines.push('|---|---|---|')
+    for (const item of g.checks) {
+      lines.push(`| ${item.id} | ${item.ok ? '通过' : '**失败**'} | ${item.detail} |`)
+    }
+    lines.push('')
   } else {
     lines.push('- [ ] 全量门禁耗时（需 preview + 六段串行计时）')
   }
@@ -455,13 +575,20 @@ if (args.has('--json')) {
 
 if (args.has('--strict')) {
   const drift = data.docClaims.filter((claim) => claim.scope === 'current' && !claim.ok)
+  const timingFailed = (data.gateTiming?.checks ?? []).filter((item) => !item.ok)
   if (drift.length) {
     console.error(`\n[strict] 契约文档存在 ${drift.length} 处数字偏差：`)
     for (const claim of drift) {
       console.error(`  - ${claim.file}:${claim.line} ${claim.kind} 声明 ${claim.claimed} / 实测 ${claim.actual}`)
     }
+  }
+  if (timingFailed.length) {
+    console.error(`\n[strict] 门禁耗时基线存在 ${timingFailed.length} 处不一致：`)
+    for (const item of timingFailed) console.error(`  - ${item.id}：${item.detail}`)
+  }
+  if (drift.length || timingFailed.length) {
     process.exitCode = 1
   } else {
-    console.log('\n[strict] 契约文档数字一致。')
+    console.log('\n[strict] 契约文档数字与门禁耗时基线一致。')
   }
 }

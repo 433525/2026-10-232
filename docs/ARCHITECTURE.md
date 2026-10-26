@@ -110,8 +110,8 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 ### 6.1 断言数量：只认运行时真值
 
 - **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
-- **禁止**用 `grep -c "check("` 计数。静态调用点 196 与运行时 205 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
-- 当前基线：205 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes 88）。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 201 与运行时 210 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：210 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes 93）。
 
 ### 6.2 断言密度：双口径并列，A 为考核口径
 
@@ -120,15 +120,16 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 | **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12693 行 | 全量核心模块 |
 | B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 6004 行 | v1.0 历史口径 |
 
-当前密度：A = 1.62 条/百行，B = 3.41 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+当前密度：A = 1.65 条/百行，B = 3.50 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
 
 ### 6.3 构建体积：固定字节总量
 
-M9 以 `dist/**` 全部文件**字节总和**判定（当前 782 KB）；`du -sh` 的 826 KB 含块对齐开销，换机器会漂移，不作为判据。
+M9 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -sh` 的 826 KB 含块对齐开销，换机器会漂移，不作为判据。
 
 ### 6.4 文档数字：分「契约」与「历史」
 
-- **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`README.md`）中的数字声明必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。
+- **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
+- **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做五项校验（I-11）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、`base..HEAD` 未触碰 `src/` 与 `tools/check-*`。只改文档的提交不会使耗时基线失效。
 - **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
 - 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
 
@@ -140,6 +141,6 @@ M9 以 `dist/**` 全部文件**字节总和**判定（当前 782 KB）；`du -sh
 |---|---|---|
 | `[neg]` | 负向路径：非法输入/越权/失败分支必须被拒绝，且状态不变 | `[neg] 损坏备份被拒绝且存档不变` |
 | `[edge]` | 边界路径：空值、纯空白、超长、特殊字符 | `[edge] 空白理由仍禁用提交` |
-| 无前缀 | 正向路径（存量 88 条均为无前缀） | `发布后帖子进入待审状态` |
+| 无前缀 | 正向路径（存量 93 条均为无前缀） | `发布后帖子进入待审状态` |
 
-统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言未加前缀，故 6.1 的启发式占比（28.6%）仅作趋势参考。
+统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言未加前缀，故 6.1 的启发式占比（30.3%）仅作趋势参考。
