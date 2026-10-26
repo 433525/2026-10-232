@@ -1,6 +1,6 @@
 # 基线表（自动采集）
 
-- 采集时间：2026-10-26T14:06:34.319Z
+- 采集时间：2026-10-26T14:41:18.420Z
 - 采集脚本：`tools/collect-baseline.mjs`（零依赖、只读）
 - 断言口径：运行时真值（各脚本 `report.json` 的 `total`），覆盖率 8/8
 
@@ -8,14 +8,14 @@
 
 | 脚本 | 静态调用点 | 运行时总数 | 通过 | 证据时间 | 口径 |
 |---|---|---|---|---|---|
-| `tools/check-dual-entry.mjs` | 18 | 27 | 27 | 2026-10-26 13:56:55 | runtime |
-| `tools/check-aplus-flow.mjs` | 24 | 24 | 24 | 2026-10-26 13:57:28 | runtime |
-| `tools/check-community-flow.mjs` | 11 | 11 | 11 | 2026-10-26 13:58:03 | runtime |
-| `tools/check-acceptance.mjs` | 27 | 27 | 27 | 2026-10-26 13:58:43 | runtime |
+| `tools/check-dual-entry.mjs` | 18 | 27 | 27 | 2026-10-26 14:34:48 | runtime |
+| `tools/check-aplus-flow.mjs` | 24 | 24 | 24 | 2026-10-26 14:35:20 | runtime |
+| `tools/check-community-flow.mjs` | 11 | 11 | 11 | 2026-10-26 14:35:55 | runtime |
+| `tools/check-acceptance.mjs` | 27 | 27 | 27 | 2026-10-26 14:36:35 | runtime |
 | `tools/check-recovery.mjs` | 28 | 28 | 28 | — | runtime |
-| `tools/check-fixes-a.mjs` | 55 | 55 | 55 | 2026-10-26 14:00:56 | runtime |
-| `tools/check-fixes-b.mjs` | 39 | 39 | 39 | 2026-10-26 14:02:17 | runtime |
-| `tools/check-p0-gaps.mjs` | 12 | 12 | 12 | 2026-10-26 14:03:16 | runtime |
+| `tools/check-fixes-a.mjs` | 55 | 55 | 55 | 2026-10-26 14:38:48 | runtime |
+| `tools/check-fixes-b.mjs` | 39 | 39 | 39 | 2026-10-26 14:40:09 | runtime |
+| `tools/check-p0-gaps.mjs` | 12 | 12 | 12 | 2026-10-26 14:41:08 | runtime |
 | **合计** | **214** | **223** | — | — | — |
 
 ## B. 核心代码规模与密度
@@ -69,37 +69,38 @@
 | 断言总数 | `docs/delivery/acceptance.md:27` | 223 | 223 | 一致 |
 | AppContext 行数 | `docs/delivery/gap-report.md:62` | 1024 | 1024 | 一致 |
 
-历史流水类文档（P1–P10 记录、交接沿革）另有 18 处数字，其中 18 处与当前实测不同；按「历史记录不追改」处理，不计入偏差数。
+历史流水类文档（P1–P10 记录、交接沿革）另有 19 处数字，其中 19 处与当前实测不同；按「历史记录不追改」处理，不计入偏差数。
 
 ## F. 门禁耗时与待采集
 
-- 全量门禁（六段串行，端到端墙钟）：**419.7 s**（约 6 分 60 秒），断言 **223** 条全绿
-- 环境：win32-x64 / Node v22.22.2 / vite 7.3.2；基线 3a508ca；base `http://localhost:5180`
-- 来源：`docs/metrics/gate-timing.json`（人工实测落盘；采集器只读，不自行启动浏览器）
+- 全量门禁（8 段串行，端到端墙钟）：**418.9 s**（约 6 分 59 秒），断言 **223** 条全绿
+- 各段耗时之和 **418.9 s**（串行口径，与墙钟之差仅为进程间调度开销）
+- 环境：win32-x64 / Node v22.22.2 / vite 7.3.2；基线 ecfef67；base `http://localhost:5180`
+- 来源：`tools/run-gate.mjs` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 `sha256:e9905d564c13f75d45be3df4b6f50662`
 
 | 脚本 | 耗时 (s) | 断言 | 通过 |
 |---|---|---|---|
-| `tools/check-dual-entry.mjs` | 39.5 | 27 | 27 |
-| `tools/check-aplus-flow.mjs` | 32.1 | 24 | 24 |
+| `tools/check-dual-entry.mjs` | 39.2 | 27 | 27 |
+| `tools/check-aplus-flow.mjs` | 32.3 | 24 | 24 |
 | `tools/check-community-flow.mjs` | 34.8 | 11 | 11 |
-| `tools/check-acceptance.mjs` | 38.8 | 27 | 27 |
-| `tools/check-recovery.mjs` | 53.7 | 28 | 28 |
-| `tools/check-fixes-a.mjs` | 77.8 | 55 | 55 |
+| `tools/check-acceptance.mjs` | 38.7 | 27 | 27 |
+| `tools/check-recovery.mjs` | 53.0 | 28 | 28 |
+| `tools/check-fixes-a.mjs` | 77.9 | 55 | 55 |
 | `tools/check-fixes-b.mjs` | 84.0 | 39 | 39 |
 | `tools/check-p0-gaps.mjs` | 59.0 | 12 | 12 |
-| **合计** | **419.7** | **223** | **223** |
+| **合计** | **418.9** | **223** | **223** |
 
-> 口径说明：八段串行执行，均针对 dist 的同一次构建；含 Chrome 启动与页面加载，故为端到端墙钟时间，非纯断言耗时。全量 419.7 s 距 420 s 预算仅余 0.3 s，处置见 D-13。
+> 口径说明：8 段串行执行，均针对 dist 的同一次构建；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），用于判定耗时是否失效。
 
-一致性校验（I-11，采集时 HEAD `3a508ca`）：**全部通过**
+一致性校验（I-11，采集时 HEAD `b3bd5a5`）：**全部通过**
 
 | 校验项 | 结果 | 明细 |
 |---|---|---|
 | 分段断言/通过与 report.json 一致 | 通过 | 8/8 |
-| 分项合计等于总计 | 通过 | 断言 223/223、通过 223/223、耗时 419732/419732 ms |
+| 分项合计等于总计 | 通过 | 断言 223/223、通过 223/223、墙钟 418936/418936 ms（各段之和 418931 ms，并发度 1） |
 | 记录断言数等于本次运行时断言数 | 通过 | 223 vs 223 |
-| baseRevision 存在且为 HEAD 祖先 | 通过 | 3a508ca → HEAD 3a508ca |
-| base..HEAD 未触碰被测面 | 通过 | 无 |
+| baseRevision 存在且为 HEAD 祖先 | 通过 | ecfef67 → HEAD b3bd5a5 |
+| 被测面内容指纹一致（I-12） | 通过 | sha256:e9905d564c13f75d45be3df4b6f50662 vs sha256:e9905d564c13f75d45be3df4b6f50662 |
 
 - [ ] 单次典型操作重算次数（需 I-05 渲染探针）
 
