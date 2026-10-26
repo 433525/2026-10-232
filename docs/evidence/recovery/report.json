@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T04:16:57.073Z",
+  "generatedAt": "2026-10-26T09:59:44.042Z",
   "base": "http://localhost:5180",
   "total": 28,
   "passed": 28,
@@ -52,7 +52,7 @@
     {
       "name": "确认后重置成功：警示消失、存档可解析、种子数据恢复",
       "ok": true,
-      "detail": "{\"bannerGone\":true,\"posts\":4,\"savedAt\":\"2026-10-26T04:16:39.534Z\"}"
+      "detail": "{\"bannerGone\":true,\"posts\":4,\"savedAt\":\"2026-10-26T09:59:26.334Z\"}"
     },
     {
       "name": "可切换到已实名演练成员",

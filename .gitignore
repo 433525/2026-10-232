@@ -35,3 +35,8 @@ reference_extracted.txt
 
 # 验收截图（体积大，不入库；只提交同目录的 report.json）
 docs/evidence/**/*.png
+
+# 一次性调试脚本（本地保留以便复现，不入库）
+tools/_scratch/
+tools._tmpx
+.git-cleanup-before.txt

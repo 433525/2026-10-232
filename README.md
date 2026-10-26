@@ -34,10 +34,10 @@ npm run check:aplus       # 24 项：A+ 主流程 + 去重 + 备份 + 持久化
 npm run check:community   # 11 项：实名拦截 + 先审后发 + 跨入口读取
 npm run check:acceptance  # 27 项：接单→签到→完成→账本、举报入口与处置、病史可见性、高风险拦截
 npm run check:recovery    # 28 项：坏档恢复、跨标签冲突、评论/留言举报、备份导入、官方措辞扫描
-npm run check:fixes       # 88 项：争议流程、留痕时间线、接单大厅筛选、时间存折、投诉复核与桥登记
+npm run check:fixes       # 93 项：争议流程、留痕时间线、接单大厅筛选、时间存折、投诉复核、桥登记、负向补测
 ```
 
-共 **205 项**，全部通过。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
+共 **210 项**，全部通过（含 5 条 `[neg]`/`[edge]` 负向边界用例）。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
 headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 
 ## 二、演示 vs 生产
@@ -129,7 +129,7 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 | [组件 ↔ 数据源映射表](docs/delivery/component-data-map.md) | 每个界面读哪个字段、点哪个方法 |
 | [改动清单](docs/delivery/change-list.md) | 新增 / 修改 / 删除 / 修复四类 |
 | [双向缺口报告](docs/delivery/gap-report.md) | B↔A+ 缺口、需求未实现项、技术债 |
-| [验收记录](docs/delivery/acceptance.md) | 205 项自动化 + 十条合规逐条验证 |
+| [验收记录](docs/delivery/acceptance.md) | 210 项自动化 + 十条合规逐条验证 |
 | [交接文档](docs/HANDOVER.md) | 背景与目标、进度、待办与缺口、架构、文件地图、运行部署、接手注意事项 |
 | [架构说明](docs/ARCHITECTURE.md) | 分层、状态流、扩展点 |
 | [阶段调研](docs/research/) | P1–P7 的开源候选与取舍（P6 存档自愈、P7 备份导入） |

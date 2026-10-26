@@ -102,3 +102,44 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 - 仅在 Chromium 验证；未测微信 X5 / Safari。
 - B 端坏档恢复弱于 A+；A+ 未移植 `OfflineNotice`。
 - 完整清单见 `docs/delivery/gap-report.md`。
+
+## 6. 度量口径（持续改进基线）
+
+改进指标只有在分母、取样方式与复现命令同时固定时才可比。以下四条口径为**唯一有效口径**，改动须走 ADR。
+
+### 6.1 断言数量：只认运行时真值
+
+- **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 196 与运行时 205 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：205 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes 88）。
+
+### 6.2 断言密度：双口径并列，A 为考核口径
+
+| 口径 | 分母 | 定义 |
+|---|---|---|
+| **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12693 行 | 全量核心模块 |
+| B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 6004 行 | v1.0 历史口径 |
+
+当前密度：A = 1.62 条/百行，B = 3.41 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+
+### 6.3 构建体积：固定字节总量
+
+M9 以 `dist/**` 全部文件**字节总和**判定（当前 782 KB）；`du -sh` 的 826 KB 含块对齐开销，换机器会漂移，不作为判据。
+
+### 6.4 文档数字：分「契约」与「历史」
+
+- **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`README.md`）中的数字声明必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。
+- **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
+- 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
+
+### 6.5 断言命名前缀
+
+新增断言名以中括号前缀标注类别，供脚本精确统计，替代按关键词猜测的启发式：
+
+| 前缀 | 含义 | 例 |
+|---|---|---|
+| `[neg]` | 负向路径：非法输入/越权/失败分支必须被拒绝，且状态不变 | `[neg] 损坏备份被拒绝且存档不变` |
+| `[edge]` | 边界路径：空值、纯空白、超长、特殊字符 | `[edge] 空白理由仍禁用提交` |
+| 无前缀 | 正向路径（存量 88 条均为无前缀） | `发布后帖子进入待审状态` |
+
+统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言未加前缀，故 6.1 的启发式占比（28.6%）仅作趋势参考。

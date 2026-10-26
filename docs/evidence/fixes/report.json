@@ -1,9 +1,9 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T04:19:03.181Z",
-  "stamp": "mvoqwsw4",
-  "total": 88,
-  "passed": 88,
+  "checkedAt": "2026-10-26T10:01:55.770Z",
+  "stamp": "mvp35jmi",
+  "total": 93,
+  "passed": 93,
   "results": [
     {
       "name": "接单大厅有数据且「可接需求 N 条」与渲染卡片数一致",
@@ -113,12 +113,12 @@
     {
       "name": "失败后的草稿已自动暂存",
       "ok": true,
-      "detail": "draft=失败保留草稿-mvoqwsw4"
+      "detail": "draft=失败保留草稿-mvp35jmi"
     },
     {
       "name": "重新打开发布弹层时草稿被恢复",
       "ok": true,
-      "detail": "restored=失败保留草稿-mvoqwsw4"
+      "detail": "restored=失败保留草稿-mvp35jmi"
     },
     {
       "name": "含已接单订单的备份导入成功",
@@ -143,7 +143,7 @@
     {
       "name": "第一条留言按订单建立线程",
       "ok": true,
-      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvoqwsw4"
+      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvp35jmi"
     },
     {
       "name": "另一订单（SYNTH-POST-001）线程未被串线",
@@ -163,12 +163,12 @@
     {
       "name": "焦点会话随订单切换（标题对得上）",
       "ok": true,
-      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvoqwsw412:17"
+      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvp35jmi18:00"
     },
     {
       "name": "第二条留言落到所认领订单的线程",
       "ok": true,
-      "detail": "p1=3 last=第二条订单留言-mvoqwsw4"
+      "detail": "p1=3 last=第二条订单留言-mvp35jmi"
     },
     {
       "name": "第一条订单线程保持 1 条不串线",
@@ -439,6 +439,31 @@
       "name": "时间存折明细：凭证号与「不可兑现/不可转让」只读声明在位",
       "ok": true,
       "detail": "voucher=true readable=true readonly=true"
+    },
+    {
+      "name": "[neg] 待审帖驳回：理由为空时提交按钮禁用",
+      "ok": true,
+      "detail": "done disabled=true"
+    },
+    {
+      "name": "[edge] 待审帖驳回：理由仅空白字符仍视为空，按钮保持禁用；填写后放行",
+      "ok": true,
+      "detail": "blank=true filled=false"
+    },
+    {
+      "name": "[neg] 驳回后状态转 rejected 并写审核日志，且不进入公开信息流",
+      "ok": true,
+      "detail": "rejected audits=1 inFeed=false note=合成演练：含未脱敏联系方式，按演练规则驳回。"
+    },
+    {
+      "name": "[neg] 时间账本只读：调账入口不改变任何余额，仅给只读说明",
+      "ok": true,
+      "detail": "before=165 after=165 aria-disabled=true toast=i演练数据只读：时间账本不支持调账、兑现或转让。"
+    },
+    {
+      "name": "[neg] 暂停新登记后 A+ 新建入口禁用并给出提示，恢复后放行",
+      "ok": true,
+      "detail": "done paused=true notice=true pressed=true resumed=false"
     },
     {
       "name": "全流程无控制台异常（B+A+ 双端）",

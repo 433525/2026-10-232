@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T04:14:12.853Z",
+  "checkedAt": "2026-10-26T09:57:03.270Z",
   "total": 27,
   "passed": 27,
   "results": [
@@ -52,7 +52,7 @@
     {
       "name": "A+ 端启动非白屏",
       "ok": true,
-      "detail": "textLength=1974"
+      "detail": "textLength=1980"
     },
     {
       "name": "A+ 队列有记录",

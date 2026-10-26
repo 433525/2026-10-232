@@ -59,7 +59,7 @@
 1. **B 端坏档门禁在状态层，不在领域层**：`store.resetDemoData()` 仍接受 `allowRecovery`，真正的「未下载原文不得重置」由 `AppContext` 守卫 + `window.confirm` 实现。绕过 UI 直接调用 store 仍可覆盖原文；若要硬保证，需要把「已确认」标记做进领域层（当前刻意不做，避免把 UI 状态写进业务存档）。
 2. **A+ 全树重渲染**：`revision` 计数器让任意 store 变化触发整棵 A+ 树重算。当前节点量（数百）无感；记录上千或时间线上万时需改为按字段订阅。
 3. **`computed` 不缓存**：派生在每次读取时重算（`filteredCases`、`communityRegisteredCases` 等）。规模小时可接受，是换取「不会失效」的取舍。
-4. **`AppContext.tsx` 仍是 623 行单点**：契约被钉死（字段名与签名不变）所以未拆分；后续拆分要先补契约测试。
+4. **`AppContext.tsx` 仍是 1024 行单点**：契约被钉死（字段名与签名不变）所以未拆分；后续拆分要先补契约测试。
 5. **验收只在 Chromium**：未覆盖 Firefox/Safari/微信 X5。
 6. **截图不入库**：`docs/evidence/**/*.png` 被 `.gitignore` 排除，评审需本地跑脚本复现。
 7. **A+ 未移植 `OfflineNotice`**：mvp 有离线提示组件；232 无 Service Worker，本轮不引入 PWA，因此省略。若后续加离线，需要连同预缓存一起做。

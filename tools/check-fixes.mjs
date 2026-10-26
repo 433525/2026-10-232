@@ -29,6 +29,9 @@
  * 13. A+ 投诉的「转介席视角」：转介席既能看到同一队列，也受「被投诉角色 / 投诉提交人」
  *     两条回避规则约束；满足条件时可独立完成复核并把 demo-referral 写进存档，且复核
  *     不改写关联 case 的时间线与状态。
+ * 14. 负向/边界补测（I-02）：驳回理由为空与仅空白时按钮禁用、驳回后转 rejected 并写审计
+ *     日志且不进公开信息流、时间账本只读不变量（调账不改余额）、A+ 暂停受理门禁。
+ *     新增用例名带 `[neg]` / `[edge]` 前缀，供 `collect-baseline.mjs` 精确统计负向覆盖率。
  *
  * 用法：先 build + preview 到 5180，再 `node tools/check-fixes.mjs`。
  */
@@ -1767,6 +1770,176 @@ async function main() {
     )
     await pressEscape(page)
     await new Promise((resolve) => setTimeout(resolve, 300))
+
+    /* ── 17. 负向与边界补测（I-02 / W1 序 6）───────────────────────────
+     * 判定标准是「被拒绝 + 状态未变」，不只看提示文案：只弹 toast 但仍写入
+     * 存档的实现必须判红。起点用「清本机存档 + 重载」构造，避免受前述 16 组
+     * 用例的身份与模态残留影响。
+     * 命名前缀：[neg] 负向路径、[edge] 边界输入；供 collect-baseline 精确统计。
+     */
+    await evaluate(page, `(async () => { localStorage.removeItem(${JSON.stringify(STATE_KEY)}); return true })()`)
+    await navigate(page, `${BASE}/`)
+    await evaluate(page, HELPERS)
+
+    const NEG_TITLE = `演练驳回路径-${STAMP}`
+    const NEG_CONTENT = '合成演练内容：验证驳回理由为空时不得提交，驳回后不进入公开信息流。'
+
+    const negSeeded = await evaluate(page, `(async () => {
+      await window.__switchIdentity('已实名')
+      window.__clickText('nav button', '发布')
+      ${settle}
+      window.__clickText('button', '志愿动态')
+      ${settle}
+      window.__setValue(document.querySelector('#post-title'), ${JSON.stringify(NEG_TITLE)})
+      window.__setValue(document.querySelector('#post-content'), ${JSON.stringify(NEG_CONTENT)})
+      ${settle}
+      window.__clickText('button', '发布并同步至社区')
+      ${settle}
+      const post = (window.__readState()?.posts ?? []).find((p) => p.title === ${JSON.stringify(NEG_TITLE)})
+      return { moderation: post?.moderation ?? null, id: post?.id ?? '' }
+    })()`)
+
+    // 空白理由两个用例共一次 DOM 采样：空 → 纯空白 → 填写，逐步取按钮 disabled。
+    const rejectGuard = await evaluate(page, `(async () => {
+      await window.__switchIdentity('审核员')
+      window.__clickText('nav button', '我的')
+      ${settle}
+      window.__clickText('button', '演练审核与举报处置后台')
+      ${settle}
+      const card = () => [...document.querySelectorAll('section')]
+        .filter((node) => node.innerText.includes(${JSON.stringify(NEG_TITLE)}))
+        .pop()
+      const rejectBtn = () => {
+        const scope = card()
+        return scope
+          ? [...scope.querySelectorAll('button')].find((b) => b.textContent.includes('驳回并记录理由'))
+          : null
+      }
+      const reasonInput = () => {
+        const scope = card()
+        return scope ? scope.querySelector('input[id^="reject-"]') : null
+      }
+      if (!card()) return { step: 'no-card' }
+      const empty = rejectBtn()?.disabled
+      window.__setValue(reasonInput(), '   ')
+      await new Promise((r) => setTimeout(r, 320))
+      const blank = rejectBtn()?.disabled
+      window.__setValue(reasonInput(), '合成演练：含未脱敏联系方式，按演练规则驳回。')
+      await new Promise((r) => setTimeout(r, 320))
+      const filled = rejectBtn()?.disabled
+      return { step: 'done', empty, blank, filled }
+    })()`)
+    check(
+      '[neg] 待审帖驳回：理由为空时提交按钮禁用',
+      rejectGuard.step === 'done' && rejectGuard.empty === true,
+      `${rejectGuard.step} disabled=${rejectGuard.empty}`,
+    )
+    check(
+      '[edge] 待审帖驳回：理由仅空白字符仍视为空，按钮保持禁用；填写后放行',
+      rejectGuard.step === 'done' && rejectGuard.blank === true && rejectGuard.filled === false,
+      `blank=${rejectGuard.blank} filled=${rejectGuard.filled}`,
+    )
+
+    const negRejected = await evaluate(page, `(async () => {
+      const scope = [...document.querySelectorAll('section')]
+        .filter((node) => node.innerText.includes(${JSON.stringify(NEG_TITLE)}))
+        .pop()
+      if (!scope) return { step: 'no-card' }
+      const button = [...scope.querySelectorAll('button')].find((b) => b.textContent.includes('驳回并记录理由'))
+      if (!button) return { step: 'no-button' }
+      button.click()
+      ${settle}
+      const state = window.__readState()
+      const post = (state?.posts ?? []).find((p) => p.title === ${JSON.stringify(NEG_TITLE)})
+      const audits = (state?.auditLog ?? [])
+        .filter((entry) => entry.action === 'moderate-post' && entry.targetId === ${JSON.stringify(negSeeded.id)})
+      window.__clickText('button', '关闭')
+      ${settle}
+      window.__clickText('nav button', '社区')
+      ${settle}
+      return {
+        step: 'done',
+        moderation: post?.moderation ?? null,
+        reviewNote: (post?.reviewNote ?? '').slice(0, 48),
+        audits: audits.length,
+        inFeed: document.body.innerText.includes(${JSON.stringify(NEG_CONTENT)}),
+      }
+    })()`)
+    check(
+      '[neg] 驳回后状态转 rejected 并写审核日志，且不进入公开信息流',
+      negRejected.step === 'done'
+        && negRejected.moderation === 'rejected'
+        && negRejected.audits === 1
+        && negRejected.reviewNote.length > 0
+        && negRejected.inFeed === false,
+      `${negRejected.moderation} audits=${negRejected.audits} inFeed=${negRejected.inFeed} note=${negRejected.reviewNote}`,
+    )
+
+    // 时间账本只读：调账入口无论输入何值都不得改变任何余额（R18 / T11）。
+    const coinReadonly = await evaluate(page, `(async () => {
+      const total = () => (window.__readState()?.ledgerEntries ?? []).reduce((sum, item) => sum + item.minutes, 0)
+      const before = total()
+      window.__clickText('nav button', '我的')
+      ${settle}
+      window.__clickText('button', '演练审核与举报处置后台')
+      ${settle}
+      window.__clickText('button', '时间账本')
+      ${settle}
+      const amount = document.querySelector('#coin-amount')
+      const reason = document.querySelector('#coin-reason')
+      if (amount) window.__setValue(amount, '9999')
+      if (reason) window.__setValue(reason, '负向用例：调账应被拒绝')
+      await new Promise((r) => setTimeout(r, 320))
+      const button = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('调账不可用'))
+      const advertised = button ? button.getAttribute('aria-disabled') === 'true' : null
+      if (button) button.click()
+      await new Promise((r) => setTimeout(r, 420))
+      return {
+        before,
+        after: total(),
+        advertised,
+        toast: window.__toasts().find((t) => t.includes('只读')) ?? '',
+      }
+    })()`)
+    check(
+      '[neg] 时间账本只读：调账入口不改变任何余额，仅给只读说明',
+      coinReadonly.before === coinReadonly.after
+        && coinReadonly.toast.length > 0
+        && coinReadonly.advertised === true,
+      `before=${coinReadonly.before} after=${coinReadonly.after} aria-disabled=${coinReadonly.advertised} toast=${coinReadonly.toast.slice(0, 30)}`,
+    )
+
+    // 暂停受理：门禁必须真的挡住新建入口，恢复后放行。
+    await navigate(page, `${BASE}/aplus.html`)
+    const pauseGate = await evaluate(page, `(async () => {
+      const findBtn = (text) => [...document.querySelectorAll('button')].find((b) => b.textContent.includes(text))
+      const createBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('新建演练记录'))
+      const gate = () => document.querySelector('[aria-label="本机合成演练受理开关"]')
+      const pause = findBtn('暂停新登记')
+      if (!pause) return { step: 'no-pause' }
+      pause.click()
+      await new Promise((r) => setTimeout(r, 380))
+      const paused = {
+        createDisabled: createBtn()?.disabled ?? null,
+        // 门禁自身必须给出可见状态，不能只靠按钮文案变化。
+        gateNotice: (gate()?.innerText ?? '').includes('新登记已暂停'),
+        gatePressed: (findBtn('恢复新登记')?.getAttribute('aria-pressed')) === 'true',
+        resumeVisible: Boolean(findBtn('恢复新登记')),
+      }
+      findBtn('恢复新登记')?.click()
+      await new Promise((r) => setTimeout(r, 380))
+      return { step: 'done', paused, resumedDisabled: createBtn()?.disabled ?? null }
+    })()`)
+    check(
+      '[neg] 暂停新登记后 A+ 新建入口禁用并给出提示，恢复后放行',
+      pauseGate.step === 'done'
+        && pauseGate.paused.createDisabled === true
+        && pauseGate.paused.gateNotice === true
+        && pauseGate.paused.gatePressed === true
+        && pauseGate.paused.resumeVisible === true
+        && pauseGate.resumedDisabled === false,
+      `${pauseGate.step} paused=${pauseGate.paused?.createDisabled} notice=${pauseGate.paused?.gateNotice} pressed=${pauseGate.paused?.gatePressed} resumed=${pauseGate.resumedDisabled}`,
+    )
 
     errors.stop()
     check('全流程无控制台异常（B+A+ 双端）', errors.errors.length === 0, errors.errors.slice(0, 3).join(' | '))
