@@ -1,71 +1,71 @@
 {
-  "measuredAt": "2026-10-27T05:53:32.719Z",
+  "measuredAt": "2026-10-27T08:36:00.818Z",
   "machine": "win32-x64 / Node v22.22.2 / vite 7.3.2",
   "base": "http://localhost:5180",
-  "baseRevision": "270400e",
-  "surfaceHash": "sha256:d2e2a01f948210a9218e68d2fab369e2",
+  "baseRevision": "b880312",
+  "surfaceHash": "sha256:c82f40e03c3c56c7669a9c2cdbbbd557",
   "note": "8 段串行执行，均针对 dist 的同一次构建；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），用于判定耗时是否失效。",
   "serial": true,
   "concurrency": 1,
-  "wallMs": 432426,
-  "sumMs": 432421,
-  "totalMs": 432426,
-  "totalAssertions": 245,
-  "totalPassed": 245,
+  "wallMs": 437186,
+  "sumMs": 437182,
+  "totalMs": 437186,
+  "totalAssertions": 248,
+  "totalPassed": 248,
   "scripts": [
     {
       "slug": "dual-entry",
       "file": "tools/check-dual-entry.mjs",
-      "ms": 39443,
+      "ms": 39190,
       "assertions": 27,
       "passed": 27
     },
     {
       "slug": "aplus-flow",
       "file": "tools/check-aplus-flow.mjs",
-      "ms": 33275,
+      "ms": 33207,
       "assertions": 35,
       "passed": 35
     },
     {
       "slug": "community-flow",
       "file": "tools/check-community-flow.mjs",
-      "ms": 46410,
-      "assertions": 22,
-      "passed": 22
+      "ms": 51681,
+      "assertions": 25,
+      "passed": 25
     },
     {
       "slug": "acceptance",
       "file": "tools/check-acceptance.mjs",
-      "ms": 38756,
+      "ms": 38710,
       "assertions": 27,
       "passed": 27
     },
     {
       "slug": "recovery",
       "file": "tools/check-recovery.mjs",
-      "ms": 52913,
+      "ms": 53642,
       "assertions": 28,
       "passed": 28
     },
     {
       "slug": "fixes-a",
       "file": "tools/check-fixes-a.mjs",
-      "ms": 77846,
+      "ms": 77757,
       "assertions": 55,
       "passed": 55
     },
     {
       "slug": "fixes-b",
       "file": "tools/check-fixes-b.mjs",
-      "ms": 84404,
+      "ms": 84064,
       "assertions": 39,
       "passed": 39
     },
     {
       "slug": "p0-gaps",
       "file": "tools/check-p0-gaps.mjs",
-      "ms": 59374,
+      "ms": 58931,
       "assertions": 12,
       "passed": 12
     }
