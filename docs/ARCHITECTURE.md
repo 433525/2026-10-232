@@ -110,8 +110,8 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 ### 6.1 断言数量：只认运行时真值
 
 - **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
-- **禁止**用 `grep -c "check("` 计数。静态调用点 214 与运行时 223 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
-- 当前基线：223 项（dual 27 / aplus 24 / community 11 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 221 与运行时 230 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：230 项（dual 27 / aplus 26 / community 16 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
 
 ### 6.2 断言密度：双口径并列，A 为考核口径
 

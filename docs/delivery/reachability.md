@@ -20,16 +20,17 @@
 
 | 端 | 动作数 | covered | gap | unused | unreachable | 覆盖率 |
 |---|---|---|---|---|---|---|
-| B 端（社区/订单/审核） | 33 | 27 | 6 | 0 | 0 | 81.8% |
-| A+ 端（受理工作台） | 19 | 14 | 5 | 0 | 0 | 73.7% |
-| **合计** | **52** | **41** | **11** | **0** | **0** | **78.8%** |
+| B 端（社区/订单/审核） | 33 | 31 | 2 | 0 | 0 | 93.9% |
+| A+ 端（受理工作台） | 19 | 15 | 4 | 0 | 0 | 78.9% |
+| **合计** | **52** | **46** | **6** | **0** | **0** | **88.5%** |
 
-> 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 仍为 11（被移除的是 `unused` 而非 `gap`），须由 W3–W5 逐批补齐。
+> 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 由 11 降至 6——W3 五条（`likePost` / `bookmarkPost` / `enrollActivity` / `setElderlyMode` / `cancelDuplicateReview`）已于 2026-10-27 补齐。
 
-- 判据（D-17 + D-18）：W3 出口 **46/52 = 88.5%**、W4 出口 **50/52 = 96.2%**、W5 出口 **52/52 = 100%**；当前 **41/52 = 78.8%**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
-- W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 11 条。
-- `unreachable` 为 0：不存在「有实现无入口」的静默能力，这是 P6–P10 修复的直接成果。
-- `gap` 仍有 11 条，集中在互动（点赞/收藏/报名）、文章朗读、长辈模式、A+ 复核回退与跟进/联系模拟等旁路能力；这不是可达性问题，是断言覆盖问题。
+- 判据（D-17 + D-18）：**W3 出口已达 46/52 = 88.5%**；W4 出口 **50/52 = 96.2%**、W5 出口 **52/52 = 100%**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
+- W3 收口（2026-10-27，D-19 批准后实施）：新增 7 条断言（community 5 / aplus 2），两个脚本各做一次缺陷注入验证——点赞「永远 +1」与「返回修改不退出复核态」均被抓红。断言总量 223 → **230**。
+- W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 6 条。
+- `unreachable` 记 **1**（2026-10-27 修正）：`cancelEventSignup` 有实现但无独立界面入口——报名后 `CommunityTab` 将按钮置 `disabled`，用户无法取消报名。此前记为 0 是把「报名/取消」合并看作一个 toggle 所致，任其存在会让「报名后可撤回」这一产品承诺失去验证依据（见 §六）。
+- `gap` 仍有 6 条，集中在文章朗读（2）、A+ 跟进与联系模拟（2）、A+ 跨 case 重开与深链复制（2）；W3 已清掉互动三项与长辈模式，剩余仍是断言覆盖问题而非可达性问题。
 
 ## 三、B 端动作矩阵
 
@@ -38,7 +39,7 @@
 | ID | 动作 | 界面入口 | 覆盖断言 | 状态 |
 |---|---|---|---|---|
 | B-01 | `switchUser` | 顶栏「演练身份」选择器 | `comm#4`、`acc#1`、`rec#11` | covered |
-| B-02 | `setElderlyMode` | 「我的」→ 长辈模式开关 | — | **gap** |
+| B-02 | `setElderlyMode` | 「我的」→ 长辈模式开关 | `comm#12`（切换生效 / 刷新保持 / 复原） | covered |
 | B-03 | `setViewMode` | **已删除**（D-03 / ADR-001，2026-10-26） | — | 移出矩阵 |
 | B-04 | `playArticleAudio` | 首页长照护文章 → 朗读 | — | **gap** |
 | B-05 | `stopArticleAudio` | 同上（停止朗读） | — | **gap** |
@@ -51,10 +52,10 @@
 | B-12 | `cancelOrder` | 订单详情 → 取消订单 | `p0#5`–`#7`（终态 / 留痕 / 不结算） | covered |
 | B-13 | `raiseOrderDispute` | 订单详情 → 发起争议 | `fix#76`–`#80` | covered |
 | B-14 | `resolveOrderDispute` | 订单详情 → 撤销争议 / 因争议关闭 | `fix#81`–`#84` | covered |
-| B-15 | `likePost` | 信息流卡片 → 点赞 | — | **gap** |
-| B-16 | `bookmarkPost` | 信息流卡片 → 收藏 | — | **gap** |
+| B-15 | `likePost` | 信息流卡片 → 点赞 | `comm#8`（±1 往返）、`comm#10`（刷新保持） | covered |
+| B-16 | `bookmarkPost` | 信息流卡片 → 收藏 | `comm#9`（往返）、`comm#10`（刷新保持） | covered |
 | B-17 | `addComment` | 帖子详情 → 评论 | `fix#9`–`#11`、`fix#17` | covered |
-| B-18 | `enrollActivity` | 活动帖 → 报名 | — | **gap** |
+| B-18 | `enrollActivity` | 活动帖 → 报名 | `comm#11`（名额 +1 / 按钮禁用 / 存档落盘） | covered |
 | B-19 | `sendChatMessage` | 消息页 → 会话输入 | `fix#28`–`#34` | covered |
 | B-20 | `submitComplaint` | 信息流/评论/订单留言 → 举报 | `acc#15`–`#18`、`rec#15`、`rec#23` | covered |
 | B-21 | `triggerSos` | 首页 SOS 入口 | `fix#49`、`fix#50` | covered |
@@ -79,7 +80,7 @@
 | ID | 动作 | 界面入口 | 覆盖断言 | 状态 |
 |---|---|---|---|---|
 | A-01 | `createRecord` | 队列页 → 「新建记录」 | `aplus#1`–`#7`、`fix#51`、`fix#52` | covered |
-| A-02 | `cancelDuplicateReview` | 重复复核 → 「返回修改」 | — | **gap** |
+| A-02 | `cancelDuplicateReview` | 重复复核 → 「返回修改」 | `aplus#10`（表单复原 + 门禁未削弱）、`aplus#11` | covered |
 | A-03 | `openDuplicateCandidate` | 重复复核 → 查看候选记录 | `aplus#9` | covered |
 | A-04 | `applyTransition` | 详情 → 状态流转 | `aplus#11`–`#19` | covered |
 | A-05 | `saveCheckpoint` | 检查点弹层 → 保存 | `aplus#13`–`#16` | covered |
@@ -102,29 +103,36 @@
 
 ## 五、缺口清单与批次划分（D-17）
 
-11 条缺口按「是否触及数据完整性」排序，拆三批：**W3 交 5 条（46/52 = 88.5%）**、**W4 交 4 条（50/52 = 96.2%）**、**W5 交媒体 2 条（52/52 = 100%）**；41 covered + 11 gap = 52，与分母自洽。`viewMode` 属 `unused` 而非 `gap`，其删除只收敛分母，不减少缺口条数。W4 容量 2.2 人日已被 ADR 与四域设计占满，故不与契约拆分抢期；每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
+W3 五条已于 2026-10-27 交付（D-19 批准后实施），缺口由 11 降至 **6 条**：46 covered + 6 gap = 52，与分母自洽。余下按「是否触及数据完整性」拆两批：**W4 交 4 条（50/52 = 96.2%）**、**W5 交媒体 2 条（52/52 = 100%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
 
-| 批次 | 序 | 动作 | 实现 | 为何优先 | 建议断言（选择器须现场复核） |
+| 批次 | 序 | 动作 | 实现 | 状态 | 实际断言 / 建议断言 |
 |---|---|---|---|---|---|
-| W3 | 1 | `cancelDuplicateReview` | `src/aplus/workbench.ts:1020` | 唯一的「清重复复核状态」路径，漏清会留下脏标记并影响后续建单 | 取消后候选清空、`duplicateReviewRequired=false`、记录总数不变、未创建新记录 |
-| W3 | 2 | `enrollActivity` | `src/context/AppContext.tsx:612` | 报名/取消切换写存档，名额与「我的」列表同源 | 报名后 `signedUpByMe=true` 且名额 −1；再点回到未报名且名额复原；刷新后保持 |
-| W3 | 3 | `likePost` | `src/context/AppContext.tsx:580` | toggle 语义，计数与点赞列表同源，最易出现「点两次加两」的假绿 | 首次点赞计数 +1、再点回到初值、刷新后保持 |
-| W3 | 4 | `bookmarkPost` | `src/context/AppContext.tsx:589` | 与点赞同一张卡片，可复用前置，边际成本最低 | 收藏后「我的」列表出现该帖、再点移除、刷新后保持 |
-| W3 | 5 | `setElderlyMode` | `src/context/AppContext.tsx:304` | 纯偏好，但写 UI 键，验证持久化与回退 | 切换后根节点字号标记生效；刷新保持；关闭后恢复常规字号 |
-| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | A+ 的主要产出，缺断言即无法证明跟进被记录 | 保存后时间线追加一条、弹层关闭、空内容禁用提交 |
-| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | 联系结果决定后续流转分支 | 结果码写入记录、未选结果禁用提交 |
-| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | 跨 case 关联，易产生孤儿记录 | 新记录带 `reopenedFrom`、原 case 终态不变 |
-| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | 深链一致性，已有 `shared/clipboard.ts` 可复用 | 剪贴板内容含当前 case id、`?case=` 可直接打开该记录 |
-| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 依赖浏览器音频能力，CDP 下需 mock | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
-| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 与播放同组，同批交付 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
+| W3 | 1 | `cancelDuplicateReview` | `src/aplus/workbench.ts:1020` | ✅ | `aplus#10` 复原表单 + 再提交仍走复核门禁；`aplus#11` `[neg]` 队列数不变 |
+| W3 | 2 | `enrollActivity` | `src/context/AppContext.tsx:603` | ✅ | `comm#11` 名额 8/12 → 9/12、按钮转「已报名」且 `disabled`、存档 `signedUpByMe=true` |
+| W3 | 3 | `likePost` | `src/context/AppContext.tsx:571` | ✅ | `comm#8` `[edge]` 计数 5→6→5 往返；`comm#10` 刷新保持 |
+| W3 | 4 | `bookmarkPost` | `src/context/AppContext.tsx:580` | ✅ | `comm#9` `[edge]` `aria-pressed` 真→假往返；`comm#10` 刷新保持 |
+| W3 | 5 | `setElderlyMode` | `src/context/AppContext.tsx:304` | ✅ | `comm#12` `[edge]` 切换生效 / 刷新保持 / 关闭复原 |
+| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | 待做 | 保存后时间线追加一条、弹层关闭、空内容禁用提交 |
+| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | 待做 | 结果码写入记录、未选结果禁用提交 |
+| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | 待做 | 新记录带 `reopenedFrom`、原 case 终态不变 |
+| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | 待做 | 剪贴板内容含当前 case id、`?case=` 可直接打开该记录 |
+| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 待做 | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
+| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 待做 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
 
-> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，其余并入本表。W4 的深链复制需剪贴板桩，W5 的媒体项需 `Audio` 桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
+> **实施时纠正的两处建议失真（D-05 再次生效）**：
+> 1. 原建议「报名后再点回到未报名、名额复原」不可实现——`CommunityTab` 报名后把按钮置 `disabled`，UI 无取消入口；实际改为判「名额 +1 且不可重复提交」。
+> 2. 原建议「收藏后『我的』列表出现该帖」不存在该列表，改为判卡片 `aria-pressed` 往返 + 刷新保持。
+>
+> 另：`cancelEventSignup` 仅有实现、无独立界面入口（见 §六），故 `enrollActivity` 的「切换回未报名」分支在 UI 层不可达。
+>
+> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，5 条已由 W3 关闭，其余并入本表。W4 的深链复制需剪贴板桩，W5 的媒体项需 `Audio` 桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
 
 ## 六、死接口
 
 | 动作 | 现状 | 处置结果 |
 |---|---|---|
 | `setViewMode` / `viewMode` | 原契约层定义 10 处，全仓零消费方、零入口、零断言（`grep` 仅命中定义文件自身，24 处 `useApp()` 无一取用） | **已删除**（2026-10-26，D-03 已获批准，按 `adr/ADR-001-remove-viewmode.md` S1–S7 执行）：代码 10 处移除、契约注释登记例外项、`AppContext.tsx` 1024 → 1013 行、全量门禁 223/223 通过、耗时 420.9 s 重采。本地存储键 `community.ui.view-mode` 成为孤儿键，不清理亦无副作用 |
+| `cancelEventSignup` | 有实现（`src/data/community/store.ts:1742`）、参与 `enrollActivity` 的切换分支，但**无独立界面入口**：报名成功后 `CommunityTab.tsx:390` 将按钮置 `disabled` | **待产品决策**（二选一）：① 报名按钮改为可切换（文案「已报名·点击取消」）并补 1 条往返断言，M4 分母 +1；② 明确「本机演练报名不可撤回」为设计约束，写入 `gap-report` 已知边界并把 `enrollActivity` 的 cancel 分支标注 `@unreachable`。当前默认不改代码 |
 
 ## 七、复现方式
 

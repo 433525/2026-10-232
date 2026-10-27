@@ -1,9 +1,9 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T15:17:24.750Z",
-  "summary": "演练-功能验收-mvpehdnk",
-  "total": 24,
-  "passed": 24,
+  "checkedAt": "2026-10-27T03:18:04.469Z",
+  "summary": "演练-功能验收-mvq485nr",
+  "total": 26,
+  "passed": 26,
   "results": [
     {
       "name": "新建弹层可打开",
@@ -38,7 +38,7 @@
     {
       "name": "新建记录自动选中",
       "ok": true,
-      "detail": "演练-功能验收-mvpehdnk"
+      "detail": "演练-功能验收-mvq485nr"
     },
     {
       "name": "重复登记进入人工复核",
@@ -54,6 +54,16 @@
       "name": "复核确认按钮初始禁用",
       "ok": true,
       "detail": "disabled=true"
+    },
+    {
+      "name": "[edge] 重复复核「返回修改」复原表单，且再次提交仍走复核门禁",
+      "ok": true,
+      "detail": "发现完全重复的登记内容 → 新建演练记录 / 候选=0 / 再提交=发现完全重复的登记内容 候选=1 确认禁用=true"
+    },
+    {
+      "name": "[neg] 返回修改不产生新记录（队列数与复核前一致）",
+      "ok": true,
+      "detail": "queue 6 → 6 / modal=true"
     },
     {
       "name": "检查点未完成时流转被阻止",

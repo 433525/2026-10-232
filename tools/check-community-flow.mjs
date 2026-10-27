@@ -144,6 +144,191 @@ async function main() {
     check('社区信息流已渲染内容', feed.textLength > 800, `textLength=${feed.textLength}`)
     check('待审内容不出现在公开信息流', feed.hasTitle === false, `hasTitle=${feed.hasTitle}`)
 
+    // ── 4b. 互动往返：点赞 / 收藏（W3 覆盖补齐，D-19） ────────────────
+    // 目标卡片 SYNTH-POST-004：种子 likedByMe=false / favorited=false / likeCount=5。
+    // toggle 语义：点一次 +1 且 aria-pressed=true，再点回初值——两半都要判，否则「点两次加两」会假绿。
+    const social = await evaluate(page, `(async () => {
+      const card = () => document.querySelector('#post-SYNTH-POST-004')
+      if (!card()) return { found: false }
+      const likeBtn = () => card().querySelector('button[aria-label^="赞同"]')
+      const markBtn = () => [...card().querySelectorAll('button')].find((b) => b.textContent.includes('收藏'))
+      const readLike = () => ({
+        count: Number((likeBtn().getAttribute('aria-label') || '').replace(/[^0-9]/g, '')),
+        pressed: likeBtn().getAttribute('aria-pressed') === 'true',
+      })
+      const readMark = () => markBtn().getAttribute('aria-pressed') === 'true'
+      const initial = { like: readLike(), mark: readMark() }
+      likeBtn().click()
+      ${settle}
+      const afterLike = readLike()
+      likeBtn().click()
+      ${settle}
+      const backLike = readLike()
+      markBtn().click()
+      ${settle}
+      const afterMark = readMark()
+      markBtn().click()
+      ${settle}
+      const backMark = readMark()
+      return { found: true, initial, afterLike, backLike, afterMark, backMark }
+    })()`)
+    const likeStep = social.initial?.like.pressed ? -1 : 1
+    check(
+      '[edge] 点赞往返：计数按 ±1 变化后回到初值',
+      social.found !== false
+        && social.afterLike.count === social.initial.like.count + likeStep
+        && social.afterLike.pressed === !social.initial.like.pressed
+        && social.backLike.count === social.initial.like.count
+        && social.backLike.pressed === social.initial.like.pressed,
+      `${social.initial?.like.count} → ${social.afterLike?.count} → ${social.backLike?.count}`,
+    )
+    check(
+      '[edge] 收藏往返：aria-pressed 置真后复原',
+      social.found !== false
+        && social.afterMark === !social.initial.mark
+        && social.backMark === social.initial.mark,
+      `initial=${social.initial?.mark} after=${social.afterMark} back=${social.backMark}`,
+    )
+
+    // ── 4c. 互动状态刷新后保持（写入同一份本机存档） ──────────────────
+    const markOn = await evaluate(page, `(async () => {
+      const card = document.querySelector('#post-SYNTH-POST-004')
+      const likeBtn = [...card.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') || '').includes('赞同'))
+      const markBtn = [...card.querySelectorAll('button')].find((b) => b.textContent.includes('收藏'))
+      likeBtn.click()
+      markBtn.click()
+      ${settle}
+      return {
+        like: likeBtn.getAttribute('aria-pressed') === 'true',
+        mark: markBtn.getAttribute('aria-pressed') === 'true',
+      }
+    })()`)
+    await navigate(page, `${BASE}/`)
+    await evaluate(page, HELPERS) // 刷新后页面上下文重建，注入的 helper 会丢失
+    const socialAfterReload = await evaluate(page, `(async () => {
+      window.__clickText('nav button', '社区')
+      ${settle}
+      const card = document.querySelector('#post-SYNTH-POST-004')
+      if (!card) return { found: false }
+      const likeBtn = [...card.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') || '').includes('赞同'))
+      const markBtn = [...card.querySelectorAll('button')].find((b) => b.textContent.includes('收藏'))
+      return {
+        found: true,
+        like: likeBtn.getAttribute('aria-pressed') === 'true',
+        count: Number((likeBtn.getAttribute('aria-label') || '').replace(/[^0-9]/g, '')),
+        mark: markBtn.getAttribute('aria-pressed') === 'true',
+      }
+    })()`)
+    check(
+      '[edge] 点赞与收藏在刷新后保持（未回落）',
+      markOn.like === true && markOn.mark === true
+        && socialAfterReload.found !== false
+        && socialAfterReload.like === true && socialAfterReload.mark === true
+        && socialAfterReload.count === social.initial.like.count + likeStep,
+      `like=${socialAfterReload.like} count=${socialAfterReload.count} mark=${socialAfterReload.mark}`,
+    )
+
+    // 身份不随存档持久化：重载后回到访客，报名类动作需要已实名成员，故先切回。
+    const reselect = await evaluate(page, `(async () => {
+      const identity = [...document.querySelectorAll('header button')].find((b) => b.textContent.includes('演练'))
+      if (identity) { identity.click(); ${settle} }
+      const target = [...document.querySelectorAll('header button')]
+        .filter((b) => b.textContent.includes('时间币'))
+        .find((b) => b.textContent.includes('已实名'))
+      if (!target) return { ok: false }
+      target.click()
+      ${settle}
+      return { ok: true }
+    })()`)
+
+    // ── 4d. 活动报名：名额 +1、按钮转为已报名且不可重复提交 ────────────
+    // 目标卡片 SYNTH-POST-003：种子 eventSignupCount=8 / eventCapacity=12 / signedUpByMe=false。
+    // 注意：报名后按钮被 disabled，UI 无「取消报名」路径（cancelEventSignup 无独立入口），
+    // 故本条只判单向 +1，不判往返——避免把不可达路径写成断言。
+    const enroll = await evaluate(page, `(async () => {
+      const card = document.querySelector('#post-SYNTH-POST-003')
+      if (!card) return { found: false }
+      const readCounter = () => card.querySelector('.nl-activity__left')?.textContent?.trim() ?? ''
+      const enrollBtn = () => [...card.querySelectorAll('button')].find((b) => /立即报名|已报名/.test(b.textContent))
+      const before = { counter: readCounter(), label: enrollBtn()?.textContent?.trim() ?? '' }
+      enrollBtn().click()
+      ${settle}
+      ${settle}
+      const after = {
+        counter: readCounter(),
+        label: enrollBtn()?.textContent?.trim() ?? '',
+        disabled: enrollBtn()?.disabled ?? null,
+      }
+      const raw = localStorage.getItem('community-mvp.synthetic-state.v1')
+      let stored = null
+      try {
+        stored = JSON.parse(raw).state.posts.find((p) => p.id === 'SYNTH-POST-003')
+      } catch (error) { stored = null }
+      return {
+        found: true,
+        before,
+        after,
+        signedUpByMe: stored?.signedUpByMe ?? null,
+        signupCount: stored?.eventSignupCount ?? null,
+      }
+    })()`)
+    // 「已报名 8/12 人」不能剥掉全部非数字（会得到 812），只取已报名人数。
+    const seats = (text) => Number((/(\d+)\s*\//.exec(text ?? '') || [])[1] ?? NaN)
+    const beforeSeats = seats(enroll.before?.counter)
+    const afterSeats = seats(enroll.after?.counter)
+    check(
+      '报名活动后名额 +1 且按钮转为已报名不可重复提交',
+      enroll.found !== false
+        && enroll.before.label.includes('立即报名')
+        && enroll.after.counter !== enroll.before.counter
+        && afterSeats === beforeSeats + 1
+        && enroll.after.label.includes('已报名')
+        && enroll.after.disabled === true
+        && enroll.signedUpByMe === true
+        && enroll.signupCount === 9,
+      `${enroll.before?.counter} → ${enroll.after?.counter} / ${enroll.after?.label} / disabled=${enroll.after?.disabled} / stored=${enroll.signupCount}`,
+    )
+
+    // ── 4e. 长辈模式：切换生效、刷新保持、可复原 ──────────────────────
+    const elderlyOn = await evaluate(page, `(async () => {
+      const btn = () => [...document.querySelectorAll('header button')].find((b) => /大字/.test(b.textContent))
+      if (!btn()) return { found: false }
+      btn().click()
+      ${settle}
+      return {
+        found: true,
+        active: document.querySelector('.nl-shell')?.classList.contains('elderly-mode-active') ?? false,
+        pressed: btn().getAttribute('aria-pressed') === 'true',
+        label: btn().textContent.trim(),
+      }
+    })()`)
+    await navigate(page, `${BASE}/`)
+    await evaluate(page, HELPERS)
+    const elderlyAfterReload = await evaluate(page, `(async () => {
+      const btn = () => [...document.querySelectorAll('header button')].find((b) => /大字/.test(b.textContent))
+      const kept = {
+        active: document.querySelector('.nl-shell')?.classList.contains('elderly-mode-active') ?? false,
+        pressed: btn()?.getAttribute('aria-pressed') === 'true',
+      }
+      btn().click()
+      ${settle}
+      return {
+        kept,
+        reverted: {
+          active: document.querySelector('.nl-shell')?.classList.contains('elderly-mode-active') ?? false,
+          pressed: btn()?.getAttribute('aria-pressed') === 'true',
+        },
+      }
+    })()`)
+    check(
+      '[edge] 长辈模式切换生效、刷新保持、关闭后复原',
+      elderlyOn.found !== false
+        && elderlyOn.active === true && elderlyOn.pressed === true
+        && elderlyAfterReload.kept.active === true && elderlyAfterReload.kept.pressed === true
+        && elderlyAfterReload.reverted.active === false && elderlyAfterReload.reverted.pressed === false,
+      `on=${elderlyOn.active} kept=${elderlyAfterReload.kept.active} reverted=${elderlyAfterReload.reverted.active} / ${elderlyOn.label}`,
+    )
+
     // ── 5. 跨入口：A+ 社区桥读取同一存档 ─────────────────────────────
     const bridge = await evaluate(page, `(async () => {
       location.href = '/aplus.html'

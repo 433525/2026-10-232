@@ -1,9 +1,9 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-26T15:18:00.132Z",
-  "title": "演练-求助-mvpei2gv",
-  "total": 11,
-  "passed": 11,
+  "checkedAt": "2026-10-27T03:18:44.675Z",
+  "title": "演练-求助-mvq48ug7",
+  "total": 16,
+  "passed": 16,
   "results": [
     {
       "name": "B 端发布页可打开",
@@ -46,6 +46,31 @@
       "detail": "hasTitle=false"
     },
     {
+      "name": "[edge] 点赞往返：计数按 ±1 变化后回到初值",
+      "ok": true,
+      "detail": "5 → 6 → 5"
+    },
+    {
+      "name": "[edge] 收藏往返：aria-pressed 置真后复原",
+      "ok": true,
+      "detail": "initial=false after=true back=false"
+    },
+    {
+      "name": "[edge] 点赞与收藏在刷新后保持（未回落）",
+      "ok": true,
+      "detail": "like=true count=6 mark=true"
+    },
+    {
+      "name": "报名活动后名额 +1 且按钮转为已报名不可重复提交",
+      "ok": true,
+      "detail": "已报名 8/12 人 → 已报名 9/12 人 / 已报名 / disabled=true / stored=9"
+    },
+    {
+      "name": "[edge] 长辈模式切换生效、刷新保持、关闭后复原",
+      "ok": true,
+      "detail": "on=true kept=true reverted=false / 大字版"
+    },
+    {
       "name": "A+ 社区桥可打开",
       "ok": true,
       "detail": ""
@@ -53,7 +78,7 @@
     {
       "name": "A+ 读到 B 写入的存档（不再提示未找到）",
       "ok": true,
-      "detail": "已读取 1 条合成求助 · 存档保存于 10/26 23:17"
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/27 11:18"
     },
     {
       "name": "B 主链路无控制台异常",

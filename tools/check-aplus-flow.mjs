@@ -131,6 +131,67 @@ async function main() {
     check('重复登记进入人工复核', duplicate.title.includes('重复'), duplicate.title)
     check('重复复核列出候选记录', duplicate.candidates > 0, `candidates=${duplicate.candidates}`)
     check('复核确认按钮初始禁用', duplicate.finalDisabled === true, `disabled=${duplicate.finalDisabled}`)
+
+    // ── 2b. 重复复核可退出：返回修改复原表单且不建单（W3 覆盖补齐，D-19）──
+    const cancelDup = await evaluate(page, `(async () => {
+      const queueBefore = document.querySelectorAll('.queue-item').length
+      const titleBefore = document.querySelector('.modal #create-title')?.textContent?.trim() ?? ''
+      const back = [...document.querySelectorAll('.modal-footer .button')]
+        .find((node) => node.textContent.includes('返回修改'))
+      if (!back) return { found: false, titleBefore, queueBefore }
+      back.click()
+      ${settle}
+      const modal = document.querySelector('.modal')
+      const restored = {
+        titleAfter: modal?.querySelector('#create-title')?.textContent?.trim() ?? '',
+        candidatesAfter: modal ? modal.querySelectorAll('.related-case').length : -1,
+        primaryLabels: [...document.querySelectorAll('.modal-footer .button.primary')]
+          .map((node) => node.textContent.trim()),
+        modalOpen: !!document.querySelector('.modal-backdrop'),
+        queueAfter: document.querySelectorAll('.queue-item').length,
+      }
+      // 复核门禁是否被「返回修改」削弱：同一摘要再提交一次，必须重新进入复核且确认按钮仍禁用。
+      window.__setValue('#record-summary', ${JSON.stringify(SUMMARY)})
+      ${settle}
+      ;[...document.querySelectorAll('.modal .synthetic-confirm input')]
+        .forEach((box) => { if (!box.checked) box.click() })
+      ${settle}
+      const retry = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('创建演练记录'))
+      if (!retry) return { found: true, titleBefore, queueBefore, ...restored, reentry: { tried: false } }
+      retry.click()
+      ${settle}
+      const finalButton = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('确认仍创建独立记录'))
+      const reentry = {
+        tried: true,
+        title: document.querySelector('.modal #create-title')?.textContent?.trim() ?? '',
+        candidates: document.querySelectorAll('.modal .related-case').length,
+        finalDisabled: finalButton ? finalButton.disabled : null,
+      }
+      return { found: true, titleBefore, queueBefore, ...restored, reentry }
+    })()`)
+    check(
+      '[edge] 重复复核「返回修改」复原表单，且再次提交仍走复核门禁',
+      cancelDup.found !== false
+        && cancelDup.titleBefore.includes('重复')
+        && !cancelDup.titleAfter.includes('重复')
+        && cancelDup.candidatesAfter === 0
+        && cancelDup.primaryLabels.some((text) => text.includes('创建演练记录'))
+        && !cancelDup.primaryLabels.some((text) => text.includes('确认仍创建独立记录'))
+        && cancelDup.reentry?.tried === true
+        && cancelDup.reentry.title.includes('重复')
+        && cancelDup.reentry.candidates > 0
+        && cancelDup.reentry.finalDisabled === true,
+      `${cancelDup.titleBefore} → ${cancelDup.titleAfter} / 候选=${cancelDup.candidatesAfter} / 再提交=${cancelDup.reentry?.title} 候选=${cancelDup.reentry?.candidates} 确认禁用=${cancelDup.reentry?.finalDisabled}`,
+    )
+    check(
+      '[neg] 返回修改不产生新记录（队列数与复核前一致）',
+      cancelDup.found !== false
+        && cancelDup.modalOpen === true
+        && cancelDup.queueAfter === cancelDup.queueBefore,
+      `queue ${cancelDup.queueBefore} → ${cancelDup.queueAfter} / modal=${cancelDup.modalOpen}`,
+    )
     await pressEscape(page)
 
     // ── 3. 检查点拦截：未完成检查点时普通流转必须被阻止 ──────────────
