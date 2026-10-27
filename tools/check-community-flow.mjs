@@ -4,7 +4,9 @@
  * 覆盖两条合规红线与一条跨端契约：
  * 1. 实名前置拦截：未实名访客提交求助时被挡在发布之前；
  * 2. 先审后发：已实名成员发布后进入待审，社区公开信息流看不到待审内容；
- * 3. 跨入口：A+ 社区桥能读到 B 刚写入的本机存档（同一个 localStorage 键）。
+ * 3. 跨入口：A+ 社区桥能读到 B 刚写入的本机存档（同一个 localStorage 键）；
+ * 4. 覆盖补齐（D-19）：点赞/收藏 toggle 往返与刷新保持、活动报名、
+ *    长辈模式持久化、语音朗读的播放/停止（W5，`speechSynthesis` 打桩）。
  *
  * 用法：先 build + preview，再 `node tools/check-community-flow.mjs`。
  */
@@ -328,6 +330,88 @@ async function main() {
         && elderlyAfterReload.reverted.active === false && elderlyAfterReload.reverted.pressed === false,
       `on=${elderlyOn.active} kept=${elderlyAfterReload.kept.active} reverted=${elderlyAfterReload.reverted.active} / ${elderlyOn.label}`,
     )
+
+    // ── 4f. 语音朗读：播放态建立与全局停止（W5 覆盖补齐） ──────────────
+    // headless 无语音引擎，真实 speak 可能立即回调 onend 把播放态清掉，
+    // 故先把 speechSynthesis 换成计数桩：断言的仍是应用状态机，不是音频输出。
+    const audio = await evaluate(page, `(async () => {
+      window.__speech = { spoken: 0, cancelled: 0 }
+      try {
+        Object.defineProperty(window, 'speechSynthesis', {
+          configurable: true,
+          value: {
+            speak: () => { window.__speech.spoken += 1 },
+            cancel: () => { window.__speech.cancelled += 1 },
+            speaking: false,
+          },
+        })
+      } catch (error) { /* 已有不可重定义的实现则跳过打桩 */ }
+      // 上次会话可能停在别的页签（activeTab 会持久化），先回首页再进「常用功能」。
+      window.__clickText('nav button', '首页')
+      ${settle}
+      const entry = [...document.querySelectorAll('.nl-quick__item')]
+        .find((node) => node.textContent.includes('养老科普'))
+      if (!entry) return { found: false, reason: 'no-entry' }
+      entry.click()
+      ${settle}
+      const modal = document.querySelector('.nl-backdrop [role="dialog"]')
+      if (!modal) return { found: false, reason: 'no-modal' }
+      const playBtn = () => modal.querySelector('button[aria-label="开始语音朗读"], button[aria-label="停止朗读"]')
+      const headerStop = () => [...document.querySelectorAll('header button')]
+        .find((node) => node.textContent.includes('停止朗读'))
+      const before = {
+        label: playBtn()?.getAttribute('aria-label') ?? '',
+        headerStop: !!headerStop(),
+      }
+      playBtn().click()
+      ${settle}
+      const playing = {
+        label: playBtn()?.getAttribute('aria-label') ?? '',
+        text: modal.textContent.includes('正在语音朗读正文'),
+        headerStop: !!headerStop(),
+        spoken: window.__speech.spoken,
+      }
+      const stopper = headerStop()
+      if (!stopper) return { found: true, before, playing, stopped: { missing: true } }
+      stopper.click()
+      ${settle}
+      const stopped = {
+        label: playBtn()?.getAttribute('aria-label') ?? '',
+        text: modal.textContent.includes('正在语音朗读正文'),
+        headerStop: !!headerStop(),
+        cancelled: window.__speech.cancelled,
+      }
+      return { found: true, before, playing, stopped }
+    })()`)
+
+    check(
+      '播放朗读后进入播放态，且出现全局停止入口',
+      audio.found === true
+        && audio.before?.label === '开始语音朗读'
+        && audio.before?.headerStop === false
+        && audio.playing?.label === '停止朗读'
+        && audio.playing?.text === true
+        && audio.playing?.headerStop === true
+        && audio.playing?.spoken >= 1,
+      `初始=${audio.before?.label} → 播放=${audio.playing?.label} / 正文提示=${audio.playing?.text} / 全局停止=${audio.playing?.headerStop} / speak 调用=${audio.playing?.spoken}`,
+    )
+    check(
+      '[edge] 全局停止朗读后回到静默态（弹层按钮与顶栏控件同时复原）',
+      audio.found === true
+        && audio.stopped?.missing !== true
+        && audio.stopped?.label === '开始语音朗读'
+        && audio.stopped?.text === false
+        && audio.stopped?.headerStop === false
+        && audio.stopped?.cancelled >= 1,
+      `停止后=${audio.stopped?.label} / 正文提示=${audio.stopped?.text} / 顶栏停止=${audio.stopped?.headerStop} / cancel 调用=${audio.stopped?.cancelled}`,
+    )
+    await evaluate(page, `(async () => {
+      const close = [...document.querySelectorAll('.nl-modal__foot .button, .nl-modal__close')]
+        .find((node) => node.textContent.trim() === '关闭' || node.getAttribute('aria-label') === '关闭')
+      if (close) close.click()
+      await new Promise((r) => setTimeout(r, 250))
+      return true
+    })()`)
 
     // ── 5. 跨入口：A+ 社区桥读取同一存档 ─────────────────────────────
     const bridge = await evaluate(page, `(async () => {

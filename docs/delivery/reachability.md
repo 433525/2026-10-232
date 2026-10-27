@@ -20,18 +20,19 @@
 
 | 端 | 动作数 | covered | gap | unused | unreachable | 覆盖率 |
 |---|---|---|---|---|---|---|
-| B 端（社区/订单/审核） | 33 | 31 | 2 | 0 | 0 | 93.9% |
+| B 端（社区/订单/审核） | 33 | 33 | 0 | 0 | 0 | 100% |
 | A+ 端（受理工作台） | 19 | 19 | 0 | 0 | 0 | 100% |
-| **合计** | **52** | **50** | **2** | **0** | **0** | **96.2%** |
+| **合计** | **52** | **52** | **0** | **0** | **0** | **100%** |
 
-> 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 由 11 降至 6——W3 五条（`likePost` / `bookmarkPost` / `enrollActivity` / `setElderlyMode` / `cancelDuplicateReview`）已于 2026-10-27 补齐。
+> 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 由 11 降至 **0**：W3 关闭 5 条、W4 关闭 4 条（深链/跟进/模拟联系/重开）、W5 关闭 2 条（朗读播放/停止）。**M4 于 2026-10-27 达标 52/52 = 100%**。
 
-- 判据（D-17 + D-18）：**W3 出口 46/52 = 88.5%、W4 出口 50/52 = 96.2% 均已达成**；W5 出口 **52/52 = 100%**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
+- 判据（D-17 + D-18）：W3 出口 46/52 = 88.5%、W4 出口 50/52 = 96.2%、**W5 出口 52/52 = 100%，三级阶梯全部达成**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
 - W3 收口（2026-10-27，D-19 批准后实施）：新增 7 条断言（community 5 / aplus 2），两个脚本各做一次缺陷注入验证——点赞「永远 +1」与「返回修改不退出复核态」均被抓红。断言总量 223 → **230**。
 - W4 收口（2026-10-27，同批交付）：新增 8 条断言（全部在 `check-aplus-flow`，26 → 34），关闭 4 个 A+ 缺口——深链复制（含回跳）、调整跟进、模拟联系结果、关联重开；首条做缺陷注入（移除跟进原因必填）后该 `[neg]` 断言转红，已还原。断言总量 230 → **238**。
-- W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 6 条。
-- `unreachable` 记 **1**（2026-10-27 修正）：`cancelEventSignup` 有实现但无独立界面入口——报名后 `CommunityTab` 将按钮置 `disabled`，用户无法取消报名。此前记为 0 是把「报名/取消」合并看作一个 toggle 所致，任其存在会让「报名后可撤回」这一产品承诺失去验证依据（见 §六）。
-- `gap` 只剩 **2 条**，均为文章朗读（`playArticleAudio` / `stopArticleAudio`），排 W5（需 `Audio` 桩）。A+ 侧 19 个写动作已全部 covered。
+- W5 收口（2026-10-27）：`check-community-flow` 16 → 18，新增朗读播放 / 全局停止 2 条。`speechSynthesis` 打桩隔离 headless 无语音引擎的影响，断言对象是应用状态机而非音频输出；两条各自做缺陷注入并转红（去掉 `setIsAudioPlaying(true)`、去掉 `stopArticleAudio` 的置假），后者暴露的正是「弹层已复原但顶栏仍显示停止」的半复原态。断言总量 238 → **240**。
+- W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，缺口改由 W3–W5 分批清除。
+- `unreachable` 列仍为 **0**（矩阵按「动作」计数，`cancelEventSignup` 不是独立动作行），但需单列一项**无入口能力分支**：报名成功后 `CommunityTab` 把按钮置 `disabled`，用户无法取消报名，故 `cancelEventSignup` 在 UI 层不可达（见 §六）。此前把「报名/取消」合并当 toggle，掩盖了这一点。
+- `gap` 归零：W3 清互动三项与长辈模式、W4 清 A+ 四项、W5 清朗读两项。后续新增断言不再由「动作覆盖」驱动，改由 D-21 的两项判据驱动（精确负向占比、重算次数）。
 
 ## 三、B 端动作矩阵
 
@@ -104,7 +105,7 @@
 
 ## 五、缺口清单与批次划分（D-17）
 
-W3 五条、W4 四条均已于 2026-10-27 交付（D-19 批准后实施），缺口由 11 降至 **2 条**：50 covered + 2 gap = 52，与分母自洽。**W5 只剩媒体 2 条（52/52 = 100%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
+W3 / W4 / W5 三批已于 2026-10-27 全部交付，缺口由 11 降至 **0**：52 covered + 0 gap = 52。下表保留原始批次与实测断言，作为「一次交付一条、每条带判定」的留痕；每条建议均标实现行号（D-05），并按实现语义校正。
 
 | 批次 | 序 | 动作 | 实现 | 状态 | 实际断言 / 建议断言 |
 |---|---|---|---|---|---|
@@ -117,8 +118,8 @@ W3 五条、W4 四条均已于 2026-10-27 交付（D-19 批准后实施），缺
 | W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | ✅ | `aplus#31` `[neg]` 未勾选虚构确认时保存禁用；`aplus#32` `[edge]` 时间线出现「结果：约定稍后再联系（模拟）」、登记状态前后一致、负责人更新 |
 | W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | ✅ | `aplus#33` 新记录（队列 +1、状态已收件、时间线 2 条）反向列出原记录；`aplus#34` `[neg]` 原记录终态仍为「已结束（服务结果未核实）」 |
 | W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | ✅ | `aplus#27` `[edge]` 剪贴板写入含 `case=SYNTH-00N` 的绝对链接；`aplus#28` `[edge]` 切到别的记录后打开该链接仍定位回原记录 |
-| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 待做 | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
-| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 待做 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
+| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | ✅ | `comm#15` 播放后弹层按钮转「停止朗读」、正文提示出现、顶栏「停止朗读」出现、`speak` 被调用 |
+| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:365` | ✅ | `comm#16` `[edge]` 全局停止后弹层按钮、正文提示、顶栏控件三处同时复原，`cancel` 被调用 |
 
 > **实施时纠正的建议失真（D-05 反复生效）**：
 >

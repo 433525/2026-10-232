@@ -1,9 +1,9 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-27T04:21:05.198Z",
-  "title": "演练-求助-mvq6h0ko",
-  "total": 16,
-  "passed": 16,
+  "checkedAt": "2026-10-27T04:37:08.598Z",
+  "title": "演练-求助-mvq71moe",
+  "total": 18,
+  "passed": 18,
   "results": [
     {
       "name": "B 端发布页可打开",
@@ -71,6 +71,16 @@
       "detail": "on=true kept=true reverted=false / 大字版"
     },
     {
+      "name": "播放朗读后进入播放态，且出现全局停止入口",
+      "ok": true,
+      "detail": "初始=开始语音朗读 → 播放=停止朗读 / 正文提示=true / 全局停止=true / speak 调用=1"
+    },
+    {
+      "name": "[edge] 全局停止朗读后回到静默态（弹层按钮与顶栏控件同时复原）",
+      "ok": true,
+      "detail": "停止后=开始语音朗读 / 正文提示=false / 顶栏停止=false / cancel 调用=2"
+    },
+    {
       "name": "A+ 社区桥可打开",
       "ok": true,
       "detail": ""
@@ -78,7 +88,7 @@
     {
       "name": "A+ 读到 B 写入的存档（不再提示未找到）",
       "ok": true,
-      "detail": "已读取 1 条合成求助 · 存档保存于 10/27 12:21"
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/27 12:37"
     },
     {
       "name": "B 主链路无控制台异常",
