@@ -181,3 +181,17 @@
 | `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 自动采集的基线表与门禁耗时记录（含 `surfaceHash`、`concurrency`、分项耗时） | 新增 |
 | `docs/ARCHITECTURE.md` §6 | 新增「度量口径」：断言只认运行时真值、双口径密度、体积按字节、文档数字分契约/历史、命名前缀、耗时分档 | 修改 |
 | `README.md` | 补度量与门禁命令索引、决策日志与 ADR 入口；验收项数按实测更新 | 修改 |
+
+### 4.5 W6 回归强度收口（CIP-232，2026-10-27）
+
+起因：动作覆盖率已达 52/52，继续按「动作数」补断言会退化为凑数（D-21）。本批不再扩覆盖面，只加强判定：补 5 条负向/边界用例，把精确负向口径从 10.4% 提到 12.2%，并把「密度数值」这一度量盲区纳入门禁。**未改 `src/`**。
+
+| 文件/内容 | 改动 | 类型 |
+|---|---|---|
+| `tools/check-community-flow.mjs` | 18 → 22：重复举报不新增工单（去重）、访客点赞被拒（计数/选中态不变）、访客举报被拒（工单不增）、有效与失效 `?post=` 深链两半（高亮命中 / 不误高亮且零异常） | 修改 |
+| `tools/check-aplus-flow.mjs` | 34 → 35：失效 `?case=` 深链清理参数并提示，详情不停在空态 | 修改 |
+| `tools/collect-baseline.mjs` | 新增「密度 A / 密度 B」两类契约 claim（I-14）：`当前密度` 行的数值按 `toFixed(2)` 比对，未写该行不判红；同时把 `density` 计算提前以便 claim 复用 | 修改 |
+| `docs/ARCHITECTURE.md` §6 | §6.1 静态/运行时计数改 236/245；§6.2 密度 1.93/4.09，「当前密度」单独成段（与含 `≥` 的目标行分行，否则被整体跳过）；§6.4 校验范围补「密度数值」；§6.5 补精确口径 30/245 = 12.2% 与「只认 `report.json`」说明 | 修改 |
+| `docs/delivery/decisions.md` | D-21 记执行进度；新增 D-22（举报去重提示未区分「已去重」，待修）、D-23（I-14 密度数值入门禁 + 分行约束） | 修改 |
+| `README.md`、`docs/delivery/acceptance.md`、`docs/HANDOVER.md` | 断言数 245、分段 22/35、耗时 432.4 s 三处同批对齐；修正 README 残留的 223/24/11 三处陈旧计数 | 修改 |
+| `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 重采：245 项 / 432.4 s / `surfaceHash sha256:d2e2a01f…` / 密度 A 1.93 | 修改 |

@@ -627,6 +627,37 @@ async function main() {
       `终态 ${reopen.closedStatus} → ${reopen.closedAfterCreate} / 新记录反查原记录标注=${linkedBack ? linkedBack.tag : '（未列出）'} / 新记录自身标注=${linkedNew ? linkedNew.tag : '（未列出）'}`,
     )
 
+    // ── 8. 失效深链：?case= 指向不存在的记录（D-21 回归强度） ──────────
+    // 契约（workbench.ts:683-694）：记录不存在 → 清掉 case 参数 + 提示已回到队列首条。
+    // 判据是「参数被清 + 有说明 + 详情非空」；只清参数不提示，用户会以为链接坏了。
+    await navigate(page, `${BASE}/aplus.html?case=SYNTH-NOT-EXIST`)
+    const badCase = await evaluate(page, `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+      // toast 2600 ms 后自动消失，页面加载慢时可能在读取前已清空，故短轮询。
+      let toast = ''
+      for (let i = 0; i < 14 && !toast; i += 1) {
+        toast = document.querySelector('.toast')?.textContent?.trim() ?? ''
+        if (!toast) await wait(120)
+      }
+      const detailId = (document.querySelector('.detail-id')?.textContent ?? '').match(/SYNTH-\\d+/)?.[0] ?? ''
+      return {
+        search: location.search,
+        toast,
+        queue: document.querySelectorAll('.queue-item').length,
+        detailId,
+        selected: document.querySelector('.queue-item.selected')?.textContent?.trim().slice(0, 24) ?? '',
+      }
+    })()`)
+
+    check(
+      '[neg] 失效 ?case= 深链清理参数并给出说明（不停在空详情）',
+      !badCase.search.includes('case=')
+        && badCase.toast.includes('不存在')
+        && badCase.queue > 0
+        && badCase.detailId.length > 0,
+      `search=${badCase.search || '（空）'} 提示=${badCase.toast || '（无）'} 队列=${badCase.queue} 详情=${badCase.detailId || '（空）'}`,
+    )
+
     errors.stop()
     check('主流程无控制台异常', errors.errors.length === 0, errors.errors.slice(0, 3).join(' | '))
   } finally {

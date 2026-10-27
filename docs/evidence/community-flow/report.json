@@ -1,9 +1,9 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-27T04:37:08.598Z",
-  "title": "演练-求助-mvq71moe",
-  "total": 18,
-  "passed": 18,
+  "checkedAt": "2026-10-27T05:47:50.019Z",
+  "title": "演练-求助-mvq9kfnc",
+  "total": 22,
+  "passed": 22,
   "results": [
     {
       "name": "B 端发布页可打开",
@@ -81,6 +81,26 @@
       "detail": "停止后=开始语音朗读 / 正文提示=false / 顶栏停止=false / cancel 调用=2"
     },
     {
+      "name": "[neg] 同一内容重复举报不新增工单（命中既有待处理记录）",
+      "ok": true,
+      "detail": "工单 0 → 1 → 1（编号 SYNTH-REPORT-001 → SYNTH-REPORT-001）"
+    },
+    {
+      "name": "[neg] 未实名访客点赞被拒：计数与选中态均不变",
+      "ok": true,
+      "detail": "访客=true 计数 9 → 9 / 选中 false → false / 提示=!请先切换为演练成员，再使用发布或互动功能。"
+    },
+    {
+      "name": "[neg] 未实名访客举报被拒：工单数不变且提示先实名",
+      "ok": true,
+      "detail": "工单 1 → 1 / 提示=!请先切换为演练成员，再使用发布或互动功能。"
+    },
+    {
+      "name": "[edge] 有效 ?post= 深链高亮目标、失效 id 不误高亮且页面照常渲染",
+      "ok": true,
+      "detail": "有效：高亮=true 卡片=4；失效：高亮=0 卡片=4 文本=950 异常增量=0"
+    },
+    {
       "name": "A+ 社区桥可打开",
       "ok": true,
       "detail": ""
@@ -88,7 +108,7 @@
     {
       "name": "A+ 读到 B 写入的存档（不再提示未找到）",
       "ok": true,
-      "detail": "已读取 1 条合成求助 · 存档保存于 10/27 12:37"
+      "detail": "已读取 1 条合成求助 · 存档保存于 10/27 13:47"
     },
     {
       "name": "B 主链路无控制台异常",

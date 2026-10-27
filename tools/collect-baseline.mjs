@@ -14,7 +14,7 @@
  *   B 核心代码规模与断言密度（口径 A 全量核心模块 / 口径 B 四个核心单点）
  *   C 工作区与产物（未跟踪文件数、dist 总量、最大 chunk）
  *   D 负向/边界断言占比（启发式，静态扫描断言名称，标注为参考值）
- *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母 vs 实测）
+ *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母与数值 vs 实测）
  *   F 门禁耗时与待采集
  *
  * 用法：
@@ -371,6 +371,28 @@ function docClaims(actual) {
           actual: actual.coreSinglesLines,
         })
       }
+      // 密度数值声明（I-14）：I-13 只锁分母，数值本身仍可漂移——W5 加完两条断言后
+      // §6.2 的「A = 1.88」停留在 238 项的旧值上，实测已 1.89。凡写「当前密度」的行，
+      // A/B 两个数值都按 toFixed(2) 精确比对；未写该行不判红，避免变成新的必填项。
+      if (/当前密度/.test(line)) {
+        const dv = /A\s*=\s*([\d.]+)\s*条\s*\/\s*百行[^\n]*?B\s*=\s*([\d.]+)\s*条\s*\/\s*百行/g
+        while ((m = dv.exec(line)) !== null) {
+          claims.push({
+            kind: '密度 A',
+            file: relative(ROOT, file).replace(/\\/g, '/'),
+            line: i + 1,
+            claimed: Number(m[1]),
+            actual: actual.density,
+          })
+          claims.push({
+            kind: '密度 B',
+            file: relative(ROOT, file).replace(/\\/g, '/'),
+            line: i + 1,
+            claimed: Number(m[2]),
+            actual: actual.densitySingles,
+          })
+        }
+      }
     })
   }
 
@@ -435,15 +457,17 @@ function collect() {
   }
   prefixed.total = prefixed.neg + prefixed.edge
 
-  const actual = { assertions, appContextLines, coreLines, coreSinglesLines }
+  const density = coreLines ? Number(((assertions / coreLines) * 100).toFixed(2)) : null
+  const densitySingles = coreSinglesLines
+    ? Number(((assertions / coreSinglesLines) * 100).toFixed(2))
+    : null
+  const actual = { assertions, appContextLines, coreLines, coreSinglesLines, density, densitySingles }
 
   return {
     collectedAt: new Date().toISOString(),
     assertions,
-    density: coreLines ? Number(((assertions / coreLines) * 100).toFixed(2)) : null,
-    densitySingles: coreSinglesLines
-      ? Number(((assertions / coreSinglesLines) * 100).toFixed(2))
-      : null,
+    density,
+    densitySingles,
     rows,
     runtimeCoverage: `${runtimeRows}/${rows.length}`,
     core,

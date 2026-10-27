@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-27T04:42:22.203Z",
-  "stamp": "mvq77z1u",
+  "checkedAt": "2026-10-27T05:53:03.407Z",
+  "stamp": "mvq9qvdt",
   "total": 12,
   "passed": 12,
   "results": [
@@ -18,7 +18,7 @@
     {
       "name": "评论驳回：落库 rejected、理由入审核日志、待审卡下架",
       "ok": true,
-      "detail": "mod=rejected note=评论含站外引流-mvq7 audit=moderate-comment/SYNTH-COMMENT-007 listed=false"
+      "detail": "mod=rejected note=评论含站外引流-mvq9 audit=moderate-comment/SYNTH-COMMENT-007 listed=false"
     },
     {
       "name": "[edge] 评论驳回：同帖已通过评论不变，公开评论只少一条",

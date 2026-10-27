@@ -48,6 +48,22 @@ window.__clickText = (selector, text) => {
   node.click()
   return true
 }
+// B 端 toast 同一时刻最多 3 条、3200 ms 后自动移除；取最后一条即最近一次反馈。
+// 定位必须限定在 Toaster 容器内：StorageBanner 也用 role="status"/"alert"，
+// 全局 querySelectorAll 会在存档异常时取到横幅而不是提示。
+// 文案里含变体图标（! / ✓），故断言用 includes 而非相等。
+window.__lastToast = () => {
+  const host = document.querySelector('[aria-live][class*="pointer-events-none"]')
+  if (!host) return ''
+  const nodes = [...host.querySelectorAll('[role="status"], [role="alert"]')]
+  return nodes.length ? nodes[nodes.length - 1].textContent.trim() : ''
+}
+window.__reportCount = () => {
+  try {
+    const env = JSON.parse(localStorage.getItem('community-mvp.synthetic-state.v1'))
+    return (env.state.reports ?? []).length
+  } catch { return -1 }
+}
 window.__fillHelpForm = () => {
   const texts = [...document.querySelectorAll('input[type="text"]')]
   window.__setValue(texts[0], ${JSON.stringify(TITLE)})
@@ -412,6 +428,152 @@ async function main() {
       await new Promise((r) => setTimeout(r, 250))
       return true
     })()`)
+
+    // ── 4g. 举报去重：同一目标连续举报不新增工单（D-21 回归强度） ────────
+    // store 的 reportContent 按「目标 + 待处理 + 同一举报人」判重，命中后返回既有工单。
+    // 判定只认工单条数与编号不变，不锁死提示文案——当前实现在命中判重时仍提示
+    // 「举报已记录」，文案与语义不符，已登记为 D-22（待修），不由断言固化。
+    const reselectForReport = await evaluate(page, `(async () => {
+      const trigger = [...document.querySelectorAll('header button')].find((b) => b.textContent.includes('演练'))
+      if (trigger) { trigger.click(); ${settle} }
+      const target = [...document.querySelectorAll('header button[role="menuitemradio"]')]
+        .find((b) => b.textContent.includes('演练用户'))
+      if (!target) return { ok: false }
+      target.click()
+      ${settle}
+      return { ok: true }
+    })()`)
+
+    const reportTwice = await evaluate(page, `(async () => {
+      window.__clickText('nav button', '社区')
+      ${settle}
+      const flag = () => document.querySelector('#post-SYNTH-POST-004 button[aria-label^="举报这条内容"]')
+      const readReports = () => {
+        try {
+          const env = JSON.parse(localStorage.getItem('community-mvp.synthetic-state.v1'))
+          return env.state.reports ?? []
+        } catch { return [] }
+      }
+      if (!flag()) return { found: false }
+      const before = readReports()
+      flag().click()
+      ${settle}
+      const afterFirst = readReports()
+      flag().click()
+      ${settle}
+      const afterSecond = readReports()
+      return {
+        found: true,
+        before: before.length,
+        afterFirst: afterFirst.length,
+        afterSecond: afterSecond.length,
+        firstId: afterFirst[0]?.id ?? '',
+        secondId: afterSecond[0]?.id ?? '',
+        targetType: afterSecond[0]?.targetType ?? '',
+      }
+    })()`)
+
+    check(
+      '[neg] 同一内容重复举报不新增工单（命中既有待处理记录）',
+      reselectForReport.ok === true
+        && reportTwice.found !== false
+        && reportTwice.afterFirst === reportTwice.before + 1
+        && reportTwice.afterSecond === reportTwice.afterFirst
+        && reportTwice.firstId.length > 0
+        && reportTwice.firstId === reportTwice.secondId
+        && reportTwice.targetType === 'post',
+      `工单 ${reportTwice.before} → ${reportTwice.afterFirst} → ${reportTwice.afterSecond}（编号 ${reportTwice.firstId} → ${reportTwice.secondId}）`,
+    )
+
+    // ── 4h. 越权切换：访客的互动与举报被状态机拒绝 ────────────────────
+    // 判两半：动作必须被拒（计数 / 工单不变），且给出可操作的实名提示。
+    // 举报目标特意选 SYNTH-POST-003（与 4g 的 004 不同），否则「工单数不变」
+    // 会被去重逻辑假绿，测不到成员闸门。
+    const visitorGate = await evaluate(page, `(async () => {
+      const trigger = [...document.querySelectorAll('header button')].find((b) => b.textContent.includes('演练'))
+      if (trigger) { trigger.click(); ${settle} }
+      const guest = [...document.querySelectorAll('header button[role="menuitemradio"]')]
+        .find((b) => b.textContent.includes('演练访客'))
+      if (!guest) return { switched: false }
+      guest.click()
+      ${settle}
+      window.__clickText('nav button', '社区')
+      ${settle}
+      const card = () => document.querySelector('#post-SYNTH-POST-003')
+      const likeBtn = () => card()?.querySelector('button[aria-label^="赞同"]')
+      const flag = () => card()?.querySelector('button[aria-label^="举报这条内容"]')
+      const readLike = () => ({
+        count: Number((likeBtn()?.getAttribute('aria-label') ?? '').replace(/[^0-9]/g, '')),
+        pressed: likeBtn()?.getAttribute('aria-pressed') === 'true',
+      })
+      if (!card() || !likeBtn() || !flag()) return { switched: true, found: false }
+      const before = { like: readLike(), reports: window.__reportCount(), label: document.body.innerText.includes('演练访客') }
+      likeBtn().click()
+      ${settle}
+      const afterLike = { like: readLike(), toast: window.__lastToast() }
+      flag().click()
+      ${settle}
+      const afterReport = { reports: window.__reportCount(), toast: window.__lastToast() }
+      return { switched: true, found: true, before, afterLike, afterReport }
+    })()`)
+
+    check(
+      '[neg] 未实名访客点赞被拒：计数与选中态均不变',
+      visitorGate.switched === true
+        && visitorGate.found === true
+        && visitorGate.before.label === true
+        && visitorGate.afterLike.like.count === visitorGate.before.like.count
+        && visitorGate.afterLike.like.pressed === visitorGate.before.like.pressed
+        && String(visitorGate.afterLike.toast).includes('切换为演练成员'),
+      `访客=${visitorGate.before?.label} 计数 ${visitorGate.before?.like.count} → ${visitorGate.afterLike?.like.count} / 选中 ${visitorGate.before?.like.pressed} → ${visitorGate.afterLike?.like.pressed} / 提示=${String(visitorGate.afterLike?.toast).slice(0, 40)}`,
+    )
+    check(
+      '[neg] 未实名访客举报被拒：工单数不变且提示先实名',
+      visitorGate.switched === true
+        && visitorGate.found === true
+        && visitorGate.afterReport.reports === visitorGate.before.reports
+        && String(visitorGate.afterReport.toast).includes('切换为演练成员'),
+      `工单 ${visitorGate.before?.reports} → ${visitorGate.afterReport?.reports} / 提示=${String(visitorGate.afterReport?.toast).slice(0, 40)}`,
+    )
+
+    // ── 4i. 深链边界：有效 id 高亮、失效 id 不误高亮且不抛异常 ──────────
+    // 两半同判：只测失效侧会把「高亮彻底失效」判绿，只测有效侧则漏掉脏参数。
+    // flash 类在 2.6 s 后自动移除，故用短轮询捕获，不依赖固定等待。
+    const errorsBeforeDeepLink = errors.errors.length
+    await navigate(page, `${BASE}/?tab=community&post=SYNTH-POST-004`)
+    const goodDeepLink = await evaluate(page, `(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+      let flashed = false
+      for (let i = 0; i < 20 && !flashed; i += 1) {
+        flashed = !!document.querySelector('#post-SYNTH-POST-004.nl-post--flash')
+        if (!flashed) await wait(50)
+      }
+      return {
+        flashed,
+        posts: document.querySelectorAll('.nl-post').length,
+        onCommunity: document.body.innerText.includes('社区动态'),
+      }
+    })()`)
+    await navigate(page, `${BASE}/?tab=community&post=SYNTH-DOES-NOT-EXIST`)
+    const badDeepLink = await evaluate(page, `(async () => {
+      await new Promise((r) => setTimeout(r, 500))
+      return {
+        posts: document.querySelectorAll('.nl-post').length,
+        flashed: document.querySelectorAll('.nl-post--flash').length,
+        textLength: document.body.innerText.trim().length,
+      }
+    })()`)
+    check(
+      '[edge] 有效 ?post= 深链高亮目标、失效 id 不误高亮且页面照常渲染',
+      goodDeepLink.onCommunity === true
+        && goodDeepLink.posts > 0
+        && goodDeepLink.flashed === true
+        && badDeepLink.posts === goodDeepLink.posts
+        && badDeepLink.flashed === 0
+        && badDeepLink.textLength > 800
+        && errors.errors.length === errorsBeforeDeepLink,
+      `有效：高亮=${goodDeepLink.flashed} 卡片=${goodDeepLink.posts}；失效：高亮=${badDeepLink.flashed} 卡片=${badDeepLink.posts} 文本=${badDeepLink.textLength} 异常增量=${errors.errors.length - errorsBeforeDeepLink}`,
+    )
 
     // ── 5. 跨入口：A+ 社区桥读取同一存档 ─────────────────────────────
     const bridge = await evaluate(page, `(async () => {
