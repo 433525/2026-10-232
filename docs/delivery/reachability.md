@@ -43,8 +43,8 @@
 | B-01 | `switchUser` | 顶栏「演练身份」选择器 | `comm#4`、`acc#1`、`rec#11` | covered |
 | B-02 | `setElderlyMode` | 「我的」→ 长辈模式开关 | `comm#12`（切换生效 / 刷新保持 / 复原） | covered |
 | B-03 | `setViewMode` | **已删除**（D-03 / ADR-001，2026-10-26） | — | 移出矩阵 |
-| B-04 | `playArticleAudio` | 首页长照护文章 → 朗读 | — | **gap** |
-| B-05 | `stopArticleAudio` | 同上（停止朗读） | — | **gap** |
+| B-04 | `playArticleAudio` | 首页长照护文章 → 朗读 | `comm#13`（播放态建立 / 正文提示 / 顶栏停止入口） | covered |
+| B-05 | `stopArticleAudio` | 同上（停止朗读） | `comm#14`（全局停止后弹层与顶栏同时复原） | covered |
 | B-06 | `createHelpOrder` | 「发布」→ 求助单 | `comm#5`、`fix#38`、`fix#39` | covered |
 | B-07 | `createPost` | 「发布」→ 社区动态 | `comm#5`–`#8`、`fix#5`–`#8` | covered |
 | B-08 | `acceptOrder` | 接单大厅 → 认领 | `acc#5`–`#7` | covered |
