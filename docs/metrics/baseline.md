@@ -1,6 +1,6 @@
 # 基线表（自动采集）
 
-- 采集时间：2026-10-27T08:36:55.220Z
+- 采集时间：2026-10-27T08:37:44.259Z
 - 采集脚本：`tools/collect-baseline.mjs`（零依赖、只读）
 - 断言口径：运行时真值（各脚本 `report.json` 的 `total`），覆盖率 8/8
 
@@ -12,7 +12,7 @@
 | `tools/check-aplus-flow.mjs` | 35 | 35 | 35 | 2026-10-27 08:29:26 | runtime |
 | `tools/check-community-flow.mjs` | 25 | 25 | 25 | 2026-10-27 08:30:18 | runtime |
 | `tools/check-acceptance.mjs` | 27 | 27 | 27 | 2026-10-27 08:30:58 | runtime |
-| `tools/check-recovery.mjs` | 28 | 28 | 28 | — | runtime |
+| `tools/check-recovery.mjs` | 28 | 28 | 28 | 2026-10-27 08:31:50 | runtime |
 | `tools/check-fixes-a.mjs` | 55 | 55 | 55 | 2026-10-27 08:33:11 | runtime |
 | `tools/check-fixes-b.mjs` | 39 | 39 | 39 | 2026-10-27 08:34:32 | runtime |
 | `tools/check-p0-gaps.mjs` | 12 | 12 | 12 | 2026-10-27 08:35:31 | runtime |
@@ -98,14 +98,14 @@
 
 > 口径说明：8 段串行执行，均针对 dist 的同一次构建；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），用于判定耗时是否失效。
 
-一致性校验（I-11，采集时 HEAD `b880312`）：**全部通过**
+一致性校验（I-11，采集时 HEAD `dc53c13`）：**全部通过**
 
 | 校验项 | 结果 | 明细 |
 |---|---|---|
 | 分段断言/通过与 report.json 一致 | 通过 | 8/8 |
 | 分项合计等于总计 | 通过 | 断言 248/248、通过 248/248、墙钟 437186/437186 ms（各段之和 437182 ms，并发度 1） |
 | 记录断言数等于本次运行时断言数 | 通过 | 248 vs 248 |
-| baseRevision 存在且为 HEAD 祖先 | 通过 | b880312 → HEAD b880312 |
+| baseRevision 存在且为 HEAD 祖先 | 通过 | b880312 → HEAD dc53c13 |
 | 被测面内容指纹一致（I-12） | 通过 | sha256:c82f40e03c3c56c7669a9c2cdbbbd557 vs sha256:c82f40e03c3c56c7669a9c2cdbbbd557 |
 | 分档预算：快检 / 全量 / 单段（I-15） | 通过 | 快检 216.4 / 230 s（5 段）、全量 437.2 / 480 s、最长段 tools/check-fixes-b.mjs 84.1 / 150 s |
 

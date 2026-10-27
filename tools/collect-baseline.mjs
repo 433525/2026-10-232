@@ -147,7 +147,9 @@ function runtimeReport(slug) {
     return {
       total: typeof json.total === 'number' ? json.total : null,
       passed: typeof json.passed === 'number' ? json.passed : null,
-      checkedAt: json.checkedAt ?? null,
+      // 证据时间字段不统一：多数脚本写 checkedAt，check-recovery 写 generatedAt。
+      // 采集器两种都认，否则 A 段「证据时间」会恒定显示 —（当前 recovery 即如此）。
+      checkedAt: json.checkedAt ?? json.generatedAt ?? null,
     }
   } catch {
     return null

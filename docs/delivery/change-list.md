@@ -203,7 +203,7 @@
 | 文件/内容 | 改动 | 类型 |
 |---|---|---|
 | `tools/check-community-flow.mjs` | 22 → 25：`[neg]` 访客在后台办结举报被拒（工单仍待处理、已办结数与审核日志均不变、提示「只有审核员」）；`[neg]` 审核员不能代替成员发布（帖子数不变、发布弹层保持、提示专用文案）；`[edge]` 纯空白评论两层拦截（空白与空串均禁用、有文本恢复可用、表单直提不新增评论） | 修改 |
-| `tools/collect-baseline.mjs` | 新增 I-15「分档预算」校验：快检（前五段）≤230 s、全量 ≤480 s、单段 ≤150 s，任一超线即 `--strict` 退出码 1；`baseline.md` F 段输出实测/预算与余量 | 修改 |
+| `tools/collect-baseline.mjs` | 新增 I-15「分档预算」校验：快检（前五段）≤230 s、全量 ≤480 s、单段 ≤150 s，任一超线即 `--strict` 退出码 1；`baseline.md` F 段输出实测/预算与余量；顺带兼容证据时间字段（`check-recovery` 写 `generatedAt`，A 段此前恒显示「—」） | 修改 |
 | `docs/ARCHITECTURE.md` §6 | §6.1 静态/运行时计数改 239/248、分段 community 25；§6.2 密度 1.96/4.14；§6.4 校验项 5 → 6（新增分档预算）；§6.5 精确口径 33/248 = 13.3%；§6.6 快检档 210 → 230 s 并注明由 I-15 核对 | 修改 |
 | `docs/delivery/decisions.md` | 新增 D-26（三条断言 + I-15 落地，含注入证据）；D-25 补「I-15 已落地、实测 216.4 s」 | 修改 |
 | `docs/delivery/acceptance.md`、`README.md`、`docs/HANDOVER.md` | 断言数 248、community 25、耗时 437.2 s 同批对齐；顺带修正 HANDOVER 中 `AppContext.tsx` 的陈旧行数（634 → 1013，两处） | 修改 |
