@@ -110,8 +110,8 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 ### 6.1 断言数量：只认运行时真值
 
 - **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
-- **禁止**用 `grep -c "check("` 计数。静态调用点 221 与运行时 230 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
-- 当前基线：230 项（dual 27 / aplus 26 / community 16 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 229 与运行时 238 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：238 项（dual 27 / aplus 34 / community 16 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
 
 ### 6.2 断言密度：双口径并列，A 为考核口径
 
@@ -120,7 +120,7 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 | **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12682 行 | 全量核心模块 |
 | B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 5993 行 | v1.0 历史口径 |
 
-当前密度：A = 1.76 条/百行，B = 3.72 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
+当前密度：A = 1.88 条/百行，B = 3.97 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
 
 > 分母随代码增删而变（D-03 删除 `viewMode` 后 12693 → 12682、6004 → 5993）。自 I-13 起分母已纳入门禁：下方「分母实测」行由 `collect-baseline.mjs` 逐字核对，改 `src/` 后未同步即令 `--strict` 退出码 1，不再依赖人工记忆。
 
@@ -147,7 +147,7 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 | `[edge]` | 边界路径：空值、纯空白、超长、特殊字符 | `[edge] 空白理由仍禁用提交` |
 | 无前缀 | 正向路径（存量断言均未加前缀） | `发布后帖子进入待审状态` |
 
-统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言均未加前缀，故 `docs/metrics/baseline.md` D 段的启发式占比（当前 32.7%）仅作趋势参考。
+统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言均未加前缀，故 `docs/metrics/baseline.md` D 段的启发式占比（当前 33.2%）仅作趋势参考。
 
 ### 6.6 门禁耗时：串行墙钟，分档判定
 

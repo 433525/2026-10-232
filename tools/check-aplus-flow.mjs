@@ -5,7 +5,8 @@
  * 1. 新建演练记录（含虚构确认）→ 队列 +1 且提示成功；
  * 2. 重复登记（同摘要）→ 暂停创建并进入人工重复复核；
  * 3. 状态流转 → 时间线追加、状态改变；
- * 4. 备份文本 → 合法 JSON 且含案例；刷新后记录仍在（存档往返）。
+ * 4. 备份文本 → 合法 JSON 且含案例；刷新后记录仍在（存档往返）；
+ * 5. W4 覆盖补齐（D-19 授权范围）：深链复制 / 调整跟进 / 模拟联系 / 关联重开。
  *
  * 用法：先 build + preview，再 `node tools/check-aplus-flow.mjs`。
  */
@@ -303,6 +304,328 @@ async function main() {
       storageStatus: document.querySelector('.storage-status')?.getAttribute('data-state') ?? '',
     }))()`)
     check('刷新后记录仍在本机存档', persisted.matched, `queue=${persisted.queue} status=${persisted.storageStatus}`)
+
+    // ── 5. 深链复制（W4 覆盖补齐：copySelectedCaseLink）────────────────
+    // 剪贴板用可写桩捕获：copyText 走 navigator.clipboard.writeText，只要能返 true 即可，
+    // 断言对象是「写进剪贴板的那串 URL」，不是「按钮可点」。
+    const shareUrl = await evaluate(page, `(async () => {
+      window.__clipboard = ''
+      let stubbed = false
+      try {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: async (text) => { window.__clipboard = text; return undefined } },
+        })
+        stubbed = true
+      } catch { stubbed = false }
+      const button = [...document.querySelectorAll('.detail-head-side .detail-link')]
+        .find((node) => node.textContent.includes('复制链接'))
+      if (!button) return { found: false, stubbed }
+      button.click()
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      return {
+        found: true,
+        stubbed,
+        copied: window.__clipboard,
+        toast: document.querySelector('.toast')?.textContent?.trim() ?? '',
+      }
+    })()`)
+
+    const copiedId = (shareUrl.copied.match(/SYNTH-\d+/) ?? [''])[0]
+    const selectedIdBeforeJump = await evaluate(page, `(async () => {
+      const items = [...document.querySelectorAll('.queue-item')]
+      const other = items.find((node) => !node.textContent.includes(${JSON.stringify(copiedId)}))
+      if (!other) return { found: false, id: '' }
+      other.click()
+      ${settle}
+      const text = document.querySelector('.detail-id')?.textContent?.trim() ?? ''
+      return { found: true, id: (text.match(/SYNTH-\\d+/) ?? [''])[0] }
+    })()`)
+    const idAfterOtherClick = { id: selectedIdBeforeJump.id }
+
+    check(
+      '[edge] 复制链接写入含当前记录编号的深链',
+      shareUrl.found === true
+        && shareUrl.stubbed === true
+        && copiedId.length > 0
+        && shareUrl.copied.includes('case=')
+        && shareUrl.toast.includes('已复制'),
+      `copied=${shareUrl.copied || '（空）'} toast=${shareUrl.toast}`,
+    )
+
+    let deepLink = { skipped: true }
+    if (shareUrl.copied) {
+      await navigate(page, shareUrl.copied)
+      // 整页重载后注入的 setter 辅助函数随旧文档销毁，必须重新注入。
+      await evaluate(page, SET_VALUE_HELPER)
+      deepLink = await evaluate(page, `(() => {
+        const text = document.querySelector('.detail-id')?.textContent?.trim() ?? ''
+        return {
+          id: (text.match(/SYNTH-\\d+/) ?? [''])[0],
+          title: document.querySelector('.detail-title')?.textContent?.trim() ?? '',
+          queue: document.querySelectorAll('.queue-item').length,
+        }
+      })()`)
+    }
+    check(
+      '[edge] 该深链可直接打开被复制的记录（切换到别的记录后仍能定位）',
+      selectedIdBeforeJump.found === true
+        && idAfterOtherClick.id !== copiedId
+        && deepLink.id === copiedId
+        && deepLink.title.includes(SUMMARY),
+      `复制=${copiedId} 切走后=${idAfterOtherClick.id} 打开=${deepLink.id} 标题=${deepLink.title}`,
+    )
+
+    // ── 6. 调整人工跟进（W4 覆盖补齐：saveFollowUp）───────────────────
+    const followUp = await evaluate(page, `(async () => {
+      const timelineBefore = document.querySelectorAll('.timeline-item').length
+      const openButton = [...document.querySelectorAll('.detail-actions .button')]
+        .find((node) => node.textContent.includes('调整跟进'))
+      if (!openButton) return { found: false, timelineBefore }
+      openButton.click()
+      ${settle}
+      const probe = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('保存跟进'))
+      const disabledBeforeConfirm = probe ? probe.disabled : null
+      // 只勾虚正确认、留空「调整原因」：应被校验拦下，且不产生时间线事件。
+      ;[...document.querySelectorAll('.modal .synthetic-confirm input')]
+        .forEach((box) => { if (!box.checked) box.click() })
+      ${settle}
+      const submitEmpty = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('保存跟进'))
+      if (!submitEmpty) return { found: false, timelineBefore }
+      submitEmpty.click()
+      ${settle}
+      const errorText = document.querySelector('.modal .form-error')?.textContent?.trim() ?? ''
+      const stillOpen = !!document.querySelector('.modal-backdrop')
+      const timelineAfterReject = document.querySelectorAll('.timeline-item').length
+      // 缺陷注入后的分支：校验若被绕过，弹层会关闭。此处早退，让断言给出 FAIL 而不是整段抛错中断。
+      if (!stillOpen) {
+        return { found: true, aborted: true, timelineBefore, disabledBeforeConfirm, errorText, stillOpen, timelineAfterReject }
+      }
+      window.__setValue('#followup-owner', '演练-跟进席-07')
+      window.__setValue('#followup-due', '2026-12-31T10:00')
+      window.__setValue('#followup-next', '演练：复核记录并安排回访')
+      window.__setValue('#followup-note', '覆盖补齐：演练中调整负责人')
+      ${settle}
+      const submit = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('保存跟进'))
+      if (!submit) return { found: true, aborted: true, timelineBefore, disabledBeforeConfirm, errorText, stillOpen, timelineAfterReject }
+      submit.click()
+      ${settle}
+      const ownerText = [...document.querySelectorAll('.info-item')]
+        .find((node) => node.querySelector('span')?.textContent?.includes('负责人'))
+        ?.querySelector('strong')?.textContent?.trim() ?? ''
+      return {
+        found: true,
+        timelineBefore,
+        disabledBeforeConfirm,
+        errorText,
+        stillOpen,
+        timelineAfterReject,
+        modalClosed: !document.querySelector('.modal-backdrop'),
+        timelineAfter: document.querySelectorAll('.timeline-item').length,
+        headings: [...document.querySelectorAll('.timeline-item strong')].map((node) => node.textContent.trim()),
+        ownerText,
+        nextStep: document.querySelector('.next-step-card p')?.textContent?.trim() ?? '',
+        toast: document.querySelector('.toast')?.textContent?.trim() ?? '',
+      }
+    })()`)
+
+    check(
+      '[neg] 跟进原因为空时保存被拒，弹层保持且时间线不增',
+      followUp.found !== false
+        && followUp.aborted !== true
+        && followUp.disabledBeforeConfirm === true
+        && followUp.errorText.includes('调整原因')
+        && followUp.stillOpen === true
+        && followUp.timelineAfterReject === followUp.timelineBefore,
+      `未勾选禁用=${followUp.disabledBeforeConfirm} 报错=${followUp.errorText} 时间线 ${followUp.timelineBefore} → ${followUp.timelineAfterReject}`,
+    )
+    check(
+      '调整跟进保存后时间线追加、弹层关闭、负责人更新',
+      followUp.found !== false
+        && followUp.aborted !== true
+        && followUp.modalClosed === true
+        && followUp.timelineAfter === followUp.timelineBefore + 1
+        && followUp.headings.includes('调整人工跟进')
+        && followUp.ownerText.includes('演练-跟进席-07')
+        && followUp.nextStep.includes('复核记录并安排回访')
+        && followUp.toast.includes('跟进信息已追加'),
+      `时间线 +${followUp.timelineAfter - followUp.timelineBefore} / 负责人=${followUp.ownerText} / toast=${followUp.toast}`,
+    )
+
+    // ── 7. 记录模拟联系结果（W4 覆盖补齐：saveContactSimulation）──────
+    const contact = await evaluate(page, `(async () => {
+      const statusBefore = document.querySelector('.detail-head-side .tag')?.textContent?.trim() ?? ''
+      const timelineBefore = document.querySelectorAll('.timeline-item').length
+      const openButton = [...document.querySelectorAll('.detail-actions .button')]
+        .find((node) => node.textContent.includes('记录模拟联系'))
+      if (!openButton) return { found: false, statusBefore, timelineBefore }
+      openButton.click()
+      ${settle}
+      const probe = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('保存模拟记录'))
+      const disabledBeforeConfirm = probe ? probe.disabled : null
+      window.__setValue('#contact-simulation-outcome', 'reschedule')
+      window.__setValue('#contact-simulation-note', '覆盖补齐：演练中约定稍后再联系')
+      window.__setValue('#contact-simulation-owner', '演练-联系席-03')
+      window.__setValue('#contact-simulation-due', '2026-12-30T09:30')
+      window.__setValue('#contact-simulation-next', '演练：按约定时间再次模拟联系')
+      ${settle}
+      ;[...document.querySelectorAll('.modal .synthetic-confirm input')]
+        .forEach((box) => { if (!box.checked) box.click() })
+      ${settle}
+      const submit = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('保存模拟记录'))
+      if (!submit) return { found: false, statusBefore, timelineBefore, disabledBeforeConfirm }
+      submit.click()
+      ${settle}
+      return {
+        found: true,
+        statusBefore,
+        timelineBefore,
+        disabledBeforeConfirm,
+        statusAfter: document.querySelector('.detail-head-side .tag')?.textContent?.trim() ?? '',
+        modalClosed: !document.querySelector('.modal-backdrop'),
+        timelineAfter: document.querySelectorAll('.timeline-item').length,
+        headings: [...document.querySelectorAll('.timeline-item strong')].map((node) => node.textContent.trim()),
+        outcomes: [...document.querySelectorAll('.timeline-item small')]
+          .map((node) => node.textContent.trim())
+          .filter((text) => text.startsWith('结果：')),
+        ownerText: [...document.querySelectorAll('.info-item')]
+          .find((node) => node.querySelector('span')?.textContent?.includes('负责人'))
+          ?.querySelector('strong')?.textContent?.trim() ?? '',
+        toast: document.querySelector('.toast')?.textContent?.trim() ?? '',
+      }
+    })()`)
+
+    check(
+      '[neg] 模拟联系未勾选虚构确认时保存禁用',
+      contact.found !== false && contact.disabledBeforeConfirm === true,
+      `disabled=${contact.disabledBeforeConfirm}`,
+    )
+    check(
+      '[edge] 模拟联系结果写入时间线，登记状态保持不变',
+      contact.found !== false
+        && contact.modalClosed === true
+        && contact.timelineAfter === contact.timelineBefore + 1
+        && contact.headings.includes('模拟联系结果')
+        && contact.outcomes.some((text) => text.includes('约定稍后再联系'))
+        && contact.ownerText.includes('演练-联系席-03')
+        && contact.statusAfter === contact.statusBefore
+        && contact.toast.includes('模拟联系结果已追加'),
+      `时间线 +${contact.timelineAfter - contact.timelineBefore} / 结果=${contact.outcomes.join('、')} / 状态 ${contact.statusBefore} → ${contact.statusAfter}`,
+    )
+
+    // ── 8. 关联重开（W4 覆盖补齐：createReopenedRecord）────────────────
+    const reopen = await evaluate(page, `(async () => {
+      const sourceId = ((document.querySelector('.detail-id')?.textContent ?? '').match(/SYNTH-\\d+/) ?? [''])[0]
+      const timelineBefore = document.querySelectorAll('.timeline-item').length
+      // 先结束当前记录（CLOSE_FOLLOW_UP 需原因 + 说明），才出现「建立关联重开」入口。
+      const primary = document.querySelector('.detail-actions .button.primary')
+      if (!primary) return { found: false, sourceId }
+      primary.click()
+      ${settle}
+      window.__setValue('#action-select', 'CLOSE_FOLLOW_UP')
+      ${settle}
+      const reason = document.querySelector('#reason-select')
+      const reasonOption = reason ? [...reason.options].find((option) => option.value) : null
+      if (reasonOption) window.__setValue('#reason-select', reasonOption.value)
+      window.__setValue('#transition-note', '覆盖补齐：演练中结束人工跟进')
+      ${settle}
+      ;[...document.querySelectorAll('.modal .synthetic-confirm input')]
+        .forEach((box) => { if (!box.checked) box.click() })
+      ${settle}
+      const confirmTransition = [...document.querySelectorAll('.modal-footer .button.primary')].pop()
+      confirmTransition.click()
+      ${settle}
+      const closedStatus = document.querySelector('.detail-head-side .tag')?.textContent?.trim() ?? ''
+      const reopenButton = [...document.querySelectorAll('.detail-actions .button')]
+        .find((node) => node.textContent.includes('建立关联重开'))
+      if (!reopenButton) return { found: false, sourceId, closedStatus, timelineBefore }
+      reopenButton.click()
+      ${settle}
+      const modalHasReopen = !!document.querySelector('.modal #reopen-title')
+      window.__setValue('#reopen-note', '覆盖补齐：演练中关联重开')
+      ${settle}
+      ;[...document.querySelectorAll('.modal .synthetic-confirm input')]
+        .forEach((box) => { if (!box.checked) box.click() })
+      ${settle}
+      const queueBefore = document.querySelectorAll('.queue-item').length
+      const submit = [...document.querySelectorAll('.modal-footer .button.primary')]
+        .find((node) => node.textContent.includes('创建关联记录'))
+      submit.click()
+      ${settle}
+      // 重开不动当前选中项：原记录上直接多出一条关联记录。新记录编号只能从关联列表反推，
+      // 因为选中项仍是原记录（此行为本身也是断言对象）。
+      const sourceLinked = [...document.querySelectorAll('.related-case')].map((node) => ({
+        text: node.textContent?.trim() ?? '',
+        tag: node.querySelector('.tag')?.textContent?.trim() ?? '',
+      }))
+      const sourceStillSelected = ((document.querySelector('.detail-id')?.textContent ?? '').match(/SYNTH-\\d+/) ?? [''])[0]
+      const closedAfterCreate = document.querySelector('.detail-head-side .tag')?.textContent?.trim() ?? ''
+      const newButton = [...document.querySelectorAll('.related-case')]
+        .find((node) => !node.textContent.includes(sourceId))
+      const newId = newButton ? (newButton.textContent.match(/SYNTH-\\d+/) ?? [''])[0] : ''
+      // 点进新记录，确认它反向指回原记录且自身是开放态。
+      if (newButton) newButton.click()
+      ${settle}
+      return {
+        found: true,
+        sourceId,
+        timelineBefore,
+        closedStatus,
+        modalHasReopen,
+        newId,
+        modalClosed: !document.querySelector('.modal-backdrop'),
+        queueBefore,
+        queueAfter: document.querySelectorAll('.queue-item').length,
+        sourceStillSelected,
+        closedAfterCreate,
+        sourceLinked,
+        detailId: ((document.querySelector('.detail-id')?.textContent ?? '').match(/SYNTH-\\d+/) ?? [''])[0],
+        detailStatus: document.querySelector('.detail-head-side .tag')?.textContent?.trim() ?? '',
+        title: document.querySelector('.detail-title')?.textContent?.trim() ?? '',
+        timelineAfter: document.querySelectorAll('.timeline-item').length,
+        backLinked: [...document.querySelectorAll('.related-case')].map((node) => ({
+          text: node.textContent?.trim() ?? '',
+          tag: node.querySelector('.tag')?.textContent?.trim() ?? '',
+        })),
+        toast: document.querySelector('.toast')?.textContent?.trim() ?? '',
+      }
+    })()`)
+
+    const linkedNew = (reopen.sourceLinked ?? []).find((item) => item.text.includes(reopen.newId))
+    const linkedBack = (reopen.backLinked ?? []).find((item) => item.text.includes(reopen.sourceId))
+    check(
+      '关联重开生成新记录并反向指回原记录',
+      reopen.found === true
+        && reopen.modalHasReopen === true
+        && reopen.newId.length > 0
+        && reopen.newId !== reopen.sourceId
+        && reopen.modalClosed === true
+        && reopen.queueAfter === reopen.queueBefore + 1
+        && reopen.sourceStillSelected === reopen.sourceId
+        && !!linkedNew
+        && reopen.detailId === reopen.newId
+        && reopen.detailStatus === '已收件'
+        && reopen.title.includes(SUMMARY)
+        && reopen.timelineAfter === 2
+        && !!linkedBack,
+      `原=${reopen.sourceId} → 新=${reopen.newId} 队列 ${reopen.queueBefore} → ${reopen.queueAfter} / 新记录状态=${reopen.detailStatus} 时间线=${reopen.timelineAfter} / 反查=${linkedBack ? linkedBack.text.slice(0, 22) : '（缺）'}`,
+    )
+    check(
+      '[neg] 关联重开不改变原记录终态',
+      reopen.found === true
+        && reopen.closedStatus.includes('已结束')
+        && reopen.closedAfterCreate === reopen.closedStatus
+        && !!linkedBack
+        && linkedBack.tag === reopen.closedStatus
+        && !!linkedNew
+        && linkedNew.tag === '已收件',
+      `终态 ${reopen.closedStatus} → ${reopen.closedAfterCreate} / 新记录反查原记录标注=${linkedBack ? linkedBack.tag : '（未列出）'} / 新记录自身标注=${linkedNew ? linkedNew.tag : '（未列出）'}`,
+    )
 
     errors.stop()
     check('主流程无控制台异常', errors.errors.length === 0, errors.errors.slice(0, 3).join(' | '))

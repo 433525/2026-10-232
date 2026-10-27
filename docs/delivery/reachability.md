@@ -21,16 +21,17 @@
 | 端 | 动作数 | covered | gap | unused | unreachable | 覆盖率 |
 |---|---|---|---|---|---|---|
 | B 端（社区/订单/审核） | 33 | 31 | 2 | 0 | 0 | 93.9% |
-| A+ 端（受理工作台） | 19 | 15 | 4 | 0 | 0 | 78.9% |
-| **合计** | **52** | **46** | **6** | **0** | **0** | **88.5%** |
+| A+ 端（受理工作台） | 19 | 19 | 0 | 0 | 0 | 100% |
+| **合计** | **52** | **50** | **2** | **0** | **0** | **96.2%** |
 
 > 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 由 11 降至 6——W3 五条（`likePost` / `bookmarkPost` / `enrollActivity` / `setElderlyMode` / `cancelDuplicateReview`）已于 2026-10-27 补齐。
 
-- 判据（D-17 + D-18）：**W3 出口已达 46/52 = 88.5%**；W4 出口 **50/52 = 96.2%**、W5 出口 **52/52 = 100%**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
+- 判据（D-17 + D-18）：**W3 出口 46/52 = 88.5%、W4 出口 50/52 = 96.2% 均已达成**；W5 出口 **52/52 = 100%**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
 - W3 收口（2026-10-27，D-19 批准后实施）：新增 7 条断言（community 5 / aplus 2），两个脚本各做一次缺陷注入验证——点赞「永远 +1」与「返回修改不退出复核态」均被抓红。断言总量 223 → **230**。
+- W4 收口（2026-10-27，同批交付）：新增 8 条断言（全部在 `check-aplus-flow`，26 → 34），关闭 4 个 A+ 缺口——深链复制（含回跳）、调整跟进、模拟联系结果、关联重开；首条做缺陷注入（移除跟进原因必填）后该 `[neg]` 断言转红，已还原。断言总量 230 → **238**。
 - W2 序 2 关闭 4 条（`cancelOrder` / `verifyRealName` / `adminRejectCommentWithReason` / `markAllMessagesRead`），覆盖率由 69.8% 提升 7.6 个百分点；序 3 的 18 条 P1/P2 未做，故缺口仍有 6 条。
 - `unreachable` 记 **1**（2026-10-27 修正）：`cancelEventSignup` 有实现但无独立界面入口——报名后 `CommunityTab` 将按钮置 `disabled`，用户无法取消报名。此前记为 0 是把「报名/取消」合并看作一个 toggle 所致，任其存在会让「报名后可撤回」这一产品承诺失去验证依据（见 §六）。
-- `gap` 仍有 6 条，集中在文章朗读（2）、A+ 跟进与联系模拟（2）、A+ 跨 case 重开与深链复制（2）；W3 已清掉互动三项与长辈模式，剩余仍是断言覆盖问题而非可达性问题。
+- `gap` 只剩 **2 条**，均为文章朗读（`playArticleAudio` / `stopArticleAudio`），排 W5（需 `Audio` 桩）。A+ 侧 19 个写动作已全部 covered。
 
 ## 三、B 端动作矩阵
 
@@ -84,10 +85,10 @@
 | A-03 | `openDuplicateCandidate` | 重复复核 → 查看候选记录 | `aplus#9` | covered |
 | A-04 | `applyTransition` | 详情 → 状态流转 | `aplus#11`–`#19` | covered |
 | A-05 | `saveCheckpoint` | 检查点弹层 → 保存 | `aplus#13`–`#16` | covered |
-| A-06 | `saveFollowUp` | 跟进弹层 → 保存跟进 | — | **gap** |
-| A-07 | `saveContactSimulation` | 联系模拟弹层 → 保存 | — | **gap** |
+| A-06 | `saveFollowUp` | 跟进弹层 → 保存跟进 | `aplus#29`（空原因被拒且时间线不增）、`aplus#30`（追加一条 / 关闭 / 负责人更新） | covered |
+| A-07 | `saveContactSimulation` | 联系模拟弹层 → 保存 | `aplus#31`（未确认禁用）、`aplus#32`（结果写入 / 状态不变） | covered |
 | A-08 | `saveHighRiskStop` | 高风险 → 停止常规初筛 | `acc#24`–`#26` | covered |
-| A-09 | `createReopenedRecord` | 重新登记弹层 → 创建关联记录 | — | **gap** |
+| A-09 | `createReopenedRecord` | 重新登记弹层 → 创建关联记录 | `aplus#33`（新记录指回原记录）、`aplus#34`（原记录终态不变） | covered |
 | A-10 | `submitComplaint` | 投诉弹层 → 提交 | `fix#63` | covered |
 | A-11 | `reviewSelectedComplaint` | 投诉详情 → 复核 | `fix#64`–`#71` | covered |
 | A-12 | `toggleIntakePaused` | 门禁条 → 暂停/恢复新登记 | `fix#93` | covered |
@@ -97,13 +98,13 @@
 | A-16 | `reloadLatestSnapshot` | 存档 → 载入最新快照 | `aplus#23` | covered |
 | A-17 | `startCommunityRegistration` | 社区桥 → 登记为受理记录 | `fix#56`–`#62` | covered |
 | A-18 | `readCommunityArchive` | 社区桥 → 读取 B 端存档 | `comm#9`、`comm#10`、`fix#55` | covered |
-| A-19 | `copySelectedCaseLink` | 详情 → 「复制链接」 | — | **gap** |
+| A-19 | `copySelectedCaseLink` | 详情 → 「复制链接」 | `aplus#27`（剪贴板深链）、`aplus#28`（切走后仍能定位） | covered |
 
 > 断言编号 `comm#n` / `acc#n` / `rec#n` / `fix#n` / `aplus#n` / `dual#n` 指对应脚本内 `check()` 的出现序号，与 `docs/evidence/<slug>/report.json` 的 `results` 数组下标一致（从 0 起）。
 
 ## 五、缺口清单与批次划分（D-17）
 
-W3 五条已于 2026-10-27 交付（D-19 批准后实施），缺口由 11 降至 **6 条**：46 covered + 6 gap = 52，与分母自洽。余下按「是否触及数据完整性」拆两批：**W4 交 4 条（50/52 = 96.2%）**、**W5 交媒体 2 条（52/52 = 100%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
+W3 五条、W4 四条均已于 2026-10-27 交付（D-19 批准后实施），缺口由 11 降至 **2 条**：50 covered + 2 gap = 52，与分母自洽。**W5 只剩媒体 2 条（52/52 = 100%）**。每条建议均标实现行号（D-05），并按实现语义校正——`likePost` / `bookmarkPost` / `enrollActivity` 都是 toggle，不能按「幂等 +1」判定。
 
 | 批次 | 序 | 动作 | 实现 | 状态 | 实际断言 / 建议断言 |
 |---|---|---|---|---|---|
@@ -112,20 +113,24 @@ W3 五条已于 2026-10-27 交付（D-19 批准后实施），缺口由 11 降�
 | W3 | 3 | `likePost` | `src/context/AppContext.tsx:571` | ✅ | `comm#8` `[edge]` 计数 5→6→5 往返；`comm#10` 刷新保持 |
 | W3 | 4 | `bookmarkPost` | `src/context/AppContext.tsx:580` | ✅ | `comm#9` `[edge]` `aria-pressed` 真→假往返；`comm#10` 刷新保持 |
 | W3 | 5 | `setElderlyMode` | `src/context/AppContext.tsx:304` | ✅ | `comm#12` `[edge]` 切换生效 / 刷新保持 / 关闭复原 |
-| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | 待做 | 保存后时间线追加一条、弹层关闭、空内容禁用提交 |
-| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | 待做 | 结果码写入记录、未选结果禁用提交 |
-| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | 待做 | 新记录带 `reopenedFrom`、原 case 终态不变 |
-| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | 待做 | 剪贴板内容含当前 case id、`?case=` 可直接打开该记录 |
+| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | ✅ | `aplus#29` `[neg]` 留空原因被拒（弹层保持、时间线不增）；`aplus#30` 补全后追加一条「调整人工跟进」、弹层关闭、负责人更新 |
+| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | ✅ | `aplus#31` `[neg]` 未勾选虚构确认时保存禁用；`aplus#32` `[edge]` 时间线出现「结果：约定稍后再联系（模拟）」、登记状态前后一致、负责人更新 |
+| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | ✅ | `aplus#33` 新记录（队列 +1、状态已收件、时间线 2 条）反向列出原记录；`aplus#34` `[neg]` 原记录终态仍为「已结束（服务结果未核实）」 |
+| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | ✅ | `aplus#27` `[edge]` 剪贴板写入含 `case=SYNTH-00N` 的绝对链接；`aplus#28` `[edge]` 切到别的记录后打开该链接仍定位回原记录 |
 | W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | 待做 | 播放后 `isAudioPlaying=true`、同时只允许一条在播 |
 | W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:370` | 待做 | 停止后 `isAudioPlaying=false`、刷新不自动续播 |
 
-> **实施时纠正的两处建议失真（D-05 再次生效）**：
+> **实施时纠正的建议失真（D-05 反复生效）**：
+>
+> W4 两条：① 「未选结果禁用提交」不成立——模拟结果下拉框有三项且默认选中首项，永远非空，改为判「未勾选虚构确认时按钮禁用」这一真实门禁；② 重开成功后**不切换选中项**（`ensureSelection()` 保留原记录），新记录编号只能从原记录的「关联演练记录」列表反推，断言据此改为「原记录列表出现新记录 + 点进后反查原记录」。
+>
+> W3 两条：
 > 1. 原建议「报名后再点回到未报名、名额复原」不可实现——`CommunityTab` 报名后把按钮置 `disabled`，UI 无取消入口；实际改为判「名额 +1 且不可重复提交」。
 > 2. 原建议「收藏后『我的』列表出现该帖」不存在该列表，改为判卡片 `aria-pressed` 往返 + 刷新保持。
 >
 > 另：`cancelEventSignup` 仅有实现、无独立界面入口（见 §六），故 `enrollActivity` 的「切换回未报名」分支在 UI 层不可达。
 >
-> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，5 条已由 W3 关闭，其余并入本表。W4 的深链复制需剪贴板桩，W5 的媒体项需 `Audio` 桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
+> 原 W1 时点的 15 条清单作废：4 条已由 W2 关闭，5 条已由 W3 关闭、4 条已由 W4 关闭，媒体 2 条留 W5。W4 的深链复制需剪贴板桩，W5 的媒体项需 `Audio` 桩，**不得以「按钮可点」充数**；每条判定须含「状态未变」的一半（D-05）。
 
 ## 六、死接口
 
