@@ -122,7 +122,9 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 
 当前密度：A = 1.76 条/百行，B = 3.72 条/百行。两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
 
-> 分母随代码增删而变（D-03 删除 `viewMode` 后 12693 → 12682、6004 → 5993），但**分母未纳入门禁正则**：`collect-baseline.mjs` 只校验断言总数与 `AppContext` 行数，密度分母须在改动 `src/` 后人工同步本节与 `docs/metrics/baseline.md`。
+> 分母随代码增删而变（D-03 删除 `viewMode` 后 12693 → 12682、6004 → 5993）。自 I-13 起分母已纳入门禁：下方「分母实测」行由 `collect-baseline.mjs` 逐字核对，改 `src/` 后未同步即令 `--strict` 退出码 1，不再依赖人工记忆。
+
+- **分母实测（门禁核对）**：A = 12682 行 / B = 5993 行
 
 ### 6.3 构建体积：固定字节总量
 
@@ -130,7 +132,7 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 
 ### 6.4 文档数字：分「契约」与「历史」
 
-- **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
+- **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明（断言总数、`AppContext` 行数、密度分母）必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
 - **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做五项校验（I-11/D-15）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、**被测面内容指纹与当前源码一致**。改 `src/` 或任一验收脚本即令耗时失效；只改文档不再失效。
 - **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
 - 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
@@ -143,9 +145,9 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 |---|---|---|
 | `[neg]` | 负向路径：非法输入/越权/失败分支必须被拒绝，且状态不变 | `[neg] 损坏备份被拒绝且存档不变` |
 | `[edge]` | 边界路径：空值、纯空白、超长、特殊字符 | `[edge] 空白理由仍禁用提交` |
-| 无前缀 | 正向路径（存量 93 条均为无前缀） | `发布后帖子进入待审状态` |
+| 无前缀 | 正向路径（存量断言均未加前缀） | `发布后帖子进入待审状态` |
 
-统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言未加前缀，故 6.1 的启发式占比（30.3%）仅作趋势参考。
+统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。存量断言均未加前缀，故 `docs/metrics/baseline.md` D 段的启发式占比（当前 32.7%）仅作趋势参考。
 
 ### 6.6 门禁耗时：串行墙钟，分档判定
 

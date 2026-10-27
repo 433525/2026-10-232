@@ -11,12 +11,11 @@
  *
  * 采集项：
  *   A 断言规模（逐脚本：静态调用点 / 运行时总数 / 通过数 / 证据时间）
- *   B 核心代码规模（src/context + src/data + src/aplus + src/selectors）
- *   C 断言密度（运行时断言数 ÷ 核心代码百行）
- *   D 工作区卫生（未跟踪文件数、调试脚本数）
- *   E 构建产物（dist 总量、最大 chunk）
- *   F 文档漂移（文档声明的断言数 / AppContext 行数 vs 实测）
- *   G 负向断言占比（启发式，静态扫描断言名称，标注为参考值）
+ *   B 核心代码规模与断言密度（口径 A 全量核心模块 / 口径 B 四个核心单点）
+ *   C 工作区与产物（未跟踪文件数、dist 总量、最大 chunk）
+ *   D 负向/边界断言占比（启发式，静态扫描断言名称，标注为参考值）
+ *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母 vs 实测）
+ *   F 门禁耗时与待采集
  *
  * 用法：
  *   node tools/collect-baseline.mjs           # 打印 Markdown 表
@@ -24,7 +23,7 @@
  *   node tools/collect-baseline.mjs --write   # 写入 docs/metrics/baseline.md
  *
  * 运行时项（不在本脚本自动采集，需另跑）：
- *   - 全量门禁耗时：启动 preview 后串行执行六段脚本并计时（脚本按序各自打印耗时）
+ *   - 全量门禁耗时：`node tools/run-gate.mjs`（八段串行、自动落盘 `gate-timing.json`）
  *   - 单次典型操作重算次数：需 I-05 渲染探针先落地，本脚本只登记为「待采集」
  *
  * I-11 一致性校验（`--strict` 视为硬失败）：
@@ -32,8 +31,8 @@
  *   2. 分项合计（断言、通过、毫秒）等于总计字段；
  *   3. 记录的总断言数等于本次采集的运行时断言数；
  *   4. `baseRevision` 存在且为 HEAD 祖先；
- *   5. `baseRevision..HEAD` 未改动被测代码与验收脚本，否则耗时基线失效。
- * 第 5 条的意义：仅改文档的提交不算失效，避免每提交一次就要重跑 331 s 门禁。
+ *   5. 被测面内容指纹（`tools/lib/surface-hash.mjs`）与当前源码一致，否则耗时基线失效。
+ * 第 5 条的意义：判失效看内容而非提交时间——只改文档不失效，改 `src/` 或 `check-*` 才失效。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -353,6 +352,25 @@ function docClaims(actual) {
           actual: actual.assertions,
         })
       }
+      // 密度分母声明（ARCHITECTURE §6.2 的口径锚点，I-13）：必须写成同一行的
+      // 「分母实测：A = N 行 / B = M 行」，两侧数字各自核对，缺一即不成立。
+      const den = /分母实测[^\n]*?A\s*=\s*(\d{4,5})\s*行[^\n]*?B\s*=\s*(\d{4,5})\s*行/g
+      while ((m = den.exec(line)) !== null) {
+        claims.push({
+          kind: '密度分母 A',
+          file: relative(ROOT, file).replace(/\\/g, '/'),
+          line: i + 1,
+          claimed: Number(m[1]),
+          actual: actual.coreLines,
+        })
+        claims.push({
+          kind: '密度分母 B',
+          file: relative(ROOT, file).replace(/\\/g, '/'),
+          line: i + 1,
+          claimed: Number(m[2]),
+          actual: actual.coreSinglesLines,
+        })
+      }
     })
   }
 
@@ -417,7 +435,7 @@ function collect() {
   }
   prefixed.total = prefixed.neg + prefixed.edge
 
-  const actual = { assertions, appContextLines, coreLines }
+  const actual = { assertions, appContextLines, coreLines, coreSinglesLines }
 
   return {
     collectedAt: new Date().toISOString(),

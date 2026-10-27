@@ -161,3 +161,23 @@
 | `src/components/MessagesTab.tsx` | 每条对方留言增加举报入口（`targetType='message'`），自己的留言不显示 | 修改 |
 | `tools/check-recovery.mjs` | 新增 5 项：导入入口、合法导入生效、版本不符被拒、超 5 MB 被拒、留言举报落点；顺手修正举报列表「前插」导致的取错项 | 修改 |
 | `docs/research/p7-backup-import.md` | P7 调研：Excalidraw restore / ajv / tldraw / mvp intake-backup 的取舍 | 新增 |
+
+### 4.4 P8 持续改进（CIP-232，2026-10-26）
+
+起因：功能已闭环，但「改了多少、测得够不够、文档说的是不是真的」三件事全靠人工记忆——断言数三处口径不一（205/210/223）、密度分母与基线互相矛盾、耗时靠抄表。本轮不改产品行为，只把度量、门禁与决策落盘。
+
+| 文件/内容 | 改动 | 类型 |
+|---|---|---|
+| `tools/collect-baseline.mjs` | 零依赖只读采集器：断言真值取 `report.json` 的 `total`、双口径密度、未跟踪与 dist、文档—实现偏差；`--strict` 对契约文档数字与耗时基线判红 | 新增 |
+| `tools/lib/surface-hash.mjs` | 被测面内容指纹（`src/**`、`check-*.mjs`、`tools/lib/**`、入口与构建配置） | 新增 |
+| `tools/run-gate.mjs` | 八段串行编排：独立端口、逐段计时、结束自动写回 `gate-timing.json`，取代人工抄表 | 新增 |
+| `tools/check-fixes.mjs` → `check-fixes-a.mjs` / `check-fixes-b.mjs` | 1970 行单脚本按版面拆两段，各留一条控制台看门狗（断言 93 → 94） | 修改 |
+| `tools/check-p0-gaps.mjs` | 新增 12 条 P0 缺口断言（评论级驳回、订单取消、备份导入失败等），均带 `[neg]` / `[edge]` 前缀 | 新增 |
+| `tools/check-community-flow.mjs`、`tools/check-dual-entry.mjs` 等 | 断言命名前缀规范落地；B 端深链改查询串后的选择器同步 | 修改 |
+| `src/context/AppContext.tsx` | 删除零消费契约字段 `viewMode` / `setViewMode`（10 处，1024 → 1013 行）；行为与签名其余不变。依据 `docs/delivery/adr/ADR-001-remove-viewmode.md`（D-03） | 删除 |
+| `docs/delivery/decisions.md` | 决策日志（D-01…D-19）：状态、理由、影响与落盘日期，作为唯一事实源 | 新增 |
+| `docs/delivery/reachability.md` | 写动作可达性矩阵：52 个写动作 × 断言覆盖，缺口按数据完整性排序 | 新增 |
+| `docs/delivery/adr/ADR-001-remove-viewmode.md` | 死接口判定与删除案：证据表、三案对比、S1–S7 步骤、回退与风险 | 新增 |
+| `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 自动采集的基线表与门禁耗时记录（含 `surfaceHash`、`concurrency`、分项耗时） | 新增 |
+| `docs/ARCHITECTURE.md` §6 | 新增「度量口径」：断言只认运行时真值、双口径密度、体积按字节、文档数字分契约/历史、命名前缀、耗时分档 | 修改 |
+| `README.md` | 补度量与门禁命令索引、决策日志与 ADR 入口；验收项数按实测更新 | 修改 |
