@@ -356,15 +356,20 @@ async function settle(session, ms) {
 }
 
 async function measureOps(session, ops, options) {
-  const { rounds, warmup, settleMs } = options
+  const { rounds, warmup, settleMs, onCycle } = options
   const report = []
   for (const op of ops) {
     const collected = []
+    let entry = null
     for (let cycle = 0; cycle < rounds + warmup; cycle += 1) {
-      if (op.repeat === 'reload') {
+      // 首轮必导航：`repeat: 'none'` 的操作不会在轮间重载，但每个操作仍需从自己的入口进入，
+      // 否则第二个 none 操作会沿用上一操作留下的页面状态（A+ 与 B 是两个入口，串页即读数作废）。
+      if (cycle === 0 || op.repeat === 'reload') {
         await navigate(session, `${BASE}${op.path}`)
-        if (op.setup) await evaluate(session, op.setup)
+        if (entry === null) entry = await evaluate(session, 'location.pathname + location.search')
       }
+      // 导航后钩子：S3 在此重选身份（身份不随存档持久化），自检在此注入合成探针。
+      if (onCycle) await onCycle(session, op, cycle)
       await evaluate(session, 'window.__CIP_PROBE__.reset()')
       const before = await readSnapshot(session)
       await evaluate(session, op.act ?? 'void 0')
@@ -375,7 +380,14 @@ async function measureOps(session, ops, options) {
       if (cycle >= warmup) collected.push(delta)
     }
     const aggregate = aggregateRounds(collected)
-    report.push({ id: op.id, label: op.label, repeat: op.repeat, ...aggregate, m6: m6Score(aggregate.median) })
+    report.push({
+      id: op.id,
+      label: op.label,
+      repeat: op.repeat,
+      entry,
+      ...aggregate,
+      m6: m6Score(aggregate.median),
+    })
   }
   return report
 }
@@ -443,6 +455,7 @@ async function probeCheck(session) {
 // ───────────────────────────── 采样循环自检（合成探针） ─────────────────────────────
 
 const SYNTHETIC_PROBE = `(() => {
+  if (window.__CIP_PROBE__) return false
   const keys = ${JSON.stringify(PROBE_KEYS)}
   const zero = () => Object.fromEntries(keys.map((key) => [key, 0]))
   let counts = zero()
@@ -470,33 +483,56 @@ async function harnessTest(session) {
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`)
   }
 
-  await navigate(session, `${BASE}/`)
-  await evaluate(session, SYNTHETIC_PROBE)
-  const op = {
-    id: '__synthetic',
-    label: '采样循环自检（合成探针）',
-    path: '/',
-    repeat: 'none',
-    calibrated: true,
-    act: 'void 0',
-    done: 'true',
-  }
+  // 两个入口各一个合成操作：既有 `repeat: 'none'`（轮间不重载），又跨入口（首轮必导航）。
+  // 若「首轮必导航」或「导航后注入」任一环节缺失，第二个操作会读不到探针而抛错。
+  const ops = [
+    { id: '__synthetic-b', label: '采样循环自检（B 端）', path: '/', repeat: 'none', act: 'void 0', done: 'true' },
+    { id: '__synthetic-aplus', label: '采样循环自检（A+ 端）', path: '/aplus.html', repeat: 'none', act: 'void 0', done: 'true' },
+  ]
 
   let report
   try {
-    report = await measureOps(session, [op], { rounds: ROUNDS, warmup: WARMUP, settleMs: 60 })
+    report = await measureOps(session, ops, {
+      rounds: ROUNDS,
+      warmup: WARMUP,
+      settleMs: 60,
+      onCycle: async (target) => {
+        await evaluate(target, SYNTHETIC_PROBE)
+      },
+    })
   } catch (error) {
     record('采样循环可跑通', false, String(error.message))
     return 1
   }
-  const result = report[0]
-  record('采样循环可跑通并产出 1 个操作', report.length === 1)
-  record(`丢弃首轮后保留 ${ROUNDS} 轮`, result.roundCount === ROUNDS, `实际 ${result.roundCount}`)
-  const keysOk = result.roundCount > 0 && Object.keys(result.median).every((key) => PROBE_KEYS.includes(key))
-  record('中位数键名全部在探针白名单内', keysOk, Object.keys(result.median).join(','))
-  record('计数为正（rAF 期间确有累加）', (result.median['computed:eval'] ?? 0) > 0, String(result.median['computed:eval']))
-  record('M6 分子等于两键之和', result.m6 === (result.median['computed:eval'] ?? 0) + (result.median['projection:community'] ?? 0))
-  record('稳定性判定已执行（布尔或 null）', result.stable === true || result.stable === false || result.stable === null, String(result.stable))
+
+  record('采样循环可跑通并覆盖两个入口', report.length === 2, `实际 ${report.length}`)
+  record(
+    '每个操作实际落在自己的入口（首轮导航生效）',
+    report.every((op, index) => op.entry === ops[index].path),
+    report.map((op) => `${op.id}:${op.entry}`).join(' '),
+  )
+  record(
+    `每个操作丢弃首轮后保留 ${ROUNDS} 轮`,
+    report.every((op) => op.roundCount === ROUNDS),
+    report.map((op) => `${op.id}:${op.roundCount}`).join(' '),
+  )
+  record(
+    '两个入口的计数均非零（导航后探针重新注入成功）',
+    report.every((op) => (op.median['computed:eval'] ?? 0) > 0),
+    report.map((op) => `${op.id}:${op.median['computed:eval'] ?? 0}`).join(' '),
+  )
+  record(
+    '中位数键名全部在探针白名单内',
+    report.every((op) => Object.keys(op.median).every((key) => PROBE_KEYS.includes(key))),
+  )
+  record(
+    'M6 分子等于两键之和',
+    report.every((op) => op.m6 === (op.median['computed:eval'] ?? 0) + (op.median['projection:community'] ?? 0)),
+  )
+  record(
+    '稳定性判定已执行（布尔或 null）',
+    report.every((op) => op.stable === true || op.stable === false || op.stable === null),
+  )
 
   const failed = rows.filter((row) => !row.ok)
   console.log(`\n采样循环自检 ${rows.length - failed.length}/${rows.length} 通过`)
