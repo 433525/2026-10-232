@@ -6,7 +6,9 @@
  * 2. 先审后发：已实名成员发布后进入待审，社区公开信息流看不到待审内容；
  * 3. 跨入口：A+ 社区桥能读到 B 刚写入的本机存档（同一个 localStorage 键）；
  * 4. 覆盖补齐（D-19）：点赞/收藏 toggle 往返与刷新保持、活动报名、
- *    长辈模式持久化、语音朗读的播放/停止（W5，`speechSynthesis` 打桩）。
+ *    长辈模式持久化、语音朗读的播放/停止（W5，`speechSynthesis` 打桩）；
+ * 5. 回归强度（W6/W7）：举报去重、访客点赞/举报被拒、深链有效与失效两半、
+ *    访客越权审核被拒、审核员不能代替成员发布、纯空白评论两层拦截。
  *
  * 用法：先 build + preview，再 `node tools/check-community-flow.mjs`。
  */
@@ -64,6 +66,18 @@ window.__reportCount = () => {
     return (env.state.reports ?? []).length
   } catch { return -1 }
 }
+// 身份菜单在顶栏，菜单项用 role="menuitemradio"，文案含昵称（演练访客/演练用户/演练审核员）。
+// 点击后菜单会自关，故等到下一帧再继续，避免后续点击命中已卸载的节点。
+window.__switchRole = (label) => new Promise((resolve) => {
+  const trigger = [...document.querySelectorAll('header button')].find((b) => b.textContent.includes('演练'))
+  if (trigger && !document.querySelector('[role="menu"][aria-label="切换演示角色身份"]')) trigger.click()
+  setTimeout(() => {
+    const target = [...document.querySelectorAll('header button[role="menuitemradio"]')]
+      .find((b) => b.textContent.includes(label))
+    if (target) target.click()
+    resolve(!!target)
+  }, 260)
+})
 window.__fillHelpForm = () => {
   const texts = [...document.querySelectorAll('input[type="text"]')]
   window.__setValue(texts[0], ${JSON.stringify(TITLE)})
@@ -573,6 +587,144 @@ async function main() {
         && badDeepLink.textLength > 800
         && errors.errors.length === errorsBeforeDeepLink,
       `有效：高亮=${goodDeepLink.flashed} 卡片=${goodDeepLink.posts}；失效：高亮=${badDeepLink.flashed} 卡片=${badDeepLink.posts} 文本=${badDeepLink.textLength} 异常增量=${errors.errors.length - errorsBeforeDeepLink}`,
+    )
+
+    // ── 4j. 越权：后台入口对全身份可见，但处置动作只允许审核员 ────────────
+    // 判定取两半：动作被拒（工单仍待处理、审核日志不增）且提示可操作。
+    // 只判「点了没报错」会把 requireReviewer 被移除的缺陷判绿——办结成功后
+    // 工单转 resolved 并写日志，两半会同时变化。
+    await evaluate(page, HELPERS) // 上一段整页重载过，注入的 helper 已丢失
+    const adminGate = await evaluate(page, `(async () => {
+      const readState = () => {
+        try { return JSON.parse(localStorage.getItem('community-mvp.synthetic-state.v1')).state }
+        catch { return null }
+      }
+      const pendingTicket = (state) => (state?.reports ?? []).find((r) => r.status === 'pending')
+      const resolvedCount = (state) => (state?.reports ?? []).filter((r) => r.status !== 'pending').length
+      window.__clickText('nav button', '我的')
+      ${settle}
+      const opened = window.__clickText('button', '演练审核与举报处置后台')
+      ${settle}
+      const tabbed = window.__clickText('button', '举报处置工单')
+      ${settle}
+      const done = [...document.querySelectorAll('button')]
+        .find((b) => b.textContent.includes('确认办结'))
+      const before = readState()
+      if (done) done.click()
+      ${settle}
+      const after = readState()
+      return {
+        opened,
+        tabbed,
+        hadButton: !!done,
+        toast: window.__lastToast(),
+        beforeStatus: pendingTicket(before)?.status ?? '',
+        afterStatus: pendingTicket(after)?.status ?? '',
+        beforeResolved: resolvedCount(before),
+        afterResolved: resolvedCount(after),
+        beforeAudit: (before?.auditLog ?? []).length,
+        afterAudit: (after?.auditLog ?? []).length,
+      }
+    })()`)
+    check(
+      '[neg] 访客在后台办结举报被拒：工单仍待处理且不写审核日志',
+      adminGate.opened === true
+        && adminGate.tabbed === true
+        && adminGate.hadButton === true
+        && adminGate.beforeStatus === 'pending'
+        && adminGate.afterStatus === 'pending'
+        && adminGate.afterResolved === adminGate.beforeResolved
+        && adminGate.afterAudit === adminGate.beforeAudit
+        && String(adminGate.toast).includes('只有审核员'),
+      `入口=${adminGate.opened} 页签=${adminGate.tabbed} 按钮=${adminGate.hadButton} 工单 ${adminGate.beforeStatus} → ${adminGate.afterStatus} / 已办结 ${adminGate.beforeResolved} → ${adminGate.afterResolved} / 日志 ${adminGate.beforeAudit} → ${adminGate.afterAudit} / 提示=${String(adminGate.toast).slice(0, 40)}`,
+    )
+
+    // ── 4k. 角色互斥：审核员不能代替成员发布 ───────────────────────────
+    // requireMember() 对审核员给的是专用文案（不是「请先实名」），验证的是
+    // 「身份通过实名前置但角色不放行」这条独立分支：只看实名挡不挡，会漏掉
+    // 审核员借发布入口写入内容。
+    const reviewerPublish = await evaluate(page, `(async () => {
+      const countPosts = () => {
+        try { return JSON.parse(localStorage.getItem('community-mvp.synthetic-state.v1')).state.posts.length }
+        catch { return -1 }
+      }
+      const switched = await window.__switchRole('演练审核员')
+      window.__clickText('nav button', '发布')
+      ${settle}
+      const opened = document.body.innerText.includes('发布求助订单')
+      window.__fillHelpForm()
+      ${settle}
+      const before = countPosts()
+      window.__clickText('button', '确认发布到接单大厅')
+      ${settle}
+      return {
+        switched,
+        opened,
+        before,
+        after: countPosts(),
+        toast: window.__lastToast(),
+        stillOpen: document.body.innerText.includes('确认发布到接单大厅'),
+      }
+    })()`)
+    check(
+      '[neg] 审核员不能代替成员发布：帖子数不变且发布弹层保持',
+      reviewerPublish.switched === true
+        && reviewerPublish.opened === true
+        && reviewerPublish.before > 0
+        && reviewerPublish.after === reviewerPublish.before
+        && reviewerPublish.stillOpen === true
+        && String(reviewerPublish.toast).includes('审核身份不能代替'),
+      `切换=${reviewerPublish.switched} 表单=${reviewerPublish.opened} 帖子 ${reviewerPublish.before} → ${reviewerPublish.after} / 弹层保持=${reviewerPublish.stillOpen} / 提示=${String(reviewerPublish.toast).slice(0, 40)}`,
+    )
+
+    // ── 4l. 边界：纯空白评论不产生待审评论（禁用态 + 提交兜底两层）────────
+    // 只判「按钮能不能点」会漏掉 submit 事件直接派发；只判「没写进存档」又会
+    // 因为按钮禁用而恒真。故同时判禁用态、表单直提后的评论数、以及有文本时
+    // 按钮必须恢复可用（防止「永远禁用」被当成合规）。
+    const blankComment = await evaluate(page, `(async () => {
+      const readComments = () => {
+        try {
+          const state = JSON.parse(localStorage.getItem('community-mvp.synthetic-state.v1')).state
+          return (state.posts.find((p) => p.id === 'SYNTH-POST-001')?.comments ?? []).length
+        } catch { return -1 }
+      }
+      const switched = await window.__switchRole('演练用户')
+      window.__clickText('nav button', '社区')
+      ${settle}
+      const card = () => document.querySelector('#post-SYNTH-POST-001')
+      const toggle = () => card()?.querySelector('button[aria-label^="评论（"]')
+      if (!card() || !toggle()) return { found: false, switched }
+      toggle().click()
+      ${settle}
+      const input = () => card()?.querySelector('input[aria-label="评论内容"]')
+      const submit = () => card()?.querySelector('form.nl-comment-form button[type="submit"]')
+      if (!input() || !submit()) return { found: true, switched, form: false }
+      const before = readComments()
+      window.__setValue(input(), '   ')
+      ${settle}
+      const disabledSpaces = submit().disabled === true
+      card().querySelector('form.nl-comment-form')
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      ${settle}
+      const afterBlank = readComments()
+      window.__setValue(input(), '合成演练：这条评论用于验证按钮可用')
+      ${settle}
+      const enabledWithText = submit().disabled === false
+      window.__setValue(input(), '')
+      ${settle}
+      const disabledEmpty = submit().disabled === true
+      return { found: true, switched, form: true, before, afterBlank, disabledSpaces, disabledEmpty, enabledWithText }
+    })()`)
+    check(
+      '[edge] 纯空白评论被拒：提交按钮禁用且表单直提不新增评论',
+      blankComment.switched === true
+        && blankComment.found === true
+        && blankComment.form === true
+        && blankComment.disabledSpaces === true
+        && blankComment.disabledEmpty === true
+        && blankComment.enabledWithText === true
+        && blankComment.afterBlank === blankComment.before,
+      `禁用(空白)=${blankComment.disabledSpaces} 禁用(空)=${blankComment.disabledEmpty} 有文本可用=${blankComment.enabledWithText} / 评论 ${blankComment.before} → ${blankComment.afterBlank}`,
     )
 
     // ── 5. 跨入口：A+ 社区桥读取同一存档 ─────────────────────────────

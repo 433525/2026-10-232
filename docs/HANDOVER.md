@@ -124,18 +124,18 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 - **社区桥**：读取 B 端存档、按 `sourcePostId` 去重、摘要/标签重复进人工复核。
 - **深链**：`?case=<id>`，记录不存在时清理参数并提示。
 
-### 2.5 自动化验收成绩（245/245）
+### 2.5 自动化验收成绩（248/248）
 
 | 脚本 | 项数 | 覆盖重点 |
 |---|---|---|
 | `npm run check:dual` | 27/27 | 双入口加载、控制台零异常、320/390/768/1024/1440 无溢出、弹层焦点进入/Esc 归还、`data-autofocus` 优先级、社区桥空态 |
 | `npm run check:aplus` | 35/35 | 新建、虚构确认门禁、去重→人工复核、复核返回修改、检查点拦截→解锁、流转、备份 JSON、刷新持久化、深链复制与回跳、调整跟进、模拟联系、关联重开 |
-| `npm run check:community` | 22/22 | 实名拦截、拦截不写存档、身份切换、发布落存档、先审后发、点赞/收藏往返与刷新保持、报名名额与不可重复提交、长辈模式、重复举报去重、访客点赞/举报被拒、深链两半、A+ 读 B 存档 |
+| `npm run check:community` | 25/25 | 实名拦截、拦截不写存档、身份切换、发布落存档、先审后发、点赞/收藏往返与刷新保持、报名名额与不可重复提交、长辈模式、重复举报去重、访客点赞/举报被拒、深链两半、访客越权办结举报被拒、审核员不能代替成员发布、纯空白评论两层拦截、A+ 读 B 存档 |
 | `npm run check:acceptance` | 27/27 | 接单→签到→确认→账本、病史接单后可见、每帖举报落点、举报处置留痕、A+ 高风险拦截 |
 | `npm run check:recovery` | 28/28 | 存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法/版本不符/超限）、五档溢出、静态扫描 |
 | `npm run check:fixes:a` / `:b` | 55/55、39/39 | 待审队列与先审后发、发布失败保草稿、订单留言绑定、发布者履约、留痕时间线、订单争议三段流转、接单大厅筛选、时间存折明细、A+ 投诉转介席视角、桥登记与备份导入失败分支 |
 | `npm run check:p0` | 12/12 | 评论驳回理由门禁与留痕、取消订单终态、演练实名门禁、全部已读不回弹 |
-| **合计** | **245/245** | 八段串行门禁（`npm run gate`）实测 432.4 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
+| **合计** | **248/248** | 八段串行门禁（`npm run gate`）实测 437.2 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
 
 ### 2.6 十条合规红线的落地方式
 
@@ -219,7 +219,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 1. **B 端坏档门禁在 UI 层**：P6 起 B 也有「先下载原文才能重置」，但守卫在 `AppContext`（`unreadableArchiveExported`）而非领域层；直接调用 `store.resetDemoData()` 仍可覆盖原文。
 2. **A+ 全树重渲染**：`useSyncExternalStore` 订阅单一 `revision`。数百条无感；上千条或上万条时间线会明显卡顿。
 3. **`computed` 惰性不缓存**：`filteredCases`、`communityRegisteredCases` 每次读取重算。换来「永不失效」，代价是重复计算。
-4. **`AppContext.tsx` 是契约单点**：字段名与签名被 232 契约钉死，634 行未拆。拆分前必须先补契约测试，否则 B 端 22 个组件会集体失配。
+4. **`AppContext.tsx` 是契约单点**：字段名与签名被 232 契约钉死，1013 行未拆。拆分前必须先补契约测试，否则 B 端 22 个组件会集体失配。
 5. **`data/community/store.ts` 2320 行**：状态机、派生、持久化、审核、举报、投诉、账本全在一个模块。改动时优先加方法，不要再加分支到既有函数。
 6. **验收只在 Chromium**：`tools/lib/cdp.mjs` 只找 Chrome/Edge，无法覆盖微信 X5。
 7. **截图不入库**：评审看不到历史视觉状态，只能本地复现。
@@ -381,7 +381,7 @@ repo/
 |---|---|---|---|
 | `src/data/community/store.ts` | 2320 行 | B 端唯一领域 store：状态机、派生、持久化、审核、举报、投诉、账本 | **高**：所有 B 端行为都经过此处；改派生要同时核对选择器 |
 | `src/aplus/workbench.ts` | 1527 行 | A+ 唯一状态源：`show*` 开关、表单草稿、筛选、深链、动作编排 | **高**：新增弹层必须同时改 `show*`、`open/close`、`App.tsx` 挂载 |
-| `src/context/AppContext.tsx` | 634 行 | B 端契约适配：字段名/签名与 232 一致，实现读社区 store | **高**：改签名会连带 22 个组件；拆分前先补契约测试 |
+| `src/context/AppContext.tsx` | 1013 行 | B 端契约适配：字段名/签名与 232 一致，实现读社区 store | **高**：改签名会连带 22 个组件；拆分前先补契约测试 |
 | `src/data/community/types.ts` | — | 五条状态机类型与枚举；`ORDER_EVENT_TYPES` 唯一扩展点 | 中：扩展需同步 UI 文案与验收断言 |
 | `src/selectors/community.ts` | — | 实体 → 视图模型；`viewAuthorId()` 修过「永远看不到签到」的断链 | **高**：身份投影错误会让权限与按钮同时失效 |
 | `src/data/intake/intake.ts` | — | A+ 受理领域逻辑：校验、去重、敏感信息拦截 | 中：去重键与摘要截断长度被验收断言依赖 |

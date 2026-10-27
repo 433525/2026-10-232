@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-27T05:47:03.233Z",
-  "summary": "演练-功能验收-mvq9jpyx",
+  "checkedAt": "2026-10-27T08:29:26.247Z",
+  "summary": "演练-功能验收-mvqfcjs5",
   "total": 35,
   "passed": 35,
   "results": [
@@ -38,7 +38,7 @@
     {
       "name": "新建记录自动选中",
       "ok": true,
-      "detail": "演练-功能验收-mvq9jpyx"
+      "detail": "演练-功能验收-mvqfcjs5"
     },
     {
       "name": "重复登记进入人工复核",
@@ -138,7 +138,7 @@
     {
       "name": "[edge] 该深链可直接打开被复制的记录（切换到别的记录后仍能定位）",
       "ok": true,
-      "detail": "复制=SYNTH-006 切走后=SYNTH-001 打开=SYNTH-006 标题=演练-功能验收-mvq9jpyx"
+      "detail": "复制=SYNTH-006 切走后=SYNTH-001 打开=SYNTH-006 标题=演练-功能验收-mvqfcjs5"
     },
     {
       "name": "[neg] 跟进原因为空时保存被拒，弹层保持且时间线不增",

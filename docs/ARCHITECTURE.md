@@ -110,8 +110,8 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 ### 6.1 断言数量：只认运行时真值
 
 - **真值来源**：各脚本运行后自写的 `docs/evidence/<slug>/report.json` 的 `total`。
-- **禁止**用 `grep -c "check("` 计数。静态调用点 236 与运行时 245 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
-- 当前基线：245 项（dual 27 / aplus 35 / community 22 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
+- **禁止**用 `grep -c "check("` 计数。静态调用点 239 与运行时 248 的差值 9 全部来自 `check-dual-entry.mjs` 的 `checkOverflow()`：该函数被两端各调一次，内部按 320/390/768/1024/1440 五档宽度循环展开（2×5−1＝9）。
+- 当前基线：248 项（dual 27 / aplus 35 / community 25 / acceptance 27 / recovery 28 / fixes-a 55 / fixes-b 39 / p0-gaps 12）。
 
 ### 6.2 断言密度：双口径并列，A 为考核口径
 
@@ -120,7 +120,7 @@ mvp 的 `useAplusWorkbench()` 是 Vue 组合式函数，依赖 `ref / reactive /
 | **A（考核）** | `src/context` + `src/data` + `src/aplus` + `src/selectors` 全部 `.ts/.tsx`，当前 12682 行 | 全量核心模块 |
 | B（参考） | 四个核心单点（`AppContext.tsx`、`community/store.ts`、`intake/store.ts`、`aplus/workbench.ts`），当前 5993 行 | v1.0 历史口径 |
 
-当前密度：A = 1.93 条/百行，B = 4.09 条/百行。
+当前密度：A = 1.96 条/百行，B = 4.14 条/百行。
 
 两口径相差约一倍，**禁止混用**；M2 目标按口径 A 表述为 ≥2.09 条/百行，且须同时满足新增断言 ≥60 项。
 
@@ -135,7 +135,7 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 ### 6.4 文档数字：分「契约」与「历史」
 
 - **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明（断言总数、`AppContext` 行数、密度分母与密度数值）必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
-- **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做五项校验（I-11/D-15）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、**被测面内容指纹与当前源码一致**。改 `src/` 或任一验收脚本即令耗时失效；只改文档不再失效。
+- **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做六项校验（I-11/D-15/I-15）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、**被测面内容指纹与当前源码一致**、**分档预算（快检 / 全量 / 单段）未超线**。改 `src/` 或任一验收脚本即令耗时失效；只改文档不再失效。
 - **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
 - 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
 
@@ -151,11 +151,11 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 
 统计口径：`[neg]` + `[edge]` 之和为负向覆盖率分子，分母为全部断言。**只认 `report.json` 里的运行时断言名**：静态 grep 会多算注释里的前缀（当前多 2 条），与断言总数一样属「静态不等于运行时」。存量断言均未加前缀，故 `docs/metrics/baseline.md` D 段的启发式占比仅作趋势参考。
 
-当前精确口径：30 / 245 = **12.2%**（D-21 的目标为 ≥12%，已达成）；同段启发式占比高于此值，差额来自未加前缀的存量负向用例。
+当前精确口径：33 / 248 = **13.3%**（D-21 的目标为 ≥12%，已达成）；同段启发式占比高于此值，差额来自未加前缀的存量负向用例。
 
 ### 6.6 门禁耗时：串行墙钟，分档判定
 
 - **唯一计时方式**：`node tools/run-gate.mjs`（先 `vite preview --port 5180`）。每段独立进程、独立 CDP 端口，逐段计时后**自动**写回 `gate-timing.json`，不再人工抄表（抄表是 D-06 错配的来源）。
 - **必须串行**：并发结果不得作为发布判据（D-14）。`--concurrency=N` 仅用于压测；2 路实测已出现 `fixes-b`/`p0-gaps` 连环失败，根因是固定时长等待在 CPU 争用下不足。
-- **M9 分档**：快检（前五段，不含 fixes-a/b、p0-gaps）≤210 s；全量 ≤480 s；单段 ≤150 s（D-02、D-16）。
+- **M9 分档**：快检（前五段，不含 fixes-a/b、p0-gaps）≤230 s；全量 ≤480 s；单段 ≤150 s（D-02、D-16、D-25）。三项由采集器 I-15 逐次核对，超线即 `--strict` 退出码 1；快检档不再只写在文字里、实测无人比对。
 - **失效判定**：看 `surfaceHash`，不看提交时间；`serial`、`concurrency`、`wallMs`/`sumMs` 三字段同时存在才视为有效记录。

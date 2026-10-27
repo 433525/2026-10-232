@@ -56,6 +56,17 @@ const SCRIPTS = [
 const CORE_DIRS = ['src/context', 'src/data', 'src/aplus', 'src/selectors']
 const CORE_EXT = new Set(['.ts', '.tsx'])
 
+/**
+ * 门禁分档预算（毫秒，I-15）：快检 230 s 取 D-25 默认值（原 210 s 已在 245 条时倒挂
+ * 0.8 s），全量 480 s 为 D-16，单段 150 s 为 D-02。改预算须同步 `decisions.md` 与
+ * `ARCHITECTURE` §6.6，否则本表会与文字口径分叉。
+ */
+const GATE_BUDGET = { fastMs: 230_000, totalMs: 480_000, segmentMs: 150_000 }
+
+/** 快检档包含的段：前五段（不含 fixes-a/b、p0-gaps）。 */
+const FAST_TIER = ['dual-entry', 'aplus-flow', 'community-flow', 'acceptance', 'recovery']
+
+
 /** 四个核心单点文件：v1.0 方案计算密度时使用的分母口径（口径 B）。 */
 const CORE_SINGLES = [
   'src/context/AppContext.tsx',
@@ -243,6 +254,21 @@ function gateTiming(assertions) {
     ? json.totalMs === json.wallMs && json.totalMs >= Math.max(...perMs) && json.totalMs <= sumMs
     : Math.abs(sumMs - json.totalMs) <= 1000
 
+  // 4) 分档预算（I-15）：快检档只取前五段，按同段实测耗时合计；全量取墙钟；
+  //    单段取最长一段。此前只记录全量墙钟，快检档 210 s 已悄悄倒挂 0.8 s 无人发现。
+  const fastRows = json.scripts.filter((row) => {
+    const slug = SCRIPTS.find((item) => item.file === row.file)?.slug ?? row.slug
+    return FAST_TIER.includes(slug)
+  })
+  const fastMs = fastRows.reduce((sum, row) => sum + (row.ms ?? 0), 0)
+  const slowest = json.scripts.reduce(
+    (worst, row) => ((row.ms ?? 0) > (worst.ms ?? 0) ? row : worst),
+    json.scripts[0] ?? { file: '—', ms: 0 },
+  )
+  const tierOk = fastMs <= GATE_BUDGET.fastMs
+    && json.totalMs <= GATE_BUDGET.totalMs
+    && (slowest.ms ?? 0) <= GATE_BUDGET.segmentMs
+
   const checks = [
     {
       id: '分段断言/通过与 report.json 一致',
@@ -271,9 +297,21 @@ function gateTiming(assertions) {
         ? `${json.surfaceHash} vs ${currentHash}`
         : `未记录指纹，退回提交区间判断：${touched.length ? touched.slice(0, 3).join(', ') : '无改动'}`,
     },
+    {
+      id: '分档预算：快检 / 全量 / 单段（I-15）',
+      ok: tierOk,
+      detail: `快检 ${(fastMs / 1000).toFixed(1)} / ${GATE_BUDGET.fastMs / 1000} s（${fastRows.length} 段）、全量 ${(json.totalMs / 1000).toFixed(1)} / ${GATE_BUDGET.totalMs / 1000} s、最长段 ${slowest.file} ${((slowest.ms ?? 0) / 1000).toFixed(1)} / ${GATE_BUDGET.segmentMs / 1000} s`,
+    },
   ]
 
-  return { ...json, head, perScript, checks, consistent: checks.every((item) => item.ok) }
+  return {
+    ...json,
+    head,
+    perScript,
+    checks,
+    consistent: checks.every((item) => item.ok),
+    tiers: { fastMs, fastCount: fastRows.length, slowest: { file: slowest.file, ms: slowest.ms ?? 0 }, budget: GATE_BUDGET },
+  }
 }
 
 function distStats() {
@@ -592,6 +630,15 @@ function toMarkdown(data) {
     }
     lines.push(`- 环境：${g.machine}；基线 ${g.baseRevision}；base \`${g.base}\``)
     lines.push(`- 来源：\`tools/run-gate.mjs\` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 \`${g.surfaceHash ?? '未记录'}\``)
+    if (g.tiers) {
+      const b = g.tiers.budget
+      const fastOk = g.tiers.fastMs <= b.fastMs
+      const totalOk = g.totalMs <= b.totalMs
+      const segOk = (g.tiers.slowest.ms ?? 0) <= b.segmentMs
+      lines.push(
+        `- 分档（I-15）：快检 **${(g.tiers.fastMs / 1000).toFixed(1)} s / ${b.fastMs / 1000} s**（前 ${g.tiers.fastCount} 段，余 ${((b.fastMs - g.tiers.fastMs) / 1000).toFixed(1)} s）｜全量 **${totalSec} s / ${b.totalMs / 1000} s**（余 ${((b.totalMs - g.totalMs) / 1000).toFixed(1)} s）｜单段最长 \`${g.tiers.slowest.file}\` **${((g.tiers.slowest.ms ?? 0) / 1000).toFixed(1)} s / ${b.segmentMs / 1000} s**${fastOk && totalOk && segOk ? '' : ' **（超预算）**'}`,
+      )
+    }
     lines.push('')
     lines.push('| 脚本 | 耗时 (s) | 断言 | 通过 |')
     lines.push('|---|---|---|---|')

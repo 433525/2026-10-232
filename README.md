@@ -40,9 +40,9 @@ npm run check:p0          # 12 项：评论驳回门禁、取消订单终态、�
 npm run gate              # 上述八段串行编排 + 逐段计时，自动写 docs/metrics/gate-timing.json
 ```
 
-共 **245 项**断言，全部通过。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
+共 **248 项**断言，全部通过。脚本为零依赖 CDP 实现（Node 22 自带 WebSocket），会自行拉起
 headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
-负向与边界用例 30 项（`[neg]`/`[edge]` 前缀自声明，精确口径 12.2%，目标 ≥12%）。
+负向与边界用例 33 项（`[neg]`/`[edge]` 前缀自声明，精确口径 13.3%，目标 ≥12%）。
 
 ## 二、演示 vs 生产
 
@@ -133,7 +133,7 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 | [组件 ↔ 数据源映射表](docs/delivery/component-data-map.md) | 每个界面读哪个字段、点哪个方法 |
 | [改动清单](docs/delivery/change-list.md) | 新增 / 修改 / 删除 / 修复四类 |
 | [双向缺口报告](docs/delivery/gap-report.md) | B↔A+ 缺口、需求未实现项、技术债 |
-| [验收记录](docs/delivery/acceptance.md) | 245 项自动化（八段串行）+ 十条合规逐条验证 |
+| [验收记录](docs/delivery/acceptance.md) | 248 项自动化（八段串行）+ 十条合规逐条验证 |
 | [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-20）、待决事项与引用规则，唯一事实源 |
 | [ADR-001：删除 viewMode](docs/delivery/adr/ADR-001-remove-viewmode.md) | 零消费契约字段的删除案：证据、影响面、三方案对比、回退路径（已执行，D-03） |
 | [可达性矩阵](docs/delivery/reachability.md) | 52 个写动作的覆盖状态、缺口清单与批次划分 |
