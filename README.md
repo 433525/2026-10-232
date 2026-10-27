@@ -86,7 +86,7 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 │  │  └─ intake/           A+ 领域层 + 社区桥 + 备份（7 个文件）
 │  ├─ selectors/           232 类型 ↔ 领域层的纯函数映射
 │  └─ shared/              clipboard / route-state / error-reporting / download
-├─ tools/                  验收脚本（CDP，零依赖）
+├─ tools/                  验收脚本（CDP，零依赖）+ 测量工具（measure-recompute，不入禁）
 └─ docs/                   调研、交付文档、验收证据
 ```
 
@@ -134,11 +134,11 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 | [改动清单](docs/delivery/change-list.md) | 新增 / 修改 / 删除 / 修复四类 |
 | [双向缺口报告](docs/delivery/gap-report.md) | B↔A+ 缺口、需求未实现项、技术债 |
 | [验收记录](docs/delivery/acceptance.md) | 248 项自动化（八段串行）+ 十条合规逐条验证 |
-| [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-29）、待决事项与引用规则，唯一事实源 |
+| [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-30）、待决事项与引用规则，唯一事实源 |
 | [ADR-001：删除 viewMode](docs/delivery/adr/ADR-001-remove-viewmode.md) | 零消费契约字段的删除案：证据、影响面、三方案对比、回退路径（已执行，D-03） |
 | [可达性矩阵](docs/delivery/reachability.md) | 52 个写动作的覆盖状态、缺口清单与批次划分 |
 | [契约拆分前置分析](docs/delivery/split-analysis.md) | 1013 行契约层的分域测绘：1 底座 + 5 域、6 处跨域写点、S1–S6 验证步骤、拆分与密度的口径关系（D-28） |
-| [重算探针设计](docs/delivery/probe-design.md) | I-05 的只读设计：`?probe=1` 六键计数、六类典型操作的测量协议、M6 分子口径与判据可达性（D-29） |
+| [重算探针设计](docs/delivery/probe-design.md) | I-05 的只读设计：`?probe=1` 六键计数、六类典型操作的测量协议（含 `repeat` 列）、M6 分子口径与判据可达性（D-29/D-30）；S2 内核 `tools/measure-recompute.mjs` 已落地 |
 | [交接文档](docs/HANDOVER.md) | 背景与目标、进度、待办与缺口、架构、文件地图、运行部署、接手注意事项 |
 | [架构说明](docs/ARCHITECTURE.md) | 分层、状态流、扩展点 |
 | [阶段调研](docs/research/) | P1–P7 的开源候选与取舍（P6 存档自愈、P7 备份导入） |

@@ -158,4 +158,5 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 - **唯一计时方式**：`node tools/run-gate.mjs`（先 `vite preview --port 5180`）。每段独立进程、独立 CDP 端口，逐段计时后**自动**写回 `gate-timing.json`，不再人工抄表（抄表是 D-06 错配的来源）。
 - **必须串行**：并发结果不得作为发布判据（D-14）。`--concurrency=N` 仅用于压测；2 路实测已出现 `fixes-b`/`p0-gaps` 连环失败，根因是固定时长等待在 CPU 争用下不足。
 - **M9 分档**：快检（前五段，不含 fixes-a/b、p0-gaps）≤230 s；全量 ≤480 s；单段 ≤150 s（D-02、D-16、D-25）。三项由采集器 I-15 逐次核对，超线即 `--strict` 退出码 1；快检档不再只写在文字里、实测无人比对。
+- **不入禁的测量工具**：`tools/measure-recompute.mjs`（M6 重算探针，D-29 / D-30）独立运行，不属八段、不写 `gate-timing.json`、不计入 M1，读数落 `docs/evidence/probe/<rev>.json`。它也不在被测面内（`surface-hash` 只纳入 `src/**`、`check-*.mjs`、`tools/lib/**`），改动它不会令既有耗时基线失效——这是刻意的：测量工具本身若入禁，会把实现细节固化成契约（见 D-29）。也因此**不为它新增 `package.json` 脚本**：`package.json` 在被测面内，加一行即令 437.2 s 的耗时基线作废，得不偿失。
 - **失效判定**：看 `surfaceHash`，不看提交时间；`serial`、`concurrency`、`wallMs`/`sumMs` 三字段同时存在才视为有效记录。
