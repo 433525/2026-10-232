@@ -25,6 +25,8 @@
 | **合计** | **52** | **52** | **0** | **0** | **0** | **100%** |
 
 > 分母已按 D-03 / ADR-001 收敛：`setViewMode`/`viewMode` 于 2026-10-26 删除，动作数 53 → 52，`unused` 1 → 0。`gap` 由 11 降至 **0**：W3 关闭 5 条、W4 关闭 4 条（深链/跟进/模拟联系/重开）、W5 关闭 2 条（朗读播放/停止）。**M4 于 2026-10-27 达标 52/52 = 100%**。
+>
+> **证据链复核（2026-10-28，D-33）**：52 行状态逐行重验，132 处引用逐一与 `report.json` 的断言名对照，45 行覆盖列重写（B 端 25 / A+ 端 14 / §五 6）。结论不变（52 covered / 0 gap），但原表大量指针与实测断言对不上——典型如 `verifyRealName` 的 `p0#12` 越界（该段仅 12 条）、`readCommunityArchive` 指向收藏断言、`adminAdjustTimeCoin` 指向「暂停新登记」。修正前 M4 的「100%」是「按错误指针得出的正确结论」——覆盖本身成立，取证路径不可复核；更正后每条 covered 均可由「行 → 下标 → 断言名」三步回溯。
 
 - 判据（D-17 + D-18）：W3 出口 46/52 = 88.5%、W4 出口 50/52 = 96.2%、**W5 出口 52/52 = 100%，三级阶梯全部达成**。出口核对以**绝对条数**（46 / 50 / 52）为准，百分比仅作呈现。
 - W3 收口（2026-10-27，D-19 批准后实施）：新增 7 条断言（community 5 / aplus 2），两个脚本各做一次缺陷注入验证——点赞「永远 +1」与「返回修改不退出复核态」均被抓红。断言总量 223 → **230**。
@@ -40,40 +42,40 @@
 
 | ID | 动作 | 界面入口 | 覆盖断言 | 状态 |
 |---|---|---|---|---|
-| B-01 | `switchUser` | 顶栏「演练身份」选择器 | `comm#4`、`acc#1`、`rec#11` | covered |
+| B-01 | `switchUser` | 顶栏「演练身份」选择器 | `comm#3`、`acc#0`、`rec#10`、`rec#15`（审核员） | covered |
 | B-02 | `setElderlyMode` | 「我的」→ 长辈模式开关 | `comm#12`（切换生效 / 刷新保持 / 复原） | covered |
 | B-03 | `setViewMode` | **已删除**（D-03 / ADR-001，2026-10-26） | — | 移出矩阵 |
 | B-04 | `playArticleAudio` | 首页长照护文章 → 朗读 | `comm#13`（播放态建立 / 正文提示 / 顶栏停止入口） | covered |
 | B-05 | `stopArticleAudio` | 同上（停止朗读） | `comm#14`（全局停止后弹层与顶栏同时复原） | covered |
-| B-06 | `createHelpOrder` | 「发布」→ 求助单 | `comm#5`、`fix#38`、`fix#39` | covered |
-| B-07 | `createPost` | 「发布」→ 社区动态 | `comm#5`–`#8`、`fix#5`–`#8` | covered |
-| B-08 | `acceptOrder` | 接单大厅 → 认领 | `acc#5`–`#7` | covered |
-| B-09 | `clockInOrder` | 订单详情 → 上门签到 | `acc#8`–`#10` | covered |
-| B-10 | `counterpartAcceptOrder` | 审核后台 → 代合成邻居接单 | `fix#40`、`fix#42` | covered |
-| B-11 | `completeOrder` | 订单详情 → 双方确认完成 | `acc#11`–`#14`、`fix#41`–`#45` | covered |
-| B-12 | `cancelOrder` | 订单详情 → 取消订单 | `p0#5`–`#7`（终态 / 留痕 / 不结算） | covered |
+| B-06 | `createHelpOrder` | 「发布」→ 求助单 | `fix#37`–`#38`、`comm#4` | covered |
+| B-07 | `createPost` | 「发布」→ 社区动态 | `comm#4`–`#7`、`fix#4`–`#7` | covered |
+| B-08 | `acceptOrder` | 接单大厅 → 认领 | `acc#4`–`#7` | covered |
+| B-09 | `clockInOrder` | 订单详情 → 上门签到 | `acc#8`–`#9` | covered |
+| B-10 | `counterpartAcceptOrder` | 审核后台 → 代合成邻居接单 | `fix#39`–`#40` | covered |
+| B-11 | `completeOrder` | 订单详情 → 双方确认完成 | `acc#10`–`#13`、`fix#41`–`#44` | covered |
+| B-12 | `cancelOrder` | 订单详情 → 取消订单 | `p0#4`–`#6`（终态 / 留痕 / 不结算） | covered |
 | B-13 | `raiseOrderDispute` | 订单详情 → 发起争议 | `fix#76`–`#80` | covered |
 | B-14 | `resolveOrderDispute` | 订单详情 → 撤销争议 / 因争议关闭 | `fix#81`–`#84` | covered |
 | B-15 | `likePost` | 信息流卡片 → 点赞 | `comm#8`（±1 往返）、`comm#10`（刷新保持） | covered |
 | B-16 | `bookmarkPost` | 信息流卡片 → 收藏 | `comm#9`（往返）、`comm#10`（刷新保持） | covered |
-| B-17 | `addComment` | 帖子详情 → 评论 | `fix#9`–`#11`、`fix#17` | covered |
+| B-17 | `addComment` | 帖子详情 → 评论 | `fix#8`–`#10` | covered |
 | B-18 | `enrollActivity` | 活动帖 → 报名 | `comm#11`（名额 +1 / 按钮禁用 / 存档落盘） | covered |
-| B-19 | `sendChatMessage` | 消息页 → 会话输入 | `fix#28`–`#34` | covered |
-| B-20 | `submitComplaint` | 信息流/评论/订单留言 → 举报 | `acc#15`–`#18`、`rec#15`、`rec#23` | covered |
-| B-21 | `triggerSos` | 首页 SOS 入口 | `fix#49`、`fix#50` | covered |
-| B-22 | `verifyRealName` | 「我的」→ 实名认证 | `p0#10`–`#12`（未同意被拒 / 切换 / 刷新回落） | covered |
-| B-23 | `adminApprovePost` | 审核后台 → 通过 | `fix#14`、`fix#16` | covered |
-| B-24 | `adminRejectPostWithReason` | 审核后台 → 驳回（需理由） | `fix#89`–`#91` | covered |
-| B-25 | `adminApproveComment` | 审核后台 → 通过评论 | `fix#15`、`fix#17` | covered |
-| B-26 | `adminRejectCommentWithReason` | 审核后台 → 驳回评论 | `p0#1`–`#4`（理由门禁 / 落库 / 审计 / 同帖旁路不变） | covered |
-| B-27 | `adminResolveComplaint` | 审核后台 → 举报处置 | `acc#19`–`#23` | covered |
-| B-28 | `adminAdjustTimeCoin` | 审核后台 → 时间币调整 | `fix#92`（只读不变量） | covered |
-| B-29 | `exportBackup` | 存档与恢复 → 导出备份 | `rec#4` | covered |
-| B-30 | `exportUnreadableArchive` | 存档面板 → 下载坏档原文 | `rec#9`、`fix#53`、`fix#54` | covered |
-| B-31 | `importBackupFile` | 存档面板 → 导入备份 | `rec#19`–`rec#22`、`fix#24` | covered |
-| B-32 | `reloadArchive` | 存档面板 / 冲突警示条 → 载入最新 | `rec#12`–`rec#14` | covered |
-| B-33 | `resetDemoData` | 存档面板 → 重置演练数据 | `rec#8`–`rec#10` | covered |
-| B-34 | `markAllMessagesRead` | 消息页 → 全部已读 | `p0#8`–`#9`（角标清零与刷新不回弹） | covered |
+| B-19 | `sendChatMessage` | 消息页 → 会话输入 | `fix#27`–`#34` | covered |
+| B-20 | `submitComplaint` | 信息流/评论/订单留言 → 举报 | `acc#14`–`#17`、`rec#14`、`rec#22`、`comm#15` | covered |
+| B-21 | `triggerSos` | 首页 SOS 入口 | `fix#48`–`#49` | covered |
+| B-22 | `verifyRealName` | 「我的」→ 实名认证 | `p0#9`–`#11`（未同意被拒 / 切换 / 刷新回落） | covered |
+| B-23 | `adminApprovePost` | 审核后台 → 通过 | `fix#13`、`fix#15` | covered |
+| B-24 | `adminRejectPostWithReason` | 审核后台 → 驳回（需理由） | `fix#88`–`#90` | covered |
+| B-25 | `adminApproveComment` | 审核后台 → 通过评论 | `fix#14`、`fix#16` | covered |
+| B-26 | `adminRejectCommentWithReason` | 审核后台 → 驳回评论 | `p0#0`–`#3`（理由门禁 / 落库 / 审计 / 同帖旁路不变） | covered |
+| B-27 | `adminResolveComplaint` | 审核后台 → 举报处置 | `acc#18`–`#22` | covered |
+| B-28 | `adminAdjustTimeCoin` | 审核后台 → 时间币调整 | `fix#91`（只读不变量） | covered |
+| B-29 | `exportBackup` | 存档与恢复 → 导出备份 | `rec#3` | covered |
+| B-30 | `exportUnreadableArchive` | 存档面板 → 下载坏档原文 | `rec#7`–`#8`、`fix#52`–`#53` | covered |
+| B-31 | `importBackupFile` | 存档面板 → 导入备份 | `rec#19`–`#21`、`fix#23`–`#24`、`fix#73`–`#74` | covered |
+| B-32 | `reloadArchive` | 存档面板 / 冲突警示条 → 载入最新 | `rec#11`–`#13` | covered |
+| B-33 | `resetDemoData` | 存档面板 → 重置演练数据 | `rec#7`–`#9`（坏档期禁用 / 取回原文后解锁 / 重置生效） | covered |
+| B-34 | `markAllMessagesRead` | 消息页 → 全部已读 | `p0#7`–`#8`（角标清零与刷新不回弹） | covered |
 
 ## 四、A+ 端动作矩阵
 
@@ -81,27 +83,35 @@
 
 | ID | 动作 | 界面入口 | 覆盖断言 | 状态 |
 |---|---|---|---|---|
-| A-01 | `createRecord` | 队列页 → 「新建记录」 | `aplus#1`–`#7`、`fix#51`、`fix#52` | covered |
+| A-01 | `createRecord` | 队列页 → 「新建记录」 | `aplus#0`–`#7`、`fix#51` | covered |
 | A-02 | `cancelDuplicateReview` | 重复复核 → 「返回修改」 | `aplus#10`（表单复原 + 门禁未削弱）、`aplus#11` | covered |
-| A-03 | `openDuplicateCandidate` | 重复复核 → 查看候选记录 | `aplus#9` | covered |
-| A-04 | `applyTransition` | 详情 → 状态流转 | `aplus#11`–`#19` | covered |
-| A-05 | `saveCheckpoint` | 检查点弹层 → 保存 | `aplus#13`–`#16` | covered |
-| A-06 | `saveFollowUp` | 跟进弹层 → 保存跟进 | `aplus#29`（空原因被拒且时间线不增）、`aplus#30`（追加一条 / 关闭 / 负责人更新） | covered |
-| A-07 | `saveContactSimulation` | 联系模拟弹层 → 保存 | `aplus#31`（未确认禁用）、`aplus#32`（结果写入 / 状态不变） | covered |
-| A-08 | `saveHighRiskStop` | 高风险 → 停止常规初筛 | `acc#24`–`#26` | covered |
-| A-09 | `createReopenedRecord` | 重新登记弹层 → 创建关联记录 | `aplus#33`（新记录指回原记录）、`aplus#34`（原记录终态不变） | covered |
+| A-03 | `openDuplicateCandidate` | 重复复核 → 查看候选记录 | `aplus#8`（候选列出）、`aplus#9`（初始禁用） | covered |
+| A-04 | `applyTransition` | 详情 → 状态流转 | `aplus#12`–`#19` | covered |
+| A-05 | `saveCheckpoint` | 检查点弹层 → 保存 | `aplus#14`–`#16` | covered |
+| A-06 | `saveFollowUp` | 跟进弹层 → 保存跟进 | `aplus#27`（空原因被拒且时间线不增）、`aplus#28`（追加一条 / 关闭 / 负责人更新） | covered |
+| A-07 | `saveContactSimulation` | 联系模拟弹层 → 保存 | `aplus#29`（未确认禁用）、`aplus#30`（结果写入 / 状态不变） | covered |
+| A-08 | `saveHighRiskStop` | 高风险 → 停止常规初筛 | `acc#23`–`#25` | covered |
+| A-09 | `createReopenedRecord` | 重新登记弹层 → 创建关联记录 | `aplus#31`（新记录指回原记录）、`aplus#32`（原记录终态不变） | covered |
 | A-10 | `submitComplaint` | 投诉弹层 → 提交 | `fix#63` | covered |
 | A-11 | `reviewSelectedComplaint` | 投诉详情 → 复核 | `fix#64`–`#71` | covered |
-| A-12 | `toggleIntakePaused` | 门禁条 → 暂停/恢复新登记 | `fix#93` | covered |
-| A-13 | `exportBackup` / `viewBackupText` | 存档 → 导出备份 / 查看备份文本 | `aplus#20`–`#22` | covered |
-| A-14 | `exportUnreadableBackup` | 坏档 → 导出原文 | `fix#53`、`fix#54` | covered |
+| A-12 | `toggleIntakePaused` | 门禁条 → 暂停/恢复新登记 | `fix#92` | covered |
+| A-13 | `exportBackup` / `viewBackupText` | 存档 → 导出备份 / 查看备份文本 | `aplus#21`–`#23` | covered |
+| A-14 | `exportUnreadableBackup` | 坏档 → 导出原文 | `fix#52`–`#53` | covered |
 | A-15 | `chooseBackup` | 存档 → 选择备份导入 | `fix#73`、`fix#74` | covered |
-| A-16 | `reloadLatestSnapshot` | 存档 → 载入最新快照 | `aplus#23` | covered |
+| A-16 | `reloadLatestSnapshot` | 存档 → 载入最新快照 | `aplus#24` | covered |
 | A-17 | `startCommunityRegistration` | 社区桥 → 登记为受理记录 | `fix#56`–`#62` | covered |
-| A-18 | `readCommunityArchive` | 社区桥 → 读取 B 端存档 | `comm#9`、`comm#10`、`fix#55` | covered |
-| A-19 | `copySelectedCaseLink` | 详情 → 「复制链接」 | `aplus#27`（剪贴板深链）、`aplus#28`（切走后仍能定位） | covered |
+| A-18 | `readCommunityArchive` | 社区桥 → 读取 B 端存档 | `comm#22`–`#23`、`fix#55` | covered |
+| A-19 | `copySelectedCaseLink` | 详情 → 「复制链接」 | `aplus#25`–`#26`、`aplus#33`（失效深链负向） | covered |
 
-> 断言编号 `comm#n` / `acc#n` / `rec#n` / `fix#n` / `aplus#n` / `dual#n` 指对应脚本内 `check()` 的出现序号，与 `docs/evidence/<slug>/report.json` 的 `results` 数组下标一致（从 0 起）。
+> 断言编号 `comm#n` / `acc#n` / `rec#n` / `fix#n` / `aplus#n` / `dual#n` 指对应脚本内 `check()` 的出现序号，与 `docs/evidence/<slug>/report.json` 的 `results` 数组下标一致（从 0 起）。`fix#n` 为 `fixes-a` + `fixes-b` 的顺序拼接（0–54 / 55–93）。
+>
+> **编号是位置下标，插入即位移**（D-33）。2026-10-28 复核发现：全表 132 处引用中 45 行的覆盖列与实测断言不符，其中 1 处越界（`p0#12`，该段仅 12 条）；根因是本列自 W1 起按当时顺序手写、此后 W3–W7 各段多次插入断言而未回扫。**本文件不参与门禁**（`collect-baseline --strict` 只核对 ARCHITECTURE / acceptance / gap-report / HANDOVER / README），故漂移不会报红。改动本表或改动任一 `check-*.mjs` 的断言顺序后，须执行：
+>
+> ```bash
+> node tools/audit-reachability-refs.mjs --list   # 逐行打印 引用 → 断言名，越界即退出码 1
+> ```
+>
+> 工具只判越界与同前缀重复引用（后者仅提示，`comm#10` 同时支撑点赞与收藏属合法复用）；**「这个下标是否真的在验该动作」须人工看 `--list` 全表**——用越界检查冒充语义校验，只会制造「门禁没报即正确」的假信心。
 
 ## 五、缺口清单与批次划分（D-17）
 
@@ -114,12 +124,12 @@ W3 / W4 / W5 三批已于 2026-10-27 全部交付，缺口由 11 降至 **0**：
 | W3 | 3 | `likePost` | `src/context/AppContext.tsx:571` | ✅ | `comm#8` `[edge]` 计数 5→6→5 往返；`comm#10` 刷新保持 |
 | W3 | 4 | `bookmarkPost` | `src/context/AppContext.tsx:580` | ✅ | `comm#9` `[edge]` `aria-pressed` 真→假往返；`comm#10` 刷新保持 |
 | W3 | 5 | `setElderlyMode` | `src/context/AppContext.tsx:304` | ✅ | `comm#12` `[edge]` 切换生效 / 刷新保持 / 关闭复原 |
-| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | ✅ | `aplus#29` `[neg]` 留空原因被拒（弹层保持、时间线不增）；`aplus#30` 补全后追加一条「调整人工跟进」、弹层关闭、负责人更新 |
-| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | ✅ | `aplus#31` `[neg]` 未勾选虚构确认时保存禁用；`aplus#32` `[edge]` 时间线出现「结果：约定稍后再联系（模拟）」、登记状态前后一致、负责人更新 |
-| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | ✅ | `aplus#33` 新记录（队列 +1、状态已收件、时间线 2 条）反向列出原记录；`aplus#34` `[neg]` 原记录终态仍为「已结束（服务结果未核实）」 |
-| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | ✅ | `aplus#27` `[edge]` 剪贴板写入含 `case=SYNTH-00N` 的绝对链接；`aplus#28` `[edge]` 切到别的记录后打开该链接仍定位回原记录 |
-| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | ✅ | `comm#15` 播放后弹层按钮转「停止朗读」、正文提示出现、顶栏「停止朗读」出现、`speak` 被调用 |
-| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:365` | ✅ | `comm#16` `[edge]` 全局停止后弹层按钮、正文提示、顶栏控件三处同时复原，`cancel` 被调用 |
+| W4 | 6 | `saveFollowUp` | `src/aplus/workbench.ts:1090` | ✅ | `aplus#27` `[neg]` 留空原因被拒（弹层保持、时间线不增）；`aplus#28` 补全后追加一条「调整人工跟进」、弹层关闭、负责人更新 |
+| W4 | 7 | `saveContactSimulation` | `src/aplus/workbench.ts:1105` | ✅ | `aplus#29` `[neg]` 未勾选虚构确认时保存禁用；`aplus#30` `[edge]` 时间线出现「结果：约定稍后再联系（模拟）」、登记状态前后一致、负责人更新 |
+| W4 | 8 | `createReopenedRecord` | `src/aplus/workbench.ts:1142` | ✅ | `aplus#31` 新记录（队列 +1、状态已收件、时间线 2 条）反向列出原记录；`aplus#32` `[neg]` 原记录终态仍为「已结束（服务结果未核实）」 |
+| W4 | 9 | `copySelectedCaseLink` | `src/aplus/workbench.ts:699` | ✅ | `aplus#25` `[edge]` 剪贴板写入含 `case=SYNTH-00N` 的绝对链接；`aplus#26` `[edge]` 切到别的记录后打开该链接仍定位回原记录 |
+| W5 | 10 | `playArticleAudio` | `src/context/AppContext.tsx:352` | ✅ | `comm#13` 播放后弹层按钮转「停止朗读」、正文提示出现、顶栏「停止朗读」出现、`speak` 被调用 |
+| W5 | 11 | `stopArticleAudio` | `src/context/AppContext.tsx:365` | ✅ | `comm#14` `[edge]` 全局停止后弹层按钮、正文提示、顶栏控件三处同时复原，`cancel` 被调用 |
 
 > **实施时纠正的建议失真（D-05 反复生效）**：
 >
