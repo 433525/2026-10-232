@@ -436,7 +436,7 @@ repo/
 | `tools/check-recovery.mjs` | 28 项坏档恢复与跨标签冲突 | 备份导入用 `DOM.setFileInputFiles`，不弹系统文件框 |
 | `tools/check-fixes-a.mjs` / `check-fixes-b.mjs` | 55 + 39 项修复回归 | 由单文件拆出（D-08），两段各自带控制台异常看门狗 |
 | `tools/check-p0-gaps.mjs` | 12 项 P0 缺口 | 评论驳回理由、取消订单终态、演练实名、全部已读不回弹 |
-| `tools/collect-baseline.mjs` | 基线采集 + `--strict` 契约校验（I-11/I-13/I-14/I-15/I-16/I-17/I-20） | 零依赖只读；`--write` 重写 `docs/metrics/baseline.md` |
+| `tools/collect-baseline.mjs` | 基线采集 + `--strict` 契约校验（I-11/I-13/I-14/I-15/I-16/I-17/I-20/I-21） | 零依赖只读；`--write` 重写 `docs/metrics/baseline.md` |
 | `tools/measure-recompute.mjs` | I-05 重算次数测量内核（`--self-test` / `--probe-check` / `--harness-test`） | 不在被测面内；无已校准操作时 `--run` 退 3 |
 
 ### 5.5 文档地图
@@ -450,7 +450,7 @@ repo/
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 | 评估工作量 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复四类清单 | 评审 diff |
 | `docs/delivery/acceptance.md` | 248 项验收明细与合规逐条验证 | 复现与核对 |
-| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-35），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
+| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-36），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
 | `docs/delivery/reachability.md` | 52 个写动作的覆盖矩阵与缺口清单 | 判断「这条路径验过没有」 |
 | `docs/metrics/baseline.md` | 自动采集的基线表与一致性校验结果 | 每次全量门禁后 |
 | `docs/research/p1–p7*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |

@@ -14,7 +14,7 @@
  *   B 核心代码规模与断言密度（口径 A 全量核心模块 / 口径 B 四个核心单点）
  *   C 工作区与产物（未跟踪文件数、dist 总量、最大 chunk）
  *   D 负向/边界断言占比（启发式，静态扫描断言名称，标注为参考值）
- *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母与数值 / 交接状态块 vs 实测）
+ *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母与数值 / 交接状态块 / 决策日志自洽 vs 实测）
  *   F 门禁耗时与待采集
  *
  * 用法：
@@ -39,6 +39,9 @@
  *   8. 证据分片绑定（`tools/lib/evidence.mjs`，I-20）：八份 `report.json` 的内容指纹须与
  *      `gate-timing.json` 记录的一致，且 `checkedAt` 落在本次门禁的时间窗内；旧格式基线
  *      未记录指纹时不判红。
+ *   9. 决策日志自洽（I-21）：`decisions.md` 的编号唯一且连续、状态取值合法、全仓 `D-nn`
+ *      引用不悬空、`D-01…D-nn` 索引区间的上界等于当前最大编号；`change-list.md` 属变更
+ *      流水，其中的号段不参与区间判定。
  * 第 5 条的意义：判失效看内容而非提交时间——只改文档不失效，改 `src/` 或 `check-*` 才失效。
  * 第 6 条的意义：交接文档是接手者的入口，长期在契约校验之外，连续三个版本写着已废弃的
  * 断言数（117 → 205 → 248），且与同文件 §2.5 自相矛盾。
@@ -49,6 +52,9 @@
  * 第 8 条的意义：第 5、7 条证明的都是**输入端**（源码、产物），证明不了「八份证据出自同一次
  * 执行」。全量门禁记录 248/248 之后，单跑任意一段 `node tools/check-<x>.mjs` 会用另一时刻
  * 的结果覆盖该段 `report.json`，而断言总数与通过数多半不变——分项校验照样全绿，证据已换。
+ * 第 9 条的意义：决策号是全部文档互相引用的唯一锚点（240 余处），而「编号连续 / 状态取值 /
+ * 引用有效 / 索引区间」四条此前只写在表头的文字规则里。索引区间实测已人工同步四次
+ * （D-20 → D-28 → D-31 → D-34 → D-35），漏改一次即让 README 与 HANDOVER 同时指向不存在的决策。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -100,6 +106,28 @@ const CURRENT_DOCS = [
   'docs/ARCHITECTURE.md',
   'README.md',
 ]
+
+/**
+ * I-21：决策日志自洽。决策号是跨文档引用的唯一锚点（240 余处），但四条约定一直只写在
+ * `decisions.md` 表头的「记录规则」里，没有一条被机判：编号唯一且连续、状态取值合法、
+ * 引用不悬空、索引区间上界等于最大编号。最后一类已实测复发四次——README 与 HANDOVER 的
+ * `D-01…D-xx` 每加一条决策就要人工同步一次（D-20 → D-28 → D-31 → D-34 → D-35），
+ * 漏改一次即形成「索引指向不存在的决策」，而两处都是接手者的第一入口。
+ */
+const DECISION_STATUS = new Set(['已执行', '采用', '待确认', '待修', '已废止'])
+/** 纯流水文档：其中号段是「当时改了什么」的历史陈述，按「历史记录不追改」保留，不参与区间判定。 */
+const HISTORY_ONLY_DOCS = new Set(['docs/delivery/change-list.md'])
+/**
+ * 引用扫描的豁免名单。两类都是「判据与记录要求相冲突」而非「懒得判」：
+ * - `decisions.md` 是定义文件本身。D-21 ③ 要求每条新增决策记录注入证据，而证据必然是
+ *   「把某处引用改成不存在的编号、看是否判红」——扫描定义文件会把反例当悬空引用
+ *   （首版实测即被自己的 D-36 证据段判红，随后又经由 `baseline.md` 二次放大）。
+ * - `docs/metrics/baseline.md` 是采集器生成物，内容镜像其他文档，扫它等于把同一处数两遍。
+ */
+const DECISION_REF_EXCLUDE = new Set(['docs/delivery/decisions.md', 'docs/metrics/baseline.md'])
+const DECISION_SCAN_DIRS = ['docs', 'src', 'tools']
+const DECISION_SCAN_EXT = new Set(['.md', '.ts', '.tsx', '.mjs'])
+const DECISION_SKIP = ['node_modules', 'dist', '.git', '.vite', 'docs/evidence']
 
 /** 负向/边界语义关键词：命中即计入「非纯正向」断言。仅作趋势参考，不作考核值。 */
 const NEGATIVE_TOKENS = [
@@ -575,6 +603,117 @@ function handoverStatusClaims(actual, gate) {
   return claims
 }
 
+/**
+ * I-21：决策日志自洽。返回原始行、问题清单与区间声明，供 Markdown 与 `--strict` 共用。
+ * 刻意只判「可机判」的四项，不判语义：某条决策是否已被推翻、某处引用是否指向正确的那条，
+ * 需要人读理由段——用前者冒充后者只会制造「门禁没报即正确」的假信心（D-33 同款取舍）。
+ */
+function decisionLog() {
+  const rel = 'docs/delivery/decisions.md'
+  const lines = readText(join(ROOT, rel)).split('\n')
+  const rows = []
+  lines.forEach((line, i) => {
+    if (!/^\|\s*D-\d{2}\s*\|/.test(line)) return
+    const cells = line.split('|')
+    const statusCell = (cells[5] ?? '').trim()
+    const quoted = /^`([^`]+)`/.exec(statusCell)
+    rows.push({
+      id: (cells[1] ?? '').trim(),
+      line: i + 1,
+      status: quoted ? quoted[1] : statusCell.split('（')[0].trim(),
+    })
+  })
+
+  const nums = rows.map((row) => Number(row.id.slice(2))).filter((n) => Number.isFinite(n))
+  const maxNum = nums.length ? Math.max(...nums) : 0
+  const maxId = maxNum ? `D-${String(maxNum).padStart(2, '0')}` : '—'
+  const known = new Set(rows.map((row) => row.id))
+  const problems = []
+
+  // ① 编号唯一且连续（「编号单调递增，不回收、不重排」）
+  const seen = new Set()
+  for (const row of rows) {
+    if (seen.has(row.id)) problems.push({ kind: '编号重复', file: rel, line: row.line, detail: row.id })
+    seen.add(row.id)
+  }
+  for (let n = 1; n <= maxNum; n += 1) {
+    const id = `D-${String(n).padStart(2, '0')}`
+    if (!known.has(id)) problems.push({ kind: '编号断号', file: rel, line: 0, detail: `${id} 缺失` })
+  }
+
+  // ② 状态取值合法（`已执行` / `采用` / `待确认` / `待修` / `已废止`）
+  const statusCount = {}
+  for (const row of rows) {
+    statusCount[row.status] = (statusCount[row.status] ?? 0) + 1
+    if (!DECISION_STATUS.has(row.status)) {
+      problems.push({ kind: '状态非法', file: rel, line: row.line, detail: `${row.id}「${row.status}」` })
+    }
+  }
+
+  // ③④ 扫描引用：文档与代码注释都算，索引区间另判
+  const files = [join(ROOT, 'README.md')]
+  for (const dir of DECISION_SCAN_DIRS) {
+    files.push(
+      ...walk(join(ROOT, dir)).filter((file) => {
+        const relPath = relative(ROOT, file).replace(/\\/g, '/')
+        if (!DECISION_SCAN_EXT.has(relPath.slice(relPath.lastIndexOf('.')))) return false
+        return !DECISION_SKIP.some((skip) => relPath.startsWith(skip) || relPath.includes(`/${skip}/`))
+      }),
+    )
+  }
+
+  let refCount = 0
+  const refFiles = new Set()
+  const rangeClaims = []
+  for (const file of files) {
+    const relPath = relative(ROOT, file).replace(/\\/g, '/')
+    if (DECISION_REF_EXCLUDE.has(relPath)) continue
+    readText(file)
+      .split('\n')
+      .forEach((line, i) => {
+        const hits = line.match(/D-\d{2}/g)
+        if (!hits) return
+        refFiles.add(relPath)
+        for (const hit of hits) {
+          refCount += 1
+          if (!known.has(hit)) {
+            problems.push({ kind: '引用悬空', file: relPath, line: i + 1, detail: hit })
+          }
+        }
+        // ④ 索引区间 `D-01…D-nn` 的上界必须等于当前最大编号。
+        //    只判 Markdown：区间是「文档索引」的表述，代码注释只引用单条决策、不声明号段；
+        //    连源码一起扫会把「说明某条历史记录当时写的是 D-01…D-19」这类叙述判成过期声明
+        //    （首版实测即被自己的一段注释判红）。
+        if (!relPath.endsWith('.md') || HISTORY_ONLY_DOCS.has(relPath)) return
+        const re = /D-01…D-(\d{2})/g
+        let m
+        while ((m = re.exec(line)) !== null) {
+          const ok = Number(m[1]) === maxNum
+          rangeClaims.push({ file: relPath, line: i + 1, claimed: `D-01…D-${m[1]}`, ok })
+          if (!ok) {
+            problems.push({
+              kind: '索引区间过期',
+              file: relPath,
+              line: i + 1,
+              detail: `声明 ${m[1]} / 实际最大 ${maxNum}`,
+            })
+          }
+        }
+      })
+  }
+
+  return {
+    total: rows.length,
+    max: maxId,
+    problems,
+    refCount,
+    refFiles: [...refFiles].sort(),
+    rangeClaims,
+    statusCount,
+    ok: problems.length === 0,
+  }
+}
+
 function fmtBytes(bytes) {
   if (bytes === null || bytes === undefined) return '—'
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
@@ -657,6 +796,7 @@ function collect() {
     },
     docClaims: docClaims(actual),
     statusClaims,
+    decisionLog: decisionLog(),
     gateTiming: gate,
     pending: ['单次典型操作重算次数（需 I-05 渲染探针）'],
   }
@@ -764,6 +904,50 @@ function toMarkdown(data) {
     } 处与当前实测不同；按「历史记录不追改」处理，不计入偏差数。`,
   )
   lines.push('')
+  const decisions = data.decisionLog
+  if (decisions) {
+    lines.push('**决策日志自洽（I-21：编号 / 状态 / 引用 / 索引区间）**')
+    lines.push('')
+    lines.push('| 校验项 | 结果 | 明细 |')
+    lines.push('|---|---|---|')
+    const rowOf = (kind) => decisions.problems.filter((item) => item.kind === kind)
+    const dupOrGap = [...rowOf('编号重复'), ...rowOf('编号断号')]
+    lines.push(
+      `| 编号唯一且连续 | ${dupOrGap.length ? '**失败**' : '通过'} | ${decisions.total} 条，D-01…${decisions.max}${
+        dupOrGap.length ? `；${dupOrGap.map((item) => `${item.detail}（${item.file}:${item.line || '—'}）`).join('、')}` : ''
+      } |`,
+    )
+    const badStatus = rowOf('状态非法')
+    const statusText = Object.entries(decisions.statusCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => `${name} ${count}`)
+      .join(' / ')
+    lines.push(
+      `| 状态取值合法 | ${badStatus.length ? '**失败**' : '通过'} | ${statusText}${
+        badStatus.length ? `；非法：${badStatus.map((item) => item.detail).join('、')}` : ''
+      } |`,
+    )
+    const dangling = rowOf('引用悬空')
+    lines.push(
+      `| 引用不悬空 | ${dangling.length ? '**失败**' : '通过'} | 共 ${decisions.refCount} 处，分布在 ${
+        decisions.refFiles.length
+      } 个文件（文档 + 代码注释）${dangling.length ? `；悬空：${dangling.slice(0, 5).map((item) => `${item.detail}@${item.file}:${item.line}`).join('、')}` : ''} |`,
+    )
+    const staleRange = rowOf('索引区间过期')
+    const rangeText = decisions.rangeClaims.length
+      ? decisions.rangeClaims.map((item) => `${item.file}:${item.line} → ${item.claimed}`).join('；')
+      : '未写 `D-01…D-nn` 形式的索引（不判红）'
+    lines.push(
+      `| 索引区间上界等于最大编号 | ${staleRange.length ? '**失败**' : '通过'} | ${rangeText}${
+        staleRange.length ? `；${staleRange.map((item) => item.detail).join('、')}` : ''
+      } |`,
+    )
+    lines.push('')
+    if (decisions.rangeClaims.length) {
+      lines.push('> 口径说明：`change-list.md` 中的号段属变更流水（「当时写的是 D-01 至 D-19」），按「历史记录不追改」不参与区间判定；索引失效只判 `README.md`、`docs/HANDOVER.md` 一类描述**当前**状态的文档。')
+      lines.push('')
+    }
+  }
   lines.push('## F. 门禁耗时与待采集')
   lines.push('')
   if (data.gateTiming) {
@@ -854,6 +1038,7 @@ if (args.has('--strict')) {
   const drift = data.docClaims.filter((claim) => claim.scope === 'current' && !claim.ok)
   const statusFailed = (data.statusClaims ?? []).filter((claim) => !claim.ok)
   const timingFailed = (data.gateTiming?.checks ?? []).filter((item) => !item.ok)
+  const decisionFailed = data.decisionLog?.problems ?? []
   if (drift.length) {
     console.error(`\n[strict] 契约文档存在 ${drift.length} 处数字偏差：`)
     for (const claim of drift) {
@@ -870,9 +1055,15 @@ if (args.has('--strict')) {
     console.error(`\n[strict] 门禁耗时基线存在 ${timingFailed.length} 处不一致：`)
     for (const item of timingFailed) console.error(`  - ${item.id}：${item.detail}`)
   }
-  if (drift.length || statusFailed.length || timingFailed.length) {
+  if (decisionFailed.length) {
+    console.error(`\n[strict] 决策日志存在 ${decisionFailed.length} 处不一致（I-21）：`)
+    for (const item of decisionFailed) {
+      console.error(`  - ${item.file}${item.line ? `:${item.line}` : ''} ${item.kind}：${item.detail}`)
+    }
+  }
+  if (drift.length || statusFailed.length || timingFailed.length || decisionFailed.length) {
     process.exitCode = 1
   } else {
-    console.log('\n[strict] 契约文档数字、交接状态块与门禁耗时基线均一致。')
+    console.log('\n[strict] 契约文档数字、交接状态块、门禁耗时基线与决策日志均一致。')
   }
 }
