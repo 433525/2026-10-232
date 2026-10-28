@@ -31,7 +31,7 @@ npm run preview   # 预览：http://localhost:4173
 npx vite preview --port 5180 --strictPort
 npm run check:dual        # 27 项：双入口 + 五档宽度 + 弹层焦点
 npm run check:aplus       # 35 项：A+ 主流程 + 去重 + 备份 + 持久化 + 跟进/联系/重开/深链
-npm run check:community   # 22 项：实名拦截 + 先审后发 + 互动往返 + 举报去重 + 深链边界 + 跨入口读取
+npm run check:community   # 25 项：实名拦截 + 先审后发 + 互动往返 + 举报去重 + 深链边界 + 互动/报名/朗读往返 + 跨入口读取
 npm run check:acceptance  # 27 项：接单→签到→完成→账本、举报入口与处置、病史可见性、高风险拦截
 npm run check:recovery    # 28 项：坏档恢复、跨标签冲突、评论/留言举报、备份导入、官方措辞扫描
 npm run check:fixes:a     # 55 项：接单大厅筛选、先审后发、发布失败保草稿、订单留言、A+ 来源与坏档导出
@@ -134,7 +134,7 @@ headless Chromium；详见 [验收记录](docs/delivery/acceptance.md)。
 | [改动清单](docs/delivery/change-list.md) | 新增 / 修改 / 删除 / 修复四类 |
 | [双向缺口报告](docs/delivery/gap-report.md) | B↔A+ 缺口、需求未实现项、技术债 |
 | [验收记录](docs/delivery/acceptance.md) | 248 项自动化（八段串行）+ 十条合规逐条验证 |
-| [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-30）、待决事项与引用规则，唯一事实源 |
+| [决策日志](docs/delivery/decisions.md) | CIP-232 全部决策（D-01…D-31）、待决事项与引用规则，唯一事实源 |
 | [ADR-001：删除 viewMode](docs/delivery/adr/ADR-001-remove-viewmode.md) | 零消费契约字段的删除案：证据、影响面、三方案对比、回退路径（已执行，D-03） |
 | [可达性矩阵](docs/delivery/reachability.md) | 52 个写动作的覆盖状态、缺口清单与批次划分 |
 | [契约拆分前置分析](docs/delivery/split-analysis.md) | 1013 行契约层的分域测绘：1 底座 + 5 域、6 处跨域写点、S1–S6 验证步骤、拆分与密度的口径关系（D-28） |

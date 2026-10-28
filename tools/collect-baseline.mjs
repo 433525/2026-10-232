@@ -14,7 +14,7 @@
  *   B 核心代码规模与断言密度（口径 A 全量核心模块 / 口径 B 四个核心单点）
  *   C 工作区与产物（未跟踪文件数、dist 总量、最大 chunk）
  *   D 负向/边界断言占比（启发式，静态扫描断言名称，标注为参考值）
- *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母与数值 vs 实测）
+ *   E 文档—实现偏差（文档声明的断言数 / AppContext 行数 / 密度分母与数值 / 交接状态块 vs 实测）
  *   F 门禁耗时与待采集
  *
  * 用法：
@@ -32,7 +32,11 @@
  *   3. 记录的总断言数等于本次采集的运行时断言数；
  *   4. `baseRevision` 存在且为 HEAD 祖先；
  *   5. 被测面内容指纹（`tools/lib/surface-hash.mjs`）与当前源码一致，否则耗时基线失效。
+ *   6. `docs/HANDOVER.md` §0.1 的 `CIP-STATUS` 状态块（I-16）：断言数、全量/快检耗时、
+ *      精确负向占比须与本次实测一致；未写该块不判红。
  * 第 5 条的意义：判失效看内容而非提交时间——只改文档不失效，改 `src/` 或 `check-*` 才失效。
+ * 第 6 条的意义：交接文档是接手者的入口，长期在契约校验之外，连续三个版本写着已废弃的
+ * 断言数（117 → 205 → 248），且与同文件 §2.5 自相矛盾。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -449,6 +453,51 @@ function docClaims(actual) {
   return dedup
 }
 
+/**
+ * 交接文档「当前状态块」校验（I-16）。`docs/HANDOVER.md` 是接手者的入口，却不在
+ * 契约校验的 `CURRENT_DOCS` 内：2026-10-24 定稿写 117 项，此后 W3–W7 增至 248 项，
+ * §0 仍停在 205 项、附录仍写「五脚本 117 项」，同一文件内 §0 与 §2.5 互相矛盾——
+ * 与本项目反复出现的「权威文档与实测分叉」同类，只是这次长在最显眼的位置。
+ *
+ * 只校验显式标记块，不扫全文：该文件另有 700 行历史沿革，全文扫描会把刻意保留的
+ * 旧数字判成偏差。块内约定 `| 指标名 | 值 |`，值取首个数字或百分数；
+ * 未写该块不判红（避免变成新的必填项），写了但数值不符即 `--strict` 退出码 1。
+ */
+const STATUS_BLOCK_RE = /<!--\s*CIP-STATUS:BEGIN[^>]*-->([\s\S]*?)<!--\s*CIP-STATUS:END\s*-->/
+
+function handoverStatusClaims(actual, gate) {
+  const rel = 'docs/HANDOVER.md'
+  const text = readText(join(ROOT, rel))
+  const match = STATUS_BLOCK_RE.exec(text)
+  if (!match) return []
+  const baseLine = text.slice(0, match.index).split('\n').length
+  const expected = {
+    断言总数: String(actual.assertions),
+    全量门禁: gate?.totalMs ? (gate.totalMs / 1000).toFixed(1) : null,
+    快检门禁: gate?.tiers?.fastMs ? (gate.tiers.fastMs / 1000).toFixed(1) : null,
+    精确负向占比: actual.prefixedRatio === null || actual.prefixedRatio === undefined ? null : `${actual.prefixedRatio}%`,
+  }
+  const claims = []
+  match[1].split('\n').forEach((line, i) => {
+    const cells = /^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/.exec(line)
+    if (!cells) return
+    const name = cells[1].trim()
+    if (!(name in expected)) return
+    const value = /^([\d.]+%?)/.exec(cells[2].trim())
+    if (!value) return
+    claims.push({
+      kind: name,
+      file: rel,
+      line: baseLine + i,
+      claimed: value[1],
+      actual: expected[name],
+      ok: expected[name] !== null && value[1] === expected[name],
+      scope: 'status',
+    })
+  })
+  return claims
+}
+
 function fmtBytes(bytes) {
   if (bytes === null || bytes === undefined) return '—'
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
@@ -501,7 +550,11 @@ function collect() {
   const densitySingles = coreSinglesLines
     ? Number(((assertions / coreSinglesLines) * 100).toFixed(2))
     : null
+  const prefixedRatio = assertions ? Number(((prefixed.total / assertions) * 100).toFixed(1)) : null
   const actual = { assertions, appContextLines, coreLines, coreSinglesLines, density, densitySingles }
+
+  const gate = gateTiming(assertions)
+  const statusClaims = handoverStatusClaims({ ...actual, prefixedRatio }, gate)
 
   return {
     collectedAt: new Date().toISOString(),
@@ -522,11 +575,12 @@ function collect() {
       matched: negativeNames.length,
       ratio: allNames.length ? Number(((negativeNames.length / allNames.length) * 100).toFixed(1)) : null,
       prefixed,
-      prefixedRatio: assertions ? Number(((prefixed.total / assertions) * 100).toFixed(1)) : null,
+      prefixedRatio,
       note: '静态断言名称启发式统计，模板串与循环展开未计入；仅作趋势参考',
     },
     docClaims: docClaims(actual),
-    gateTiming: gateTiming(assertions),
+    statusClaims,
+    gateTiming: gate,
     pending: ['单次典型操作重算次数（需 I-05 渲染探针）'],
   }
 }
@@ -609,6 +663,24 @@ function toMarkdown(data) {
     }
   }
   lines.push('')
+  const statusClaims = data.statusClaims ?? []
+  if (statusClaims.length) {
+    lines.push('**交接文档状态块（I-16，`docs/HANDOVER.md` §0.1，`CIP-STATUS` 标记之间）**')
+    lines.push('')
+    lines.push('| 指标 | 文件:行 | 声明值 | 实测值 | 结论 |')
+    lines.push('|---|---|---|---|---|')
+    for (const claim of statusClaims) {
+      lines.push(
+        `| ${claim.kind} | \`${claim.file}:${claim.line}\` | ${claim.claimed} | ${claim.actual ?? '—'} | ${
+          claim.ok ? '一致' : '**偏差**'
+        } |`,
+      )
+    }
+    lines.push('')
+  } else {
+    lines.push('- 交接文档未写 `CIP-STATUS` 状态块（不判红；写了才比对）。')
+    lines.push('')
+  }
   lines.push(
     `历史流水类文档（P1–P10 记录、交接沿革）另有 ${historicalClaims.length} 处数字，其中 ${
       historicalClaims.filter((c) => !c.ok).length
@@ -685,6 +757,7 @@ if (args.has('--json')) {
 
 if (args.has('--strict')) {
   const drift = data.docClaims.filter((claim) => claim.scope === 'current' && !claim.ok)
+  const statusFailed = (data.statusClaims ?? []).filter((claim) => !claim.ok)
   const timingFailed = (data.gateTiming?.checks ?? []).filter((item) => !item.ok)
   if (drift.length) {
     console.error(`\n[strict] 契约文档存在 ${drift.length} 处数字偏差：`)
@@ -692,13 +765,19 @@ if (args.has('--strict')) {
       console.error(`  - ${claim.file}:${claim.line} ${claim.kind} 声明 ${claim.claimed} / 实测 ${claim.actual}`)
     }
   }
+  if (statusFailed.length) {
+    console.error(`\n[strict] 交接文档状态块存在 ${statusFailed.length} 处偏差（I-16）：`)
+    for (const claim of statusFailed) {
+      console.error(`  - ${claim.file}:${claim.line} ${claim.kind} 声明 ${claim.claimed} / 实测 ${claim.actual ?? '—'}`)
+    }
+  }
   if (timingFailed.length) {
     console.error(`\n[strict] 门禁耗时基线存在 ${timingFailed.length} 处不一致：`)
     for (const item of timingFailed) console.error(`  - ${item.id}：${item.detail}`)
   }
-  if (drift.length || timingFailed.length) {
+  if (drift.length || statusFailed.length || timingFailed.length) {
     process.exitCode = 1
   } else {
-    console.log('\n[strict] 契约文档数字与门禁耗时基线一致。')
+    console.log('\n[strict] 契约文档数字、交接状态块与门禁耗时基线均一致。')
   }
 }

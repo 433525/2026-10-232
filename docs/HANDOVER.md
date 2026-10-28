@@ -1,8 +1,9 @@
 # 交接文档 · 社区服务双入口原型（React 19）
 
-> 更新：2026-10-24（P6 后）· 交接对象：下一位维护者 / 下一个 AI 会话
-> 仓库位置：`D:\网页开发\repo` · 当前分支：`agent/workbuddy/aplus-react-port`（P6 代码提交见 `git log --grep=P6`）
-> 一句话状态：**功能闭环、验收通过、尚未合并主线；是合成演练原型，不是可上线产品。**
+> 更新：2026-10-28（CIP-232 W7 收口后）· 交接对象：下一位维护者 / 下一个 AI 会话
+> 仓库位置：`D:\网页开发\repo` · 当前分支：`agent/workbuddy/aplus-react-port` @ `d7bc797`（P6–P8 代码提交见 `git log --grep=P6`）
+> 一句话状态：**功能闭环、验收 248/248、尚未合并主线；是合成演练原型，不是可上线产品。**
+> 本文描述「当前分支的事实」，不是规划。§0.1 的状态块由 `tools/collect-baseline.mjs --strict` 机器校验；改数值前先跑采集器，不要手改后不回采。
 
 ---
 
@@ -12,14 +13,28 @@
 |---|---|
 | 项目 | 社区服务双入口合成演练原型：B 端受控社区（`/`）+ A+ 受理工作台（`/aplus.html`） |
 | 仓库 | `https://github.com/433525/2026-10-232` |
-| 当前分支 | `agent/workbuddy/aplus-react-port`，与 `origin` 同步，工作区干净 |
+| 当前分支 | `agent/workbuddy/aplus-react-port` @ `d7bc797`，**本地领先 `origin` 39 个提交**（未推送），工作区干净 |
 | 主线基线 | `main` @ `ea48ac0`，**不包含**双入口与 A+ 改造 |
 | 待处理 | PR [#1](https://github.com/433525/2026-10-232/pull/1) 处于打开状态，未合并 |
 | 技术栈 | React 19.2.6 + Vite 7.3.2 + TypeScript 5.9.3；B 端 Tailwind 4.1.17，A+ 原生 CSS |
-| 代码规模 | `src` 共 19,576 行（ts/tsx/css）；B 端 22 个组件，A+ 21 个（11 版面 + 10 弹层） |
-| 验证状态 | 类型检查 0 错误；生产构建成功（3.0s）；自动化验收 205/205（2026-10-26 复跑，含 `check:fixes` 88 项） |
+| 代码规模 | `src` 共 24,845 行 / 101 个文件（ts/tsx/css，2026-10-28 实测）；B 端 26 个组件，A+ 21 个（11 版面 + 10 弹层） |
+| 验证状态 | 类型检查 0 错误；生产构建成功；八段自动化验收全绿——具体数字见 §0.1（唯一落点，机器校验） |
+| 改进项目 | CIP-232 持续改进（W1–W7 已收口）：决策 `docs/delivery/decisions.md`、基线 `docs/metrics/baseline.md`、可达性 `docs/delivery/reachability.md` |
 | 性质 | 纯前端、纯合成数据、无后端、无通知、无支付，**不具备生产运营能力** |
 | 建议下一步 | 评审并合并 PR #1；再按 §3.1 的优先级决定是否投入生产化 |
+
+### 0.1 CIP-232 当前状态（机器校验）
+
+<!-- CIP-STATUS:BEGIN 本块由 tools/collect-baseline.mjs --strict 逐项比对；改数值必须同时确认采集器实测一致，否则退出码 1 -->
+| 指标 | 当前值 | 采集口径 |
+|---|---|---|
+| 断言总数 | 248 | 八段 `report.json` 的 `total` 之和（运行时真值） |
+| 全量门禁 | 437.2 s | `docs/metrics/gate-timing.json`，8 段串行，预算 480 s |
+| 快检门禁 | 216.4 s | 前五段合计，预算 230 s |
+| 精确负向占比 | 13.3% | `[neg]`/`[edge]` 前缀自声明，目标 ≥12% |
+<!-- CIP-STATUS:END -->
+
+动作覆盖率 M4 为 52/52（100%），由 `docs/delivery/reachability.md` 人工维护——采集器无法从证据推导该值，故不入机器校验。M6（单次操作重算次数）仍无读数，探针设计与测量内核见 `docs/delivery/probe-design.md`（D-29/D-30）。
 
 **只有 10 分钟？** 先读 §1.3（硬边界）、§3.1（待办优先级）、§7.2（十条硬规则）。
 
@@ -77,18 +92,23 @@
 | P4.1 | 补测 §9 履约链路，修复三处断链，验收增至 89 项 | 完成 |
 | P5 | README、架构/设计/交付文档、证据归档 | 完成 |
 | P6 | 存档自愈（坏档取原文/重置门禁/跨标签冲突）与评论级举报 | 完成 |
+| P7 | 备份 JSON 导入（5 MB 上限、二次确认、坏档先取原文）、留言级举报 | 完成 |
+| P8 | 设计稿对齐收口（八张参考图归档 `docs/design-reference/`）、页脚减负 | 完成 |
+| CIP-232 | 持续改进：度量入仓、八段门禁、覆盖率 100%、精确负向 13.3%、契约拆分前置 | 进行中（W8 待排期） |
 | **待办** | **PR 评审与合并；生产化决策** | **未开始** |
 
 ### 2.2 版本与交付状态
 
+P6 交付时的提交快照（2026-10-24，**仅供追溯，不是当前事实**）：
+
 ```
-e871309  fix: 补齐 §9 履约链路验收并修复三处断链        ← HEAD
+e871309  fix: 补齐 §9 履约链路验收并修复三处断链        ← 当时的 HEAD
 20b3a7b  docs: 登记 agent 推送日志与 PR #1 链接
 3e6d5cf  feat: 双入口重构 — B 端受控社区 + A+ 受理工作台（React 19）
 ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版）  ← main
 ```
 
-- 分支已推送，`git log @{u}..HEAD` 为空，工作区干净。
+- 现状：当前 HEAD 为 `d7bc797`（CIP-232 W7 收口），本地领先远端 **39 个提交**，`git log @{u}..HEAD` **不为空**——上述「已与 origin 同步、工作区干净」只对 P6 当日成立，接手时以 `git log --oneline -5` 与 `git status --short` 为准。
 - `main` 仍停在 `ea48ac0`（旧版单入口）。**任何基于 `main` 的改动都不会包含 A+ 工作台。**
 - `docs/evidence/**/*.png` 被 `.gitignore` 排除，只提交 `report.json`；需要截图时本地跑脚本复现。
 
@@ -99,8 +119,8 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | 类型检查 | `npm run typecheck` | 0 错误 |
 | 生产构建 | `npm run build` | 成功，2024 modules，`✓ built in 2.29s` |
 
-> 205 项验收数字取自入库证据（`docs/evidence/*/report.json`，2026-10-26 串行复跑：27 + 24 + 11 + 27 + 28 + 88）。
-> 其中 `check:fixes` 是修复轮补测脚本，覆盖 117 项之外的修复回归；本文档其余章节里出现的 117 为 2026-10-24 当日记录。接手后请按 §6.3 自行复跑一次。
+> 上表的 typecheck / build 是 **2026-10-24（P6 时点）** 的记录，只说明当时结论；当前状态以 §0.1 与 §2.5 为准。
+> 文中出现的 205 / 117 / 112 均为各阶段历史值（205 = 2026-10-26 六段口径，117 = 2026-10-24 五段口径），按「历史记录不追改」保留，**不得当作当前基线**。接手后请按 §6.3 自行复跑一次。
 
 ### 2.3 B 端已完成功能
 
@@ -161,7 +181,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | 跨标签 | 另一标签页改写后，主内容区顶部出现 `role=status` 警示与「载入最新存档」；载入后 `lastKnownRaw` 同步、写入恢复 |
 | 评论举报 | 每条已审评论独立举报（`targetType: 'comment'`）；审核端工单显示「演练评论」+ 目标 id |
 | 合规文案 | 清除「网格员 / 网格长 / 社区网格把关 / 一键直拨」；首页紧急入口副标题改为「非急救：请拨打 120/110」 |
-| 验收 | 新增 `tools/check-recovery.mjs` 23 项；合计 112 项 |
+| 验收 | 新增 `tools/check-recovery.mjs` 23 项；当轮累计 112 项（P6 口径，非当前基线） |
 
 ### 2.6.2 P7 增量（2026-10-24）
 
@@ -169,7 +189,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 |---|---|
 | 备份导入 | 存档面板新增「导入备份 JSON」：5 MB 文件上限 → 与启动同一解析器校验 → 显示条数/保存时间 → 二次确认后整档覆盖；坏档需先下载原文 |
 | 留言举报 | 「订单留言」每条对方留言可单独举报（`targetType='message'`），自己的留言不显示 |
-| 验收 | `check:recovery` 扩到 28 项；合计 117 项 |
+| 验收 | `check:recovery` 扩到 28 项；当轮累计 117 项（P7 口径，非当前基线） |
 
 ### 2.7 唯一的 schema 扩展
 
@@ -185,14 +205,14 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 
 | 优先级 | 事项 | 性质 | 建议动作 |
 |---|---|---|---|
-| **P0** | PR #1 未合并，`main` 不含 A+ | 交付动作 | 评审 diff → 合并；合并前确认本地 117 项 |
+| **P0** | PR #1 未合并，`main` 不含 A+ | 交付动作 | 评审 diff → 合并；合并前跑 `npm run gate` 确认 248/248（八段，需先起 5180 预览） |
 | **P0** | 无视觉像素基线 | 质量缺口 | 若继续迭代 UI，先选 8–12 个关键状态（两端主视图、深链、代表弹层、320px、**存档异常态**）建截图基线；可参考 mvp 的 `visual-baseline` 做法，否则样式回归只能靠肉眼 |
-| **P1** | A+ 备份导入的文件选择未自动化 | 测试缺口 | B 端已用 `DOM.setFileInputFiles` 覆盖；把同一手法补进 `check:aplus` |
+| **P1** | A+ 备份导入的文件选择未自动化 | 测试缺口 → **已闭合** | 由 `check-fixes-b.mjs` 第 16 组用 `DOM.setFileInputFiles` 覆盖（重置后整档恢复 + 版本不符被拒），B 端同法在 `check-recovery.mjs` |
 | **P1** | B 端消息页没有会话列表 | 结构缺口 | 只渲染 `chatMessages[0]` 所属会话，多条订单后旧会话不可达；需改 232 版面，动手前先确认交互。 |
 | **P2** | 坏档门禁的最外层是 UI 守卫 | 健壮性取舍 | 绕过界面直接调 `store.resetDemoData()` 仍可覆盖原文；若要硬保证，需把「已确认」标记做进领域层 |
 | **P2** | A+ 全树重渲染 | 性能 | `revision` 单版本号订阅；记录上千时改按字段订阅 |
 | **P2** | `computed` 不缓存 | 性能/取舍 | 派生每次读取重算；规模小可接受，先量化再改 |
-| **P2** | 三个超大单文件 | 可维护性 | `store.ts` 2320 行、`workbench.ts` 1517 行、`AppContext.tsx` 749 行；拆分前先补契约测试 |
+| **P2** | 三个超大单文件 | 可维护性 | `store.ts` 2383 行、`workbench.ts` 1588 行、`AppContext.tsx` 1013 行（2026-10-28 实测）；拆分设计见 `docs/delivery/split-analysis.md`，拆分**不改善**指标密度（D-28），只承诺可维护性 |
 | **P3** | 仅 Chromium 验证 | 兼容风险 | 补 Firefox / Safari / 微信 X5 真机 |
 | **P3** | A+ 无独立大字模式；`mobile-nav` 未验刘海屏 | 适老化 | 复用 B 的关怀模式令牌；补 `env(safe-area-inset-*)` |
 | **P3** | 无 Service Worker | 能力边界 | A+ 未移植 `OfflineNotice`；如要离线需连同预缓存一起做 |
@@ -399,7 +419,7 @@ repo/
 
 ### 5.3 组件清单
 
-- **B 端 22 个**：`HomeTab`、`CommunityTab`、`TasksHall`、`MessagesTab`、`ProfileTab`、`AdminCenter`、`HeaderNav`、`BottomTabBar`、`PublishModal`、`OrderDetailModal`、`SearchModal`、`RealNameModal`、`CertificateModal`、`CommunityQrModal`、`EldercareModal`、`HelpCenterModal`、`SosModal`、`TermsModal`、`FooterCompliance`、`BrandMark`、`SmartImage`、`ErrorBoundary`。
+- **B 端 26 个**：`HomeTab`、`CommunityTab`、`TasksHall`、`MessagesTab`、`ProfileTab`、`AdminCenter`、`HeaderNav`、`BottomTabBar`、`PublishModal`、`OrderDetailModal`、`SearchModal`、`RealNameModal`、`CertificateModal`、`CommunityQrModal`、`EldercareModal`、`HelpCenterModal`、`SosModal`、`TermsModal`、`TimeBankRulesModal`、`TimeLedgerPage`、`StorageBanner`、`StoragePanel`、`FooterCompliance`、`BrandMark`、`SmartImage`、`ErrorBoundary`。
 - **A+ 11 个版面**：`AppTopBar`、`AppSideRail`、`MobileNav`、`PageHeading`、`SyntheticBanner`、`IntakeGate`、`MetricGrid`、`QueuePanel`、`CaseDetail`、`ComplaintPanel`、`BackupTextPanel`。
 - **A+ 10 个弹层**：`CreateCase`、`Transition`、`Checkpoint`、`FollowUp`、`ContactSimulation`、`HighRiskStop`、`Reopen`、`Complaint`、`CommunityBridge`、`Help`。
 
@@ -408,10 +428,16 @@ repo/
 | 文件 | 作用 | 注意 |
 |---|---|---|
 | `tools/lib/cdp.mjs` | 零依赖 CDP：启动浏览器、建页、收集控制台异常、量溢出、点击、Esc | 自动查找 Chrome/Edge，可用 `CHROME_PATH` 覆盖 |
+| `tools/run-gate.mjs` | 八段串行编排：端口分配、逐段计时、异常聚合、自动落盘 `docs/metrics/gate-timing.json` | **不自启 preview**，必须先起 5180；默认串行，并发已被 D-14 否决 |
 | `tools/check-dual-entry.mjs` | 27 项双入口与响应式 | 依赖 `BASE_URL`，默认 5180 |
-| `tools/check-aplus-flow.mjs` | 24 项 A+ 主流程 | 会创建带随机后缀的演练记录，互不污染 |
-| `tools/check-community-flow.mjs` | 11 项 B 主链路 | 断言「拦截时不写存档」 |
-| `tools/check-acceptance.mjs` | 27 项履约与举报链路 | 补测后新增，覆盖三处历史断链 |
+| `tools/check-aplus-flow.mjs` | 35 项 A+ 主流程 | 会创建带随机后缀的演练记录，互不污染 |
+| `tools/check-community-flow.mjs` | 25 项 B 主链路 | 断言「拦截时不写存档」；身份不随存档持久化，整页重载后须重选 |
+| `tools/check-acceptance.mjs` | 27 项履约与举报链路 | 覆盖三处历史断链 |
+| `tools/check-recovery.mjs` | 28 项坏档恢复与跨标签冲突 | 备份导入用 `DOM.setFileInputFiles`，不弹系统文件框 |
+| `tools/check-fixes-a.mjs` / `check-fixes-b.mjs` | 55 + 39 项修复回归 | 由单文件拆出（D-08），两段各自带控制台异常看门狗 |
+| `tools/check-p0-gaps.mjs` | 12 项 P0 缺口 | 评论驳回理由、取消订单终态、演练实名、全部已读不回弹 |
+| `tools/collect-baseline.mjs` | 基线采集 + `--strict` 契约校验（I-11/I-13/I-14/I-15/I-16） | 零依赖只读；`--write` 重写 `docs/metrics/baseline.md` |
+| `tools/measure-recompute.mjs` | I-05 重算次数测量内核（`--self-test` / `--probe-check` / `--harness-test`） | 不在被测面内；无已校准操作时 `--run` 退 3 |
 
 ### 5.5 文档地图
 
@@ -423,8 +449,11 @@ repo/
 | `docs/delivery/component-data-map.md` | 每个组件读哪个字段、调哪个方法 | 定位数据来源 |
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 | 评估工作量 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复四类清单 | 评审 diff |
-| `docs/delivery/acceptance.md` | 117 项验收明细与合规逐条验证 | 复现与核对 |
-| `docs/research/p1–p6*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |
+| `docs/delivery/acceptance.md` | 248 项验收明细与合规逐条验证 | 复现与核对 |
+| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-31），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
+| `docs/delivery/reachability.md` | 52 个写动作的覆盖矩阵与缺口清单 | 判断「这条路径验过没有」 |
+| `docs/metrics/baseline.md` | 自动采集的基线表与一致性校验结果 | 每次全量门禁后 |
+| `docs/research/p1–p7*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |
 | `docs/agents/log.md` | 推送日志、PR、验证结果、风险 | 追溯提交背景 |
 
 ---
@@ -452,18 +481,26 @@ npm run dev            # 开发服务器，默认 5173
 
 ### 6.3 验收复现（必须 5180）
 
-五个脚本的默认 `BASE_URL` 是 `http://localhost:5180`，**不是** `preview` 默认的 4173。
+八段脚本的默认 `BASE_URL` 都是 `http://localhost:5180`，**不是** `preview` 默认的 4173。
 
 ```bash
 npm run typecheck
 npm run build
 npx vite preview --port 5180 --strictPort     # 单独终端，保持运行
 
+npm run gate              # 八段串行 + 逐段计时 + 自动落盘，约 7.5 分钟
+# 或逐段跑（数字为当前断言数，合计 248）
 npm run check:dual        # 27
-npm run check:aplus       # 24
-npm run check:community   # 11
+npm run check:aplus       # 35
+npm run check:community   # 25
 npm run check:acceptance  # 27
+npm run check:recovery    # 28
+npm run check:fixes:a     # 55
+npm run check:fixes:b     # 39
+npm run check:p0          # 12
 ```
+
+跑完执行 `node tools/collect-baseline.mjs --strict`：它会把各段 `report.json`、`gate-timing.json`、契约文档与 §0.1 状态块逐项对齐，退出码非 0 即表示「文档与实测分叉」。
 
 可覆盖的变量：
 
@@ -474,20 +511,22 @@ CHROME_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe" npm run chec
 
 脚本会新建临时浏览器 profile，**不依赖你现有的 localStorage**；结束时清理失败会自动重试（Windows `EBUSY`）。
 
-### 6.4 构建产物（2026-10-24 实测）
+### 6.4 构建产物（2026-10-28 实测）
 
 ```
-dist/index.html                    2.17 kB │ gzip  1.35 kB
-dist/aplus.html                    2.16 kB │ gzip  1.31 kB
-dist/assets/community-*.css       87.38 kB │ gzip 13.41 kB   ← B 端 Tailwind
-dist/assets/aplus-*.css           33.38 kB │ gzip  7.56 kB   ← A+ 原生 CSS
-dist/assets/community-*.js       278.46 kB │ gzip 77.33 kB
-dist/assets/aplus-*.js           172.34 kB │ gzip 42.52 kB
-dist/assets/types-*.js           196.40 kB │ gzip 62.34 kB   ← 两端共享，只出现一次
+dist/index.html                    2.08 kB │ gzip  1.30 kB
+dist/aplus.html                    2.20 kB │ gzip  1.33 kB
+dist/assets/community-*.css       79.48 kB │ gzip 15.03 kB   ← B 端 Tailwind
+dist/assets/aplus-*.css           33.24 kB │ gzip  7.14 kB   ← A+ 原生 CSS
+dist/assets/community-*.js       195.50 kB │ gzip 61.97 kB   ← B 端入口
+dist/assets/aplus-*.js           167.00 kB │ gzip 41.13 kB   ← A+ 入口
+dist/assets/route-state-*.js     194.58 kB │ gzip 61.97 kB   ← 两端共享（React + 路由态），只出现一次
 dist/robots.txt
 ```
 
-> `docs/delivery/acceptance.md` 中的 276.85 kB 是 P4.1 修复前的旧值；以本节实测为准。
+- `dist` 总量 781 KB；两个入口 HTML 均以 `modulepreload` 引用同一个 `route-state-*.js`，**共享层只下载一次**（两文件互相 `import` 可验证，不是各自打包一份）。
+- 共享 chunk 的文件名取该 chunk 的首个模块名，当前为 `route-state`；P6 时叫 `types`。按名找文件会踩空，按 `dist/index.html` 的引用列表核对。
+- `docs/delivery/acceptance.md` 中的体积累计是历史值；以本节实测为准。
 
 ### 6.5 静态部署
 
@@ -525,7 +564,7 @@ dist/robots.txt
 1. `git status` 与 `git branch -vv`：确认在 `agent/workbuddy/aplus-react-port`，不要直接在 `main` 上改。
 2. 读 `README.md` → `docs/ARCHITECTURE.md` → `docs/delivery/gap-report.md` → `docs/delivery/acceptance.md`（顺序不要反）。
 3. 跑 `npm run typecheck` + `npm run build`，确认本地基线可用。
-4. 起 5180 预览，五个验收脚本全跑一遍，确认 117/117；若数字不符，先查环境（Node 版本、Chrome、端口），不要先改代码。
+4. 起 5180 预览，跑 `npm run gate`（八段串行，约 7.5 分钟），确认 248/248；再跑 `node tools/collect-baseline.mjs --strict` 确认文档与实测一致。若数字不符，先查环境（Node ≥22、Chrome/Edge、端口 5180、是否漏了 preview），不要先改代码。
 5. 打开两端各走一遍主链路：B 端「发布 → 审核 → 接单 → 签到 → 完成 → 账本」；A+ 端「社区桥 → 登记 → 检查点 → 流转 → 备份」。
 6. 确认 PR #1 的 diff 范围与你将要改的文件是否重叠，避免重复劳动。
 
@@ -564,7 +603,7 @@ dist/robots.txt
 
 ### 7.5 五个常见误解
 
-1. **「117 项通过 = 可以上线」**：不等于。117 项只证明本机合成数据下主链路与异常路径可走通，无后端、无鉴权、无合规手续。
+1. **「248 项通过 = 可以上线」**：不等于。248 项只证明本机合成数据下主链路与异常路径可走通，无后端、无鉴权、无合规手续。
 2. **「`docs/evidence` 里有截图」**：没有。PNG 被 gitignore，只有 `report.json`；截图需本地跑脚本。
 3. **「项目用了 Noto Sans SC 字体」**：`index.css` 字体栈首选它，但**没有 `@font-face`、没有自托管**；系统未安装时回退到系统字体。不要为了「补齐」引入 CDN。
 4. **「A+ 和 B 的投诉是同一套」**：不是。B 的是本机反馈工单，A+ 的是针对演示角色的复核队列，同名不同义，刻意未合并。
@@ -584,12 +623,19 @@ npm run typecheck                  # tsc --noEmit
 npm run build                      # 双入口产物
 npx vite preview --port 5180 --strictPort
 
-# 验收（五脚本，共 117 项）
-npm run check:dual
+# 验收（八段串行，共 248 项；必须先起 5180 预览）
+npm run gate                       # 编排 + 逐段计时 + 写 gate-timing.json
+npm run check:dual                 # 或逐段跑
 npm run check:aplus
 npm run check:community
 npm run check:acceptance
 npm run check:recovery
+npm run check:fixes:a
+npm run check:fixes:b
+npm run check:p0
+
+# 文档—实测一致性（契约数字 / 耗时基线 / §0.1 状态块，不一致即退出码 1）
+node tools/collect-baseline.mjs --strict
 
 # 低内存构建
 NODE_OPTIONS=--max-old-space-size=1200 npm run build
@@ -616,7 +662,7 @@ grep -rn 'https\?://' src        # 仅应命中注释/说明，不得出现在 s
 
 【项目位置】
 D:\网页开发\repo（Windows，Git Bash）。仓库 https://github.com/433525/2026-10-232
-当前分支 agent/workbuddy/aplus-react-port @ e871309，已与 origin 同步，工作区干净。
+当前分支 agent/workbuddy/aplus-react-port @ d7bc797，本地领先 origin 39 个提交，工作区干净。
 main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 
 【项目是什么】
@@ -625,7 +671,7 @@ main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 - A+ 受理工作台 /aplus.html：内部视角，登记队列、分诊、检查点、高风险停止、投诉复核、备份、?case= 深链。
 两端唯一耦合是 src/data/intake/community-bridge.ts，只读 B 端存档，绝不写回。
 技术栈：React 19.2.6 + Vite 7.3.2 + TypeScript 5.9.3；B 端 Tailwind 4.1.17，A+ 原生 CSS；无路由库、无测试框架、无后端。
-规模：src 约 19,576 行；B 端 22 组件，A+ 21 组件（11 版面 + 10 弹层）。
+规模：src 约 24,845 行 / 101 个文件；B 端 26 组件，A+ 21 组件（11 版面 + 10 弹层）。
 
 【硬边界，不可突破】
 1. 仅合成数据，不得写入任何真实姓名、手机号、身份证、门牌号、病史、机构名。
@@ -637,16 +683,17 @@ main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 7. 不引入外部 CDN / 字体 / 图片；不引 UI 库；不加 Service Worker（除非整套离线方案一起做）。
 
 【当前状态】
-typecheck 0 错误；build 成功（2.14s）；自动化验收 117/117（27 双入口 + 24 A+ + 11 B + 27 履约链路 + 28 异常路径与恢复）。
-证据在 docs/evidence/*/report.json（截图不入库）。
-已知缺口：A+ 导入自动化未接、消息页无会话列表、坏档门禁最外层是 UI 守卫、
-A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium 验证、无视觉像素基线。
+typecheck 0 错误；build 成功；八段自动化验收 248/248（dual 27 + aplus 35 + community 25 + acceptance 27 + recovery 28 + fixes:a 55 + fixes:b 39 + p0 12），全量门禁 437.2 s。
+证据在 docs/evidence/*/report.json（截图不入库）；基线表与一致性校验见 docs/metrics/baseline.md。
+已知缺口：消息页无会话列表、坏档门禁最外层是 UI 守卫、
+A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium 验证、无视觉像素基线、
+M6（单次操作重算次数）尚无读数。
 
 【第一步请按顺序做】
 1. 读 README.md、docs/ARCHITECTURE.md、docs/delivery/gap-report.md、docs/delivery/acceptance.md。
 2. 运行：cd D:/网页开发/repo && npm run typecheck && npm run build
 3. 起预览：npx vite preview --port 5180 --strictPort（验收脚本默认 BASE_URL 是 5180，不是 4173）
-4. 跑五个脚本：npm run check:dual / check:aplus / check:community / check:acceptance / check:recovery，确认 117/117。
+4. 跑八段门禁：npm run gate，确认 248/248；再跑 node tools/collect-baseline.mjs --strict 确认文档与实测一致。
 5. 手动走两条链路：B 端发布→审核→接单→签到→完成→账本；A+ 社区桥→登记→检查点→流转→备份。
 6. 汇报：当前基线是否与文档一致、你打算改什么、影响哪些文件。
 
@@ -676,10 +723,10 @@ A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium �
 | `docs/delivery/component-data-map.md` | 组件 ↔ 数据源 ↔ 动作映射 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复清单 |
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 |
-| `docs/delivery/acceptance.md` | 117 项验收与十条合规逐条验证 |
+| `docs/delivery/acceptance.md` | 248 项验收与十条合规逐条验证 |
 | `docs/research/p1–p6*.md` | 阶段调研与方案取舍 |
 | `docs/agents/log.md` | 推送日志、PR、验证与风险 |
 
 ---
 
-**维护约定**：本文档描述的是「当前分支的事实」，不是规划。改动影响 §2、§3、§6 中任一数字时，请同步更新本文与 `README.md` 的验收项数。
+**维护约定**：本文档描述的是「当前分支的事实」，不是规划。改动影响 §0.1、§2、§3、§6 中任一数字时，必须同批更新本文、`README.md` 与 `docs/delivery/acceptance.md`，然后跑 `node tools/collect-baseline.mjs --strict`——§0.1 状态块的四个数值由机器比对，写错即退出码 1。历史章节（P4–P7 增量、§8 以前的沿革）按「历史记录不追改」保留，但须与本文件开头的时间戳一致地标注所属阶段。

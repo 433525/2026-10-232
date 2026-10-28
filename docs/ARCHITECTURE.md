@@ -137,6 +137,7 @@ M10 以 `dist/**` 全部文件**字节总和**判定（当前 781 KB）；`du -s
 - **契约文档**（`docs/delivery/acceptance.md`、`docs/delivery/gap-report.md`、`docs/ARCHITECTURE.md`、`README.md`）中的数字声明（断言总数、`AppContext` 行数、密度分母与密度数值）必须与实测一致，由 `node tools/collect-baseline.mjs --strict` 判红。含 `≥`/`≤` 的行视为目标值，不计入偏差。
 - **门禁耗时基线**（`docs/metrics/gate-timing.json`）由同一命令做六项校验（I-11/D-15/I-15）：分段与 `report.json` 一致、分项合计等于总计、记录断言数等于实测、`baseRevision` 为 HEAD 祖先、**被测面内容指纹与当前源码一致**、**分档预算（快检 / 全量 / 单段）未超线**。改 `src/` 或任一验收脚本即令耗时失效；只改文档不再失效。
 - **历史流水**（`docs/agents/log.md`、P1–P10 沿革段）按「历史记录不追改」处理，不计入偏差数。
+- **交接文档状态块**（`docs/HANDOVER.md` §0.1 的 `CIP-STATUS` 标记之间，I-16/D-31）是第三类：只核对块内四项（断言总数、全量耗时、快检耗时、精确负向占比），**不扫全文**。该文件是接手者入口、却长期在契约校验之外——曾同时存在三个互斥的断言数（§0 写 205、附录写五脚本 117、§2.5 写 248），而 §2.2 还把 `e871309` 标成 HEAD（实际已领先 39 个提交）。全文扫描不可行的原因是它另有数百行刻意保留的历史沿革；改用标记块后，写错即红、不写不红。
 - 复现：`node tools/collect-baseline.mjs --strict`（<1 s，零依赖，可作提交级门禁）。
 
 ### 6.5 断言命名前缀
