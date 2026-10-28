@@ -1,6 +1,6 @@
 # 基线表（自动采集）
 
-- 采集时间：2026-10-28T02:59:53.310Z
+- 采集时间：2026-10-28T04:17:43.302Z
 - 采集脚本：`tools/collect-baseline.mjs`（零依赖、只读）
 - 断言口径：运行时真值（各脚本 `report.json` 的 `total`），覆盖率 8/8
 
@@ -8,14 +8,14 @@
 
 | 脚本 | 静态调用点 | 运行时总数 | 通过 | 证据时间 | 口径 |
 |---|---|---|---|---|---|
-| `tools/check-dual-entry.mjs` | 18 | 27 | 27 | 2026-10-27 08:28:53 | runtime |
-| `tools/check-aplus-flow.mjs` | 35 | 35 | 35 | 2026-10-27 08:29:26 | runtime |
-| `tools/check-community-flow.mjs` | 25 | 25 | 25 | 2026-10-27 08:30:18 | runtime |
-| `tools/check-acceptance.mjs` | 27 | 27 | 27 | 2026-10-27 08:30:58 | runtime |
-| `tools/check-recovery.mjs` | 28 | 28 | 28 | 2026-10-27 08:31:50 | runtime |
-| `tools/check-fixes-a.mjs` | 55 | 55 | 55 | 2026-10-27 08:33:11 | runtime |
-| `tools/check-fixes-b.mjs` | 39 | 39 | 39 | 2026-10-27 08:34:32 | runtime |
-| `tools/check-p0-gaps.mjs` | 12 | 12 | 12 | 2026-10-27 08:35:31 | runtime |
+| `tools/check-dual-entry.mjs` | 18 | 27 | 27 | 2026-10-28 04:15:50 | runtime |
+| `tools/check-aplus-flow.mjs` | 35 | 35 | 35 | 2026-10-28 04:07:47 | runtime |
+| `tools/check-community-flow.mjs` | 25 | 25 | 25 | 2026-10-28 04:08:39 | runtime |
+| `tools/check-acceptance.mjs` | 27 | 27 | 27 | 2026-10-28 04:09:20 | runtime |
+| `tools/check-recovery.mjs` | 28 | 28 | 28 | 2026-10-28 04:10:11 | runtime |
+| `tools/check-fixes-a.mjs` | 55 | 55 | 55 | 2026-10-28 04:11:32 | runtime |
+| `tools/check-fixes-b.mjs` | 39 | 39 | 39 | 2026-10-28 04:12:54 | runtime |
+| `tools/check-p0-gaps.mjs` | 12 | 12 | 12 | 2026-10-28 04:13:53 | runtime |
 | **合计** | **239** | **248** | — | — | — |
 
 ## B. 核心代码规模与密度
@@ -70,6 +70,7 @@
 | 密度 B | `docs/ARCHITECTURE.md:123` | 4.14 | 4.14 | 一致 |
 | 密度分母 A | `docs/ARCHITECTURE.md:129` | 12682 | 12682 | 一致 |
 | 密度分母 B | `docs/ARCHITECTURE.md:129` | 5993 | 5993 | 一致 |
+| 断言总数 | `docs/ARCHITECTURE.md:163` | 248 | 248 | 一致 |
 | 断言总数 | `docs/delivery/acceptance.md:27` | 248 | 248 | 一致 |
 | AppContext 行数 | `docs/delivery/gap-report.md:62` | 1013 | 1013 | 一致 |
 | 断言总数 | `README.md:43` | 248 | 248 | 一致 |
@@ -79,44 +80,46 @@
 | 指标 | 文件:行 | 声明值 | 实测值 | 结论 |
 |---|---|---|---|---|
 | 断言总数 | `docs/HANDOVER.md:31` | 248 | 248 | 一致 |
-| 全量门禁 | `docs/HANDOVER.md:32` | 437.2 | 437.2 | 一致 |
-| 快检门禁 | `docs/HANDOVER.md:33` | 216.4 | 216.4 | 一致 |
+| 全量门禁 | `docs/HANDOVER.md:32` | 437.3 | 437.3 | 一致 |
+| 快检门禁 | `docs/HANDOVER.md:33` | 215.9 | 215.9 | 一致 |
 | 精确负向占比 | `docs/HANDOVER.md:34` | 13.3% | 13.3% | 一致 |
 
-历史流水类文档（P1–P10 记录、交接沿革）另有 26 处数字，其中 15 处与当前实测不同；按「历史记录不追改」处理，不计入偏差数。
+历史流水类文档（P1–P10 记录、交接沿革）另有 28 处数字，其中 15 处与当前实测不同；按「历史记录不追改」处理，不计入偏差数。
 
 ## F. 门禁耗时与待采集
 
-- 全量门禁（8 段串行，端到端墙钟）：**437.2 s**（约 7 分 17 秒），断言 **248** 条全绿
-- 各段耗时之和 **437.2 s**（串行口径，与墙钟之差仅为进程间调度开销）
-- 环境：win32-x64 / Node v22.22.2 / vite 7.3.2；基线 b880312；base `http://localhost:5180`
-- 来源：`tools/run-gate.mjs` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 `sha256:c82f40e03c3c56c7669a9c2cdbbbd557`
-- 分档（I-15）：快检 **216.4 s / 230 s**（前 5 段，余 13.6 s）｜全量 **437.2 s / 480 s**（余 42.8 s）｜单段最长 `tools/check-fixes-b.mjs` **84.1 s / 150 s**
+- 全量门禁（8 段串行，端到端墙钟）：**437.3 s**（约 7 分 17 秒），断言 **248** 条全绿
+- 各段耗时之和 **437.3 s**（串行口径，与墙钟之差仅为进程间调度开销）
+- 环境：win32-x64 / Node v22.22.2 / vite 7.3.2；基线 b43f520；base `http://localhost:5180`
+- 来源：`tools/run-gate.mjs` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 `sha256:0e6751638a96a90dcb397ebdf0622ade`
+- 产物配对（I-17）：记录 `sha256:0a339a25c5b92885e6066109465b5e5a` / 当前 `sha256:0a339a25c5b92885e6066109465b5e5a`（一致）
+- 分档（I-15）：快检 **215.9 s / 230 s**（前 5 段，余 14.1 s）｜全量 **437.3 s / 480 s**（余 42.7 s）｜单段最长 `tools/check-fixes-b.mjs` **84.2 s / 150 s**
 
 | 脚本 | 耗时 (s) | 断言 | 通过 |
 |---|---|---|---|
 | `tools/check-dual-entry.mjs` | 39.2 | 27 | 27 |
-| `tools/check-aplus-flow.mjs` | 33.2 | 35 | 35 |
-| `tools/check-community-flow.mjs` | 51.7 | 25 | 25 |
+| `tools/check-aplus-flow.mjs` | 33.3 | 35 | 35 |
+| `tools/check-community-flow.mjs` | 51.6 | 25 | 25 |
 | `tools/check-acceptance.mjs` | 38.7 | 27 | 27 |
-| `tools/check-recovery.mjs` | 53.6 | 28 | 28 |
-| `tools/check-fixes-a.mjs` | 77.8 | 55 | 55 |
-| `tools/check-fixes-b.mjs` | 84.1 | 39 | 39 |
-| `tools/check-p0-gaps.mjs` | 58.9 | 12 | 12 |
-| **合计** | **437.2** | **248** | **248** |
+| `tools/check-recovery.mjs` | 53.2 | 28 | 28 |
+| `tools/check-fixes-a.mjs` | 78.0 | 55 | 55 |
+| `tools/check-fixes-b.mjs` | 84.2 | 39 | 39 |
+| `tools/check-p0-gaps.mjs` | 59.2 | 12 | 12 |
+| **合计** | **437.3** | **248** | **248** |
 
-> 口径说明：8 段串行执行，均针对 dist 的同一次构建；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），用于判定耗时是否失效。
+> 口径说明：8 段串行执行，均针对 dist 的同一次构建（distHash 为该构建的内容指纹，I-17）；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），distHash 为产物指纹（I-17），二者须与当前仓库同时相符，耗时基线才成立。
 
-一致性校验（I-11，采集时 HEAD `d7bc797`）：**全部通过**
+一致性校验（I-11，采集时 HEAD `322a49d`）：**全部通过**
 
 | 校验项 | 结果 | 明细 |
 |---|---|---|
 | 分段断言/通过与 report.json 一致 | 通过 | 8/8 |
-| 分项合计等于总计 | 通过 | 断言 248/248、通过 248/248、墙钟 437186/437186 ms（各段之和 437182 ms，并发度 1） |
+| 分项合计等于总计 | 通过 | 断言 248/248、通过 248/248、墙钟 437268/437268 ms（各段之和 437262 ms，并发度 1） |
 | 记录断言数等于本次运行时断言数 | 通过 | 248 vs 248 |
-| baseRevision 存在且为 HEAD 祖先 | 通过 | b880312 → HEAD d7bc797 |
-| 被测面内容指纹一致（I-12） | 通过 | sha256:c82f40e03c3c56c7669a9c2cdbbbd557 vs sha256:c82f40e03c3c56c7669a9c2cdbbbd557 |
-| 分档预算：快检 / 全量 / 单段（I-15） | 通过 | 快检 216.4 / 230 s（5 段）、全量 437.2 / 480 s、最长段 tools/check-fixes-b.mjs 84.1 / 150 s |
+| baseRevision 存在且为 HEAD 祖先 | 通过 | b43f520 → HEAD 322a49d |
+| 被测面内容指纹一致（I-12） | 通过 | sha256:0e6751638a96a90dcb397ebdf0622ade vs sha256:0e6751638a96a90dcb397ebdf0622ade |
+| 分档预算：快检 / 全量 / 单段（I-15） | 通过 | 快检 215.9 / 230 s（5 段）、全量 437.3 / 480 s、最长段 tools/check-fixes-b.mjs 84.2 / 150 s |
+| 被测产物指纹一致（I-17） | 通过 | sha256:0a339a25c5b92885e6066109465b5e5a vs sha256:0a339a25c5b92885e6066109465b5e5a |
 
 - [ ] 单次典型操作重算次数（需 I-05 渲染探针）
 
