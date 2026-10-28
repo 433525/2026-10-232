@@ -13,6 +13,13 @@
  * 语义说明：`totalMs` 为墙钟（端到端反馈时间），`sumMs` 为各段之和。并发度 >1 时
  * 两者必然不等，采集器的「分项合计」校验按 `concurrency` 分支判定。
  *
+ * 证据绑定（I-20，D-35）：每段落盘后，本脚本把该段 `report.json` 的**内容指纹**与
+ * `checkedAt` 一并写入 `gate-timing.json`，并记录本次门禁的起始时刻与 `runId`。
+ * 理由：`surfaceHash` 只证明源码没改、`distHash` 只证明产物没换，都证明不了
+ * 「八份证据出自同一次执行」。此前的真实缺口是——全量门禁记录 248/248 之后，
+ * 单跑任意一段 `node tools/check-<x>.mjs` 会用另一时刻的结果覆盖该段证据，
+ * 而断言总数与通过数多半不变，采集器的分项校验照样全绿。采集器第 8 条据此逐段重算比对。
+ *
  * 预检（D-32）：动手跑 440 s 之前先做两项成本 <1 s 的检查，任一不成立即退出码 2，
  * 不跑任何一段：
  *   1. **产物新鲜度**——`dist/**` 的最新产品时间必须不早于任何构建输入（`src/**`、
@@ -31,6 +38,7 @@ import { execSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { distHash, distEntries } from './lib/dist-hash.mjs'
+import { evidenceHash } from './lib/evidence.mjs'
 import { surfaceEntries, surfaceHash } from './lib/surface-hash.mjs'
 
 const ROOT = process.cwd()
@@ -138,7 +146,13 @@ function report(slug) {
   if (!existsSync(path)) return null
   try {
     const json = JSON.parse(readFileSync(path, 'utf8'))
-    return { total: json.total ?? null, passed: json.passed ?? null, mtimeMs: statSync(path).mtimeMs }
+    return {
+      total: json.total ?? null,
+      passed: json.passed ?? null,
+      checkedAt: json.checkedAt ?? json.generatedAt ?? null,
+      hash: evidenceHash(path),
+      mtimeMs: statSync(path).mtimeMs,
+    }
   } catch {
     return null
   }
@@ -174,6 +188,8 @@ function machine() {
 
 await preflight()
 const gateStart = Date.now()
+const gateStartAt = new Date(gateStart).toISOString()
+const runId = `gate-${gateStart.toString(36)}`
 const queue = [...selected]
 const results = []
 const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
@@ -191,6 +207,9 @@ const workers = Array.from({ length: Math.min(concurrency, queue.length) }, asyn
       ms: result.ms,
       assertions: fresh ? evidence.total : null,
       passed: fresh ? evidence.passed : null,
+      // I-20：内容指纹 + 证据自称的时间，供采集器逐段重算比对与时间窗判定。
+      reportHash: fresh ? evidence.hash : null,
+      checkedAt: fresh ? evidence.checkedAt : null,
       exitCode: result.exitCode,
     })
     const verdict = result.exitCode === 0 ? 'PASS' : 'FAIL'
@@ -217,12 +236,14 @@ console.log(`\n${results.length - failed.length}/${results.length} 段通过；�
 if (!only && failed.length === 0) {
   const payload = {
     measuredAt: new Date().toISOString(),
+    gateStartAt,
+    runId,
     machine: machine(),
     base: BASE,
     baseRevision: git('rev-parse --short HEAD') ?? 'unknown',
     surfaceHash: surfaceHash(ROOT),
     distHash: distHash(ROOT),
-    note: `${results.length} 段${concurrency > 1 ? `并发（并发度 ${concurrency}）` : '串行'}执行，均针对 dist 的同一次构建（distHash 为该构建的内容指纹，I-17）；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），distHash 为产物指纹（I-17），二者须与当前仓库同时相符，耗时基线才成立。`,
+    note: `${results.length} 段${concurrency > 1 ? `并发（并发度 ${concurrency}）` : '串行'}执行，均针对 dist 的同一次构建（distHash 为该构建的内容指纹，I-17）；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），distHash 为产物指纹（I-17），二者须与当前仓库同时相符，耗时基线才成立。每段另记 reportHash 与 checkedAt（I-20），证明八份证据出自本次执行，采集器第 8 条逐段重算比对。`,
     serial: concurrency === 1,
     concurrency,
     wallMs,
@@ -230,7 +251,15 @@ if (!only && failed.length === 0) {
     totalMs: wallMs,
     totalAssertions,
     totalPassed,
-    scripts: results.map(({ slug, file, ms, assertions, passed }) => ({ slug, file, ms, assertions, passed })),
+    scripts: results.map(({ slug, file, ms, assertions, passed, reportHash, checkedAt }) => ({
+      slug,
+      file,
+      ms,
+      assertions,
+      passed,
+      checkedAt,
+      reportHash,
+    })),
   }
   writeFileSync(OUT, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
   console.log(

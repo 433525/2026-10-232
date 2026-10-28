@@ -238,3 +238,19 @@
 | `docs/HANDOVER.md` | 文档索引的决策编号 `D-01…D-31` → `D-01…D-34` | 修改 |
 
 > 未重跑门禁：改动仅涉及 `tools/audit-*.mjs` 与文档，不在被测面（`surface-hash` 只纳入 `src/**`、`check-*.mjs`、`tools/lib/**`），437.3 s / 248 项 / `distHash 0a339a25…` 基线继续有效。
+
+### 4.9 W8 证据链自校：分片绑定本次门禁（CIP-232，2026-10-28）
+
+起因：`surfaceHash`（I-12）证明源码没改、`distHash`（I-17）证明产物没换，两者都是**输入端**；没有任何一项证明「八份 `report.json` 出自同一次执行」。可复现的缺口是——全量门禁记录 248/248 之后，单跑任意一段 `node tools/check-<x>.mjs` 会覆盖该段证据，而断言总数与通过数多半不变，采集器第 1、2 条校验照样全绿。本轮给每份分片按字节盖摘要（I-20），由 `gate-timing.json` 记录并逐段重算，同时把 `checkedAt` 纳入时间窗判定。**未改 `src/`，未改任何 `check-*.mjs`**，断言总数仍为 248。
+
+| 文件/内容 | 改动 | 类型 |
+|---|---|---|
+| `tools/lib/evidence.mjs` | 新增 `evidenceHash()`：按内容取 `sha256:<32>`（取摘要前把 CRLF 折成 LF，避免 `core.autocrlf` 检出后全判假红），文件缺失返回 `null`；头注释写明与 I-12 / I-17 的分工（输入端 vs 执行侧）与「不解析 JSON、只判文件是否被换」的边界 | 新增 |
+| `tools/run-gate.mjs` | 每段落盘后读取该段 `report.json` 的摘要与 `checkedAt`，随分段记录一并落盘；payload 新增 `runId` / `gateStartAt`；头注释补 I-20 立项理由 | 修改 |
+| `tools/collect-baseline.mjs` | 新增第 8 项校验「证据分片绑定本次门禁（I-20）」：八份摘要须与记录逐段一致，且 `checkedAt` 落在 `[gateStartAt − 5 s, measuredAt + 5 s]`；旧格式未记录不判红。`baseline.md` F 段新增「证据绑定」行；头注释补第 8 条与其意义 | 修改 |
+| `docs/delivery/decisions.md` | 新增 D-35（含两组注入证据、还原方式的操作教训、三条已知代价）；§二 新增 I-20 常态控制段（含「检出历史版本后必然判红」的预期行为说明）；顺带修 D-30 与 D-31 之间的空行（该空行使 Markdown 断成两张表） | 修改 |
+| `docs/ARCHITECTURE.md` §6.4 / §6.6 | §6.4 校验项 7 → 8（补「证据分片指纹与时间窗」）；§6.6 新增「证据绑定（I-20）」条；耗时引用 437.3 → 436.0 s | 修改 |
+| `README.md`、`docs/HANDOVER.md` | 决策编号 `D-01…D-34` → `D-01…D-35`；HANDOVER §0.1 全量 436.0 s / 快检 215.4 s、§2.5 与附录【当前状态】同步、§5.4 采集器条目补 I-17/I-20 | 修改 |
+| `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 重采：248 项 / 436.6 s / 快检 215.9 s / `surfaceHash 6f2c8a0d…`（新增 `tools/lib/evidence.mjs` 使被测面变化）/ `distHash 0a339a25…`（未改 `src/`，产物未变） | 修改 |
+
+> 本轮重跑全量门禁**三次**（436.6 / 436.0 / 436.6 s），两次都是自己踩的坑：① 注入验证后误用 `git checkout --` 还原分片，取回的是门禁前的 HEAD 版本，指纹与记录错配；② `evidence.mjs` 首版按原始字节取摘要，跑完才发现 `core.autocrlf=true` 会让新克隆的分片变 CRLF 而全判假红，改成「先折 CRLF 再取摘要」又动了被测面，只能再跑一轮。两条教训均写入 D-35，其中第二条上升为顺序铁律：**先把工具改到不再动，再跑门禁**。

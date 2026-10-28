@@ -36,6 +36,9 @@
  *      精确负向占比须与本次实测一致；未写该块不判红。
  *   7. 产物内容指纹（`tools/lib/dist-hash.mjs`，I-17）与 `dist/` 当前内容一致；旧格式基线
  *      未记录指纹、或 `dist/` 不存在时不判红。
+ *   8. 证据分片绑定（`tools/lib/evidence.mjs`，I-20）：八份 `report.json` 的内容指纹须与
+ *      `gate-timing.json` 记录的一致，且 `checkedAt` 落在本次门禁的时间窗内；旧格式基线
+ *      未记录指纹时不判红。
  * 第 5 条的意义：判失效看内容而非提交时间——只改文档不失效，改 `src/` 或 `check-*` 才失效。
  * 第 6 条的意义：交接文档是接手者的入口，长期在契约校验之外，连续三个版本写着已废弃的
  * 断言数（117 → 205 → 248），且与同文件 §2.5 自相矛盾。
@@ -43,11 +46,15 @@
  * 后忘记 build，断言跑在旧产物上照样全绿，耗时记录却写着新源码的指纹——两侧自洽、结论为假；
  * 构建后被重新打包（内容已非实测那份）同样让旧结论失去对应物。实测该漏洞于 2026-10-27
  * 真实发生：dist 于 23:32 重建，而最近一次全量门禁在 16:36，中间 7 小时无任何记录能分辨。
+ * 第 8 条的意义：第 5、7 条证明的都是**输入端**（源码、产物），证明不了「八份证据出自同一次
+ * 执行」。全量门禁记录 248/248 之后，单跑任意一段 `node tools/check-<x>.mjs` 会用另一时刻
+ * 的结果覆盖该段 `report.json`，而断言总数与通过数多半不变——分项校验照样全绿，证据已换。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { distHash } from './lib/dist-hash.mjs'
+import { evidenceHash } from './lib/evidence.mjs'
 import { surfaceHash } from './lib/surface-hash.mjs'
 
 const ROOT = process.cwd()
@@ -290,6 +297,36 @@ function gateTiming(assertions) {
   // 无产物不判红：`dist/` 不入库，新克隆或清理后缺产物属环境状态，不是基线缺陷。
   const distOk = !distRecorded || !currentDistHash ? true : json.distHash === currentDistHash
 
+  // 6) 证据绑定（I-20）：前两条指纹都是**输入端**的证明（源码没改、产物没换），
+  //    证明不了「这八份 report.json 出自同一次门禁」。实测缺口：全量门禁记录 248/248 后，
+  //    单跑 `node tools/check-p0-gaps.mjs` 会用另一时刻（可能已是另一份 bundle）的结果
+  //    覆盖该段证据，而断言总数与通过数不变，第 1、2 条校验照样全绿。
+  //    判据两条：① 分片字节指纹与门禁记录一致；② `checkedAt` 落在本次门禁的时间窗内。
+  const windowStart = typeof json.gateStartAt === 'string' ? Date.parse(json.gateStartAt) : NaN
+  const windowEnd = typeof json.measuredAt === 'string' ? Date.parse(json.measuredAt) : NaN
+  const windowEnforced = Number.isFinite(windowStart)
+  const evidenceBound = json.scripts.map((row) => {
+    const slug = SCRIPTS.find((item) => item.file === row.file)?.slug ?? row.slug
+    const current = evidenceHash(join(ROOT, 'docs', 'evidence', slug, 'report.json'))
+    const recordedHash = typeof row.reportHash === 'string' && row.reportHash.length > 0
+    const at = runtimeReport(slug)?.checkedAt ?? null
+    const atMs = at ? Date.parse(at) : NaN
+    // 留 5 s 容差：`gateStartAt` 取自进程启动，各段脚本的 `checkedAt` 取自落盘时刻，两者同源但非同一毫秒。
+    const inWindow = !windowEnforced
+      ? true
+      : Number.isFinite(atMs) && atMs >= windowStart - 5000 && (!Number.isFinite(windowEnd) || atMs <= windowEnd + 5000)
+    return {
+      slug,
+      recorded: recordedHash,
+      hashOk: !recordedHash || !current ? true : row.reportHash === current,
+      inWindow,
+      at,
+    }
+  })
+  const evidenceOk = evidenceBound.every((item) => item.hashOk && item.inWindow)
+  const unbound = evidenceBound.filter((item) => !item.hashOk || !item.inWindow).map((item) => item.slug)
+  const hashMissing = evidenceBound.filter((item) => !item.recorded).length
+
   const checks = [
     {
       id: '分段断言/通过与 report.json 一致',
@@ -332,6 +369,15 @@ function gateTiming(assertions) {
           ? 'dist/ 无产物，跳过（dist 不入库）'
           : `${json.distHash} vs ${currentDistHash}`,
     },
+    {
+      id: '证据分片绑定本次门禁（I-20）',
+      ok: evidenceOk,
+      detail: hashMissing === evidenceBound.length
+        ? '未记录分片指纹（旧格式基线），下一次全量门禁自动写入'
+        : unbound.length
+          ? `${unbound.length} 段不符：${unbound.join(', ')}`
+          : `${evidenceBound.length}/${evidenceBound.length} 分片指纹一致${windowEnforced ? '，时间窗内' : '（未记录门禁起始时刻，仅校验指纹）'}`,
+    },
   ]
 
   return {
@@ -342,6 +388,12 @@ function gateTiming(assertions) {
     consistent: checks.every((item) => item.ok),
     tiers: { fastMs, fastCount: fastRows.length, slowest: { file: slowest.file, ms: slowest.ms ?? 0 }, budget: GATE_BUDGET },
     dist: { recorded: json.distHash ?? null, current: currentDistHash },
+    evidence: {
+      bound: evidenceBound.filter((item) => item.recorded && item.hashOk && item.inWindow).length,
+      total: evidenceBound.length,
+      hashMissing,
+      unbound,
+    },
   }
 }
 
@@ -738,6 +790,14 @@ function toMarkdown(data) {
             ? '一致'
             : '**不一致：耗时与断言结论不再对应当前 bundle**'
       lines.push(`- 产物配对（I-17）：记录 \`${g.dist.recorded ?? '未记录'}\` / 当前 \`${g.dist.current ?? '无产物'}\`（${distNote}）`)
+    }
+    if (g.evidence) {
+      const evNote = g.evidence.hashMissing === g.evidence.total
+        ? '旧格式基线未记录，下一次全量门禁写入'
+        : g.evidence.unbound.length
+          ? `**${g.evidence.unbound.length} 段不符：${g.evidence.unbound.join(', ')}**`
+          : `一致（${g.runId ? `runId \`${g.runId}\`、` : ''}起始 ${g.gateStartAt ?? '未记录'}）`
+      lines.push(`- 证据绑定（I-20）：${g.evidence.bound}/${g.evidence.total} 分片与本次门禁记录一致——${evNote}`)
     }
     if (g.tiers) {
       const b = g.tiers.budget

@@ -29,7 +29,7 @@
 | 指标 | 当前值 | 采集口径 |
 |---|---|---|
 | 断言总数 | 248 | 八段 `report.json` 的 `total` 之和（运行时真值） |
-| 全量门禁 | 437.3 s | `docs/metrics/gate-timing.json`，8 段串行，预算 480 s |
+| 全量门禁 | 436.6 s | `docs/metrics/gate-timing.json`，8 段串行，预算 480 s |
 | 快检门禁 | 215.9 s | 前五段合计，预算 230 s |
 | 精确负向占比 | 13.3% | `[neg]`/`[edge]` 前缀自声明，目标 ≥12% |
 <!-- CIP-STATUS:END -->
@@ -155,7 +155,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | `npm run check:recovery` | 28/28 | 存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法/版本不符/超限）、五档溢出、静态扫描 |
 | `npm run check:fixes:a` / `:b` | 55/55、39/39 | 待审队列与先审后发、发布失败保草稿、订单留言绑定、发布者履约、留痕时间线、订单争议三段流转、接单大厅筛选、时间存折明细、A+ 投诉转介席视角、桥登记与备份导入失败分支 |
 | `npm run check:p0` | 12/12 | 评论驳回理由门禁与留痕、取消订单终态、演练实名门禁、全部已读不回弹 |
-| **合计** | **248/248** | 八段串行门禁（`npm run gate`）实测 437.3 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
+| **合计** | **248/248** | 八段串行门禁（`npm run gate`）实测 436.6 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
 
 ### 2.6 十条合规红线的落地方式
 
@@ -436,7 +436,7 @@ repo/
 | `tools/check-recovery.mjs` | 28 项坏档恢复与跨标签冲突 | 备份导入用 `DOM.setFileInputFiles`，不弹系统文件框 |
 | `tools/check-fixes-a.mjs` / `check-fixes-b.mjs` | 55 + 39 项修复回归 | 由单文件拆出（D-08），两段各自带控制台异常看门狗 |
 | `tools/check-p0-gaps.mjs` | 12 项 P0 缺口 | 评论驳回理由、取消订单终态、演练实名、全部已读不回弹 |
-| `tools/collect-baseline.mjs` | 基线采集 + `--strict` 契约校验（I-11/I-13/I-14/I-15/I-16） | 零依赖只读；`--write` 重写 `docs/metrics/baseline.md` |
+| `tools/collect-baseline.mjs` | 基线采集 + `--strict` 契约校验（I-11/I-13/I-14/I-15/I-16/I-17/I-20） | 零依赖只读；`--write` 重写 `docs/metrics/baseline.md` |
 | `tools/measure-recompute.mjs` | I-05 重算次数测量内核（`--self-test` / `--probe-check` / `--harness-test`） | 不在被测面内；无已校准操作时 `--run` 退 3 |
 
 ### 5.5 文档地图
@@ -450,7 +450,7 @@ repo/
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 | 评估工作量 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复四类清单 | 评审 diff |
 | `docs/delivery/acceptance.md` | 248 项验收明细与合规逐条验证 | 复现与核对 |
-| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-34），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
+| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-35），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
 | `docs/delivery/reachability.md` | 52 个写动作的覆盖矩阵与缺口清单 | 判断「这条路径验过没有」 |
 | `docs/metrics/baseline.md` | 自动采集的基线表与一致性校验结果 | 每次全量门禁后 |
 | `docs/research/p1–p7*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |
@@ -683,7 +683,7 @@ main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 7. 不引入外部 CDN / 字体 / 图片；不引 UI 库；不加 Service Worker（除非整套离线方案一起做）。
 
 【当前状态】
-typecheck 0 错误；build 成功；八段自动化验收 248/248（dual 27 + aplus 35 + community 25 + acceptance 27 + recovery 28 + fixes:a 55 + fixes:b 39 + p0 12），全量门禁 437.3 s。
+typecheck 0 错误；build 成功；八段自动化验收 248/248（dual 27 + aplus 35 + community 25 + acceptance 27 + recovery 28 + fixes:a 55 + fixes:b 39 + p0 12），全量门禁 436.6 s。
 证据在 docs/evidence/*/report.json（截图不入库）；基线表与一致性校验见 docs/metrics/baseline.md。
 已知缺口：消息页无会话列表、坏档门禁最外层是 UI 守卫、
 A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium 验证、无视觉像素基线、
