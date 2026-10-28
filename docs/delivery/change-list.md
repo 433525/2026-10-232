@@ -208,3 +208,19 @@
 | `docs/delivery/decisions.md` | 新增 D-26（三条断言 + I-15 落地，含注入证据）；D-25 补「I-15 已落地、实测 216.4 s」 | 修改 |
 | `docs/delivery/acceptance.md`、`README.md`、`docs/HANDOVER.md` | 断言数 248、community 25、耗时 437.2 s 同批对齐；顺带修正 HANDOVER 中 `AppContext.tsx` 的陈旧行数（634 → 1013，两处） | 修改 |
 | `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 重采：248 项 / 437.2 s / `surfaceHash sha256:c82f40e0…` / 密度 A 1.96 / 快检 216.4 s | 修改 |
+
+### 4.7 W8 测量链自校：交接状态块 + 产物配对（CIP-232，2026-10-28）
+
+起因：连续两轮发现同一类问题——**门禁记录的结论与它真正验证过的东西之间缺少对应物**。先是 `docs/HANDOVER.md`（接手者第一入口）同时写着三个互斥的断言数，并把 `e871309` 标成 HEAD（实际已领先 39 个提交）；再是产物指纹缺失，使「改了 `src/` 却忘记 `npm run build`」可以全绿通过，而耗时记录里写的是当前源码的指纹，事后无从分辨。本批把两处都改为机器判据。**未改 `src/`，未改任何 `check-*.mjs`**，断言仍 248 条。
+
+| 文件/内容 | 改动 | 类型 |
+|---|---|---|
+| `docs/HANDOVER.md` | §0.1 新增 `CIP-STATUS` 标记块（断言总数 / 全量 / 快检 / 精确负向四项）；全部「当前状态」数字刷新（src 24,845 行、B 端 26 组件、八段计数、共享 chunk `route-state-*` 194.58 kB）；耗时同步为 437.3 s / 215.9 s | 修改 |
+| `tools/collect-baseline.mjs` | 新增 `handoverStatusClaims()`（I-16：只校验标记块，未写不判红）；新增 I-17 产物指纹校验、`baseline.md` F 段「产物配对」行；头注释补第 7 条与其意义 | 修改 |
+| `tools/lib/dist-hash.mjs` | 新增：`dist/**` 内 `.js/.css/.html` 的路径 + 内容 sha256（32 位）；无产物返回 `null`，由调用方区分「无产物」与「指纹不符」 | 新增 |
+| `tools/run-gate.mjs` | 新增 `preflight()`：产物最新时间不得早于任何构建输入、`BASE_URL` 必须可达，任一不成立即退出码 2 且不执行任何段；落盘字段新增 `distHash`，`note` 说明双指纹语义 | 修改 |
+| `docs/ARCHITECTURE.md` §6 | §6.4 采集器校验项 6 → 7（补「产物指纹与当前 `dist/` 一致」）；§6.6 新增「产物配对（I-17）」条，失效判定改为看 `surfaceHash` + `distHash` 双指纹 | 修改 |
+| `docs/delivery/decisions.md` | 新增 D-31（I-16）、D-32（I-17，含三组注入证据、构建确定性与 mtime 判定的已知代价）；§二 补「两项均为常态控制，不产生待办」 | 修改 |
+| `docs/metrics/baseline.md`、`docs/metrics/gate-timing.json` | 重采：248 项 / 437.3 s / 快检 215.9 s / `surfaceHash 0e675163…`（新增 `tools/lib/dist-hash.mjs` 使被测面变化）/ `distHash 0a339a25…` | 修改 |
+
+> I-16 部分对应提交 `b43f520`（2026-10-28 上午），I-17 部分为本批。两者同属「让门禁能证明自己验证过什么」，故合并记录。

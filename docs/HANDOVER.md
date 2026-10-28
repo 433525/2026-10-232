@@ -29,8 +29,8 @@
 | 指标 | 当前值 | 采集口径 |
 |---|---|---|
 | 断言总数 | 248 | 八段 `report.json` 的 `total` 之和（运行时真值） |
-| 全量门禁 | 437.2 s | `docs/metrics/gate-timing.json`，8 段串行，预算 480 s |
-| 快检门禁 | 216.4 s | 前五段合计，预算 230 s |
+| 全量门禁 | 437.3 s | `docs/metrics/gate-timing.json`，8 段串行，预算 480 s |
+| 快检门禁 | 215.9 s | 前五段合计，预算 230 s |
 | 精确负向占比 | 13.3% | `[neg]`/`[edge]` 前缀自声明，目标 ≥12% |
 <!-- CIP-STATUS:END -->
 
@@ -155,7 +155,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | `npm run check:recovery` | 28/28 | 存档面板可达、坏档可见与写入拦截、先取原文再重置、跨标签冲突与消解、评论/留言举报落点、备份导入（合法/版本不符/超限）、五档溢出、静态扫描 |
 | `npm run check:fixes:a` / `:b` | 55/55、39/39 | 待审队列与先审后发、发布失败保草稿、订单留言绑定、发布者履约、留痕时间线、订单争议三段流转、接单大厅筛选、时间存折明细、A+ 投诉转介席视角、桥登记与备份导入失败分支 |
 | `npm run check:p0` | 12/12 | 评论驳回理由门禁与留痕、取消订单终态、演练实名门禁、全部已读不回弹 |
-| **合计** | **248/248** | 八段串行门禁（`npm run gate`）实测 437.2 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
+| **合计** | **248/248** | 八段串行门禁（`npm run gate`）实测 437.3 s；证据：`docs/evidence/{dual-entry,aplus-flow,community-flow,acceptance,recovery,fixes-a,fixes-b,p0-gaps}/report.json` |
 
 ### 2.6 十条合规红线的落地方式
 
@@ -683,7 +683,7 @@ main 停在 ea48ac0，不包含 A+ 与双入口改造。PR #1 打开未合并。
 7. 不引入外部 CDN / 字体 / 图片；不引 UI 库；不加 Service Worker（除非整套离线方案一起做）。
 
 【当前状态】
-typecheck 0 错误；build 成功；八段自动化验收 248/248（dual 27 + aplus 35 + community 25 + acceptance 27 + recovery 28 + fixes:a 55 + fixes:b 39 + p0 12），全量门禁 437.2 s。
+typecheck 0 错误；build 成功；八段自动化验收 248/248（dual 27 + aplus 35 + community 25 + acceptance 27 + recovery 28 + fixes:a 55 + fixes:b 39 + p0 12），全量门禁 437.3 s。
 证据在 docs/evidence/*/report.json（截图不入库）；基线表与一致性校验见 docs/metrics/baseline.md。
 已知缺口：消息页无会话列表、坏档门禁最外层是 UI 守卫、
 A+ 全树重渲染、computed 不缓存、三个超大单文件、仅 Chromium 验证、无视觉像素基线、

@@ -1,7 +1,7 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-27T08:33:11.673Z",
-  "stamp": "mvqfgcjm",
+  "checkedAt": "2026-10-28T04:11:32.941Z",
+  "stamp": "mvrljptm",
   "total": 55,
   "passed": 55,
   "results": [
@@ -113,12 +113,12 @@
     {
       "name": "失败后的草稿已自动暂存",
       "ok": true,
-      "detail": "draft=失败保留草稿-mvqfgcjm"
+      "detail": "draft=失败保留草稿-mvrljptm"
     },
     {
       "name": "重新打开发布弹层时草稿被恢复",
       "ok": true,
-      "detail": "restored=失败保留草稿-mvqfgcjm"
+      "detail": "restored=失败保留草稿-mvrljptm"
     },
     {
       "name": "含已接单订单的备份导入成功",
@@ -143,7 +143,7 @@
     {
       "name": "第一条留言按订单建立线程",
       "ok": true,
-      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvqfgcjm"
+      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvrljptm"
     },
     {
       "name": "另一订单（SYNTH-POST-001）线程未被串线",
@@ -163,12 +163,12 @@
     {
       "name": "焦点会话随订单切换（标题对得上）",
       "ok": true,
-      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvqfgcjm16:32"
+      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvrljptm12:11"
     },
     {
       "name": "第二条留言落到所认领订单的线程",
       "ok": true,
-      "detail": "p1=3 last=第二条订单留言-mvqfgcjm"
+      "detail": "p1=3 last=第二条订单留言-mvrljptm"
     },
     {
       "name": "第一条订单线程保持 1 条不串线",
@@ -238,7 +238,7 @@
     {
       "name": "「下载证书」产出真实文本文件（含免责口径）",
       "ok": true,
-      "detail": "community-drill-certificate-2026-10-27.txt"
+      "detail": "community-drill-certificate-2026-10-28.txt"
     },
     {
       "name": "证书下载失败给出可执行提示且不谎报成功",

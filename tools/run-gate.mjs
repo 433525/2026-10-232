@@ -13,6 +13,14 @@
  * 语义说明：`totalMs` 为墙钟（端到端反馈时间），`sumMs` 为各段之和。并发度 >1 时
  * 两者必然不等，采集器的「分项合计」校验按 `concurrency` 分支判定。
  *
+ * 预检（D-32）：动手跑 440 s 之前先做两项成本 <1 s 的检查，任一不成立即退出码 2，
+ * 不跑任何一段：
+ *   1. **产物新鲜度**——`dist/**` 的最新产品时间必须不早于任何构建输入（`src/**`、
+ *      两个入口 html、`package.json`、vite/ts 配置）。否则断言跑在旧 bundle 上，
+ *      全绿也不代表当前源码可用；耗时记录还会写上当前源码的指纹，事后无法分辨。
+ *   2. **预览服务可达**——`BASE_URL`（默认 `http://localhost:5180`）必须能应答。
+ *      此前先杀 preview 再跑门禁，八段全红、白耗 230 s 且未落盘任何有效数据。
+ *
  * 用法（先 build + preview 到 5180）：
  *   node tools/run-gate.mjs                 # 串行，发布判据用（默认）
  *   node tools/run-gate.mjs --serial        # 同上，显式写法
@@ -22,10 +30,12 @@
 import { execSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { surfaceHash } from './lib/surface-hash.mjs'
+import { distHash, distEntries } from './lib/dist-hash.mjs'
+import { surfaceEntries, surfaceHash } from './lib/surface-hash.mjs'
 
 const ROOT = process.cwd()
 const OUT = join(ROOT, 'docs', 'metrics', 'gate-timing.json')
+const BASE = process.env.BASE_URL ?? 'http://localhost:5180'
 
 const SEGMENTS = [
   { slug: 'dual-entry', file: 'tools/check-dual-entry.mjs', label: '双入口' },
@@ -59,6 +69,61 @@ const only = arg('only', '')
 const selected = only
   ? SEGMENTS.filter((item) => only.split(',').includes(item.slug))
   : SEGMENTS
+
+/** 构建输入：与 `surface-hash` 的「被测面」不同，`tools/check-*.mjs` 与 `tools/lib/**`
+ *  不参与打包，改它们不需要重建 dist；把它们算进来会让每次改断言都误报产物过期。 */
+const BUILD_INPUT = /^(?:src\/|index\.html$|aplus\.html$|package\.json$|vite\.config\.|tsconfig\.json$)/
+
+function newest(files) {
+  let best = null
+  for (const rel of files) {
+    const abs = join(ROOT, rel)
+    if (!existsSync(abs)) continue
+    const ms = statSync(abs).mtimeMs
+    if (!best || ms > best.ms) best = { rel, ms }
+  }
+  return best
+}
+
+function abort(message, hint) {
+  console.error(`\n[预检失败] ${message}`)
+  if (hint) console.error(hint)
+  console.error('未执行任何验收段（退出码 2，区别于断言失败的 1）。')
+  process.exit(2)
+}
+
+async function preflight() {
+  const artifacts = distEntries(ROOT)
+  if (!artifacts.length) {
+    abort(
+      'dist/ 不存在或不含 js/css/html 产物。',
+      '先运行 `npm run build`，再 `npx vite preview --port 5180 --strictPort`。',
+    )
+  }
+  const distNewest = newest(artifacts)
+  const inputs = surfaceEntries(ROOT).filter((rel) => BUILD_INPUT.test(rel))
+  const srcNewest = newest(inputs)
+  // 留 1 ms 容差：同一文件系统上「读-写」可能落在同一毫秒，相等不算过期。
+  if (srcNewest && srcNewest.ms > distNewest.ms + 1) {
+    abort(
+      `构建产物落后于源码：${srcNewest.rel}（${new Date(srcNewest.ms).toISOString()}）晚于 ${distNewest.rel}（${new Date(distNewest.ms).toISOString()}）。`,
+      '此时断言跑在旧 bundle 上，全绿也不代表当前源码可用。先 `npm run build` 重建 dist 再重跑。',
+    )
+  }
+  let reachable = false
+  try {
+    const response = await fetch(BASE, { method: 'HEAD', signal: AbortSignal.timeout(3000) })
+    reachable = response.status < 500
+  } catch {
+    reachable = false
+  }
+  if (!reachable) {
+    abort(`预览服务不可达：${BASE}。`, '先 `npx vite preview --port 5180 --strictPort`（门禁不自启服务）。')
+  }
+  console.log(
+    `[预检] 产物 ${artifacts.length} 个（最新 ${new Date(distNewest.ms).toISOString()}）、构建输入 ${inputs.length} 个（最新 ${new Date(srcNewest.ms).toISOString()}）、${BASE} 可达`,
+  )
+}
 
 function git(args) {
   try {
@@ -107,6 +172,7 @@ function machine() {
   return `${process.platform}-${process.arch} / Node ${process.version} / vite ${pkg.devDependencies.vite.replace(/^[^\d]*/, '')}`
 }
 
+await preflight()
 const gateStart = Date.now()
 const queue = [...selected]
 const results = []
@@ -152,10 +218,11 @@ if (!only && failed.length === 0) {
   const payload = {
     measuredAt: new Date().toISOString(),
     machine: machine(),
-    base: process.env.BASE_URL ?? 'http://localhost:5180',
+    base: BASE,
     baseRevision: git('rev-parse --short HEAD') ?? 'unknown',
     surfaceHash: surfaceHash(ROOT),
-    note: `${results.length} 段${concurrency > 1 ? `并发（并发度 ${concurrency}）` : '串行'}执行，均针对 dist 的同一次构建；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），用于判定耗时是否失效。`,
+    distHash: distHash(ROOT),
+    note: `${results.length} 段${concurrency > 1 ? `并发（并发度 ${concurrency}）` : '串行'}执行，均针对 dist 的同一次构建（distHash 为该构建的内容指纹，I-17）；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），distHash 为产物指纹（I-17），二者须与当前仓库同时相符，耗时基线才成立。`,
     serial: concurrency === 1,
     concurrency,
     wallMs,
@@ -166,7 +233,9 @@ if (!only && failed.length === 0) {
     scripts: results.map(({ slug, file, ms, assertions, passed }) => ({ slug, file, ms, assertions, passed })),
   }
   writeFileSync(OUT, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-  console.log(`已写入 docs/metrics/gate-timing.json（baseRevision ${payload.baseRevision}，${payload.surfaceHash}）`)
+  console.log(
+    `已写入 docs/metrics/gate-timing.json（baseRevision ${payload.baseRevision}，源码 ${payload.surfaceHash}，产物 ${payload.distHash ?? '—'}）`,
+  )
 }
 
 if (failed.length) {

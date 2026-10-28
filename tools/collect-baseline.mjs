@@ -34,13 +34,20 @@
  *   5. 被测面内容指纹（`tools/lib/surface-hash.mjs`）与当前源码一致，否则耗时基线失效。
  *   6. `docs/HANDOVER.md` §0.1 的 `CIP-STATUS` 状态块（I-16）：断言数、全量/快检耗时、
  *      精确负向占比须与本次实测一致；未写该块不判红。
+ *   7. 产物内容指纹（`tools/lib/dist-hash.mjs`，I-17）与 `dist/` 当前内容一致；旧格式基线
+ *      未记录指纹、或 `dist/` 不存在时不判红。
  * 第 5 条的意义：判失效看内容而非提交时间——只改文档不失效，改 `src/` 或 `check-*` 才失效。
  * 第 6 条的意义：交接文档是接手者的入口，长期在契约校验之外，连续三个版本写着已废弃的
  * 断言数（117 → 205 → 248），且与同文件 §2.5 自相矛盾。
+ * 第 7 条的意义：第 5 条只证明「源码没改」，证明不了「门禁跑的是这份 bundle」。改 `src/`
+ * 后忘记 build，断言跑在旧产物上照样全绿，耗时记录却写着新源码的指纹——两侧自洽、结论为假；
+ * 构建后被重新打包（内容已非实测那份）同样让旧结论失去对应物。实测该漏洞于 2026-10-27
+ * 真实发生：dist 于 23:32 重建，而最近一次全量门禁在 16:36，中间 7 小时无任何记录能分辨。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
+import { distHash } from './lib/dist-hash.mjs'
 import { surfaceHash } from './lib/surface-hash.mjs'
 
 const ROOT = process.cwd()
@@ -275,6 +282,14 @@ function gateTiming(assertions) {
     && json.totalMs <= GATE_BUDGET.totalMs
     && (slowest.ms ?? 0) <= GATE_BUDGET.segmentMs
 
+  // 5) 产物配对（I-17）：源码指纹只证明「代码没改」，证明不了「门禁跑的是这份 bundle」。
+  //    改了 `src/` 却忘记 build 时，断言跑在旧产物上照样全绿，而耗时记录里写的是当前源码
+  //    的指纹——两侧自洽、结论可能是假。产物在构建后被替换同样会让旧结论失去对应物。
+  const currentDistHash = distHash(ROOT)
+  const distRecorded = typeof json.distHash === 'string' && json.distHash.length > 0
+  // 无产物不判红：`dist/` 不入库，新克隆或清理后缺产物属环境状态，不是基线缺陷。
+  const distOk = !distRecorded || !currentDistHash ? true : json.distHash === currentDistHash
+
   const checks = [
     {
       id: '分段断言/通过与 report.json 一致',
@@ -308,6 +323,15 @@ function gateTiming(assertions) {
       ok: tierOk,
       detail: `快检 ${(fastMs / 1000).toFixed(1)} / ${GATE_BUDGET.fastMs / 1000} s（${fastRows.length} 段）、全量 ${(json.totalMs / 1000).toFixed(1)} / ${GATE_BUDGET.totalMs / 1000} s、最长段 ${slowest.file} ${((slowest.ms ?? 0) / 1000).toFixed(1)} / ${GATE_BUDGET.segmentMs / 1000} s`,
     },
+    {
+      id: '被测产物指纹一致（I-17）',
+      ok: distOk,
+      detail: !distRecorded
+        ? '未记录产物指纹（旧格式基线），下一次全量门禁自动写入'
+        : !currentDistHash
+          ? 'dist/ 无产物，跳过（dist 不入库）'
+          : `${json.distHash} vs ${currentDistHash}`,
+    },
   ]
 
   return {
@@ -317,6 +341,7 @@ function gateTiming(assertions) {
     checks,
     consistent: checks.every((item) => item.ok),
     tiers: { fastMs, fastCount: fastRows.length, slowest: { file: slowest.file, ms: slowest.ms ?? 0 }, budget: GATE_BUDGET },
+    dist: { recorded: json.distHash ?? null, current: currentDistHash },
   }
 }
 
@@ -704,6 +729,16 @@ function toMarkdown(data) {
     }
     lines.push(`- 环境：${g.machine}；基线 ${g.baseRevision}；base \`${g.base}\``)
     lines.push(`- 来源：\`tools/run-gate.mjs\` 实测并自动落盘（采集器只读，不自行启动浏览器）；被测面指纹 \`${g.surfaceHash ?? '未记录'}\``)
+    if (g.dist) {
+      const distNote = !g.dist.recorded
+        ? '旧格式基线未记录，下一次全量门禁写入'
+        : !g.dist.current
+          ? 'dist/ 无产物，跳过'
+          : g.dist.recorded === g.dist.current
+            ? '一致'
+            : '**不一致：耗时与断言结论不再对应当前 bundle**'
+      lines.push(`- 产物配对（I-17）：记录 \`${g.dist.recorded ?? '未记录'}\` / 当前 \`${g.dist.current ?? '无产物'}\`（${distNote}）`)
+    }
     if (g.tiers) {
       const b = g.tiers.budget
       const fastOk = g.tiers.fastMs <= b.fastMs
