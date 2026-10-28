@@ -450,7 +450,7 @@ repo/
 | `docs/delivery/gap-report.md` | 双向缺口、需求未实现项、技术债 | 评估工作量 |
 | `docs/delivery/change-list.md` | 新增/修改/删除/修复四类清单 | 评审 diff |
 | `docs/delivery/acceptance.md` | 248 项验收明细与合规逐条验证 | 复现与核对 |
-| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-36），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
+| `docs/delivery/decisions.md` | CIP-232 决策日志（D-01…D-37），影响范围与判据的唯一事实源 | 动代码前、改判据前 |
 | `docs/delivery/reachability.md` | 52 个写动作的覆盖矩阵与缺口清单 | 判断「这条路径验过没有」 |
 | `docs/metrics/baseline.md` | 自动采集的基线表与一致性校验结果 | 每次全量门禁后 |
 | `docs/research/p1–p7*.md` | 各阶段调研与取舍 | 理解「为什么不用某方案」 |
