@@ -1,0 +1,47 @@
+# deploy/api/linli-api.service — 后端骨架的 systemd 单元
+# 落盘：/etc/systemd/system/linli-api.service
+# 生效：sudo systemctl daemon-reload && sudo systemctl enable --now linli-api
+#
+# 加固说明（改动前请确认不会破坏运行）：
+#   · 以专用系统用户 linli 运行，不用 root
+#   · ProtectSystem=strict 使 / 只读，仅 /var 与 /tmp 可写（PrivateTmp 隔离开）
+#   · 服务不需要写任何业务文件，日志一律走 stdout → journald
+#   · 只监听 127.0.0.1，公网入口只有 nginx 的 /api/ 反代
+
+[Unit]
+Description=Linli API (link skeleton)
+Documentation=file:///opt/linli-api/server.mjs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=linli
+Group=linli
+WorkingDirectory=/opt/linli-api
+ExecStart=/opt/node/bin/node /opt/linli-api/server.mjs
+
+# 崩溃即拉起；3s 间隔避免疯狂重启打满日志
+Restart=always
+RestartSec=3
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+Environment=APP_VERSION=0.1.0
+
+# ---- 权限收窄 ----
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

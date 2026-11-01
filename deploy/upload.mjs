@@ -11,12 +11,29 @@ const REGION = process.env.LH_REGION || "ap-beijing";
 const INSTANCE = process.env.LH_INSTANCE || "lhins-ol4yz1eo";
 const CHUNK = 34000;
 
-function call(args) {
-  const out = execFileSync(TCCLI, [...args, "--region", REGION], {
-    encoding: "utf8",
-    maxBuffer: 128 * 1024 * 1024,
-  });
-  return JSON.parse(out);
+// 与 tat.mjs 保持一致：本地到腾讯云 API 存在间歇性 10054 连接重置，
+// 对网络类错误做指数退避重试，业务错误立即抛出。
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function call(args, retries = 4) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const out = execFileSync(TCCLI, [...args, "--region", REGION], {
+        encoding: "utf8",
+        maxBuffer: 128 * 1024 * 1024,
+      });
+      return JSON.parse(out);
+    } catch (e) {
+      const detail = String(e.stderr || e.message || "");
+      const transient = /ClientNetworkError|Connection aborted|ConnectionReset|ECONNRESET|timed out/i.test(detail);
+      if (!transient || attempt >= retries - 1) throw e;
+      const wait = 1500 * 2 ** attempt;
+      process.stderr.write(`[retry ${attempt + 1}/${retries - 1}] ${args[0]} ${args[1]} — 网络错误，${wait}ms 后重试\n`);
+      sleepSync(wait);
+    }
+  }
 }
 
 function runScript(script, timeout = 120) {
