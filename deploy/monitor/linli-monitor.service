@@ -1,0 +1,18 @@
+# deploy/monitor/linli-monitor.service
+# 落盘：/etc/systemd/system/linli-monitor.service
+# 由 linli-monitor.timer 触发，oneshot 跑完即退出，非常驻。
+
+[Unit]
+Description=Linli site health check
+Documentation=file:///opt/linli-monitor/check.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/linli-monitor/check.sh
+# 需要读 /etc/letsencrypt/live 下的证书（该目录 700 root），故以 root 运行
+User=root
+Nice=10
+# 单次检查不应超过 90s，超时即视为异常退出，由下次 timer 继续
+TimeoutStartSec=90
