@@ -227,7 +227,7 @@ ea48ac0  feat: 翠湖社区时间银行与银龄守护互助平台（Web 版） 
 | R6 敏感信息 | 只有字段裁剪与文案，无加密、无访问审计、无接单后限时可见 |
 | R7 内容审核 | 有先审后发与人工审核，无敏感词库、无图片审核（本就不上传图片） |
 | R8 日志留存 | 仅本机 `auditLog`，随浏览器清除消失，不满足 ≥ 6 个月 |
-| R9/R13/R19/R20 | 备案、协议自查、论坛主体责任、安全评估均「未办理」，仅页脚声明 |
+| R9/R13/R19/R20 | ICP 备案已办理（桂ICP备2026024158号）并在页脚公示；公安联网备案、协议自查、论坛主体责任、安全评估仍「未办理」，仅页脚声明 |
 | T2/T8/T11/T12 | 无通知投递、无实时通道、无服务端幂等、无限流 |
 | T7/T14 | 无上传能力（压缩、EXIF、白名单、扫描均不适用） |
 | T15 | 无自动备份，只有手动导出 |
@@ -542,7 +542,22 @@ dist/robots.txt
    - `robots.txt` 返回 `Disallow: /`；
    - 断网/清缓存后仍可打开（无 SW，属正常，不要求离线可用）。
 
-**未完成的上线前置**：未绑定域名、未开 GitHub Pages、未办 ICP/公安联网备案、无 HTTPS 配置、无监控。若要对外发布，先完成 §3.2 的合规项，不要在演示文案上写「已上线」。
+**实际部署状态（2026-10-30 实测）**：
+
+| 项 | 现状 |
+|---|---|
+| 域名 | `linli.lzbdcxm.cn`（DNSPod A 记录 → `62.234.23.197`，RecordId 2440115145） |
+| 主机 | 腾讯云轻量 `lhins-ol4yz1eo`，Ubuntu 22.04.5 LTS，4C8G / 120G，ap-beijing-6 |
+| Web | nginx 1.18.0，配置 `/etc/nginx/conf.d/linli.conf`，80 → 443 强制 301 |
+| HTTPS | Let's Encrypt，到期 2027-01-28，`certbot.timer` 自动续期，认证方式 webroot |
+| 站点根 | `/var/www/linli`（上一版保留在 `linli.prev`，最旧的 `linli.prev.keep` 发版后清理） |
+| 发版 | `node deploy/release.mjs`：构建 → 打包 → 上传 → 原子切换 → reload → 冒烟，失败自动回滚 |
+| 后端 | `linli-api.service`（Node 20，`/opt/linli-api`），只监听 `127.0.0.1:3000`，公网入口仅 nginx `/api/` 反代 |
+| 探针 | `https://linli.lzbdcxm.cn/api/health` → `{"status":"ok",...}` |
+
+**改动 nginx 配置时必须守住的一条**：80 与 443 必须是两个独立的 server 块。certbot 默认会把 `if ($host = <域名>) { return 301 https://...; }` 塞进 80 块，而 nginx 的 server 级 `if` 处于 rewrite 阶段，执行顺序**先于 location 匹配**——`/.well-known/acme-challenge/` 会被 301 吞掉，`certbot renew` 必然失败（实测报 `Unable to update challenge :: authorization must be pending`），90 天后证书过期。改完配置一律跑一次 `certbot renew --dry-run` 复验。
+
+**仍缺的上线前置**：公安联网备案、监控告警、内容安全服务。ICP 备案已通过（`桂ICP备2026024158号`），页脚已按工信部要求公示备案号并外链 `https://beian.miit.gov.cn/`；公安联网备案与 ICP 是两套独立流程，仍需在网站开通后按属地要求另行办理。
 
 ### 6.6 常见故障
 

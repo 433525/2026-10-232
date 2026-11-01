@@ -1,13 +1,13 @@
 {
   "base": "http://localhost:5180",
-  "checkedAt": "2026-10-28T08:06:05.544Z",
+  "checkedAt": "2026-11-01T01:54:37.958Z",
   "total": 27,
   "passed": 27,
   "results": [
     {
       "name": "B 端渲染出内容",
       "ok": true,
-      "detail": "textLength=953"
+      "detail": "textLength=956"
     },
     {
       "name": "B 端五栏导航存在",
@@ -52,7 +52,7 @@
     {
       "name": "A+ 端启动非白屏",
       "ok": true,
-      "detail": "textLength=1980"
+      "detail": "textLength=1997"
     },
     {
       "name": "A+ 队列有记录",

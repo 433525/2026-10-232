@@ -114,6 +114,18 @@ function AplusShell() {
 
           <ComplaintPanel />
           <MobileNav />
+
+          {/*
+            备案信息：工信部要求已备案站点在页面底部公示备案号并链接至 beian.miit.gov.cn。
+            备案号与 B 端 `FooterCompliance.tsx` 必须保持一致，改一处就要同步另一处。
+            放在 .content 内而非 main 之外，是为了自动继承 .main-area 的侧栏让位
+            （侧栏 220/212/68/0 四档），避免在这里重复声明 margin-left 而漂移。
+          */}
+          <footer className="aplus-footer">
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+              桂ICP备2026024158号
+            </a>
+          </footer>
         </div>
       </main>
 

@@ -1,92 +1,92 @@
 {
-  "measuredAt": "2026-10-28T08:13:12.803Z",
-  "gateStartAt": "2026-10-28T08:05:56.183Z",
-  "runId": "gate-mvrty91z",
+  "measuredAt": "2026-11-01T02:01:46.860Z",
+  "gateStartAt": "2026-11-01T01:54:27.350Z",
+  "runId": "gate-mvx6fxjq",
   "machine": "win32-x64 / Node v22.22.2 / vite 7.3.2",
   "base": "http://localhost:5180",
-  "baseRevision": "4fcc139",
-  "surfaceHash": "sha256:6f2c8a0d9978bbb72af525d2cf924582",
-  "distHash": "sha256:0a339a25c5b92885e6066109465b5e5a",
+  "baseRevision": "c8ff7f9",
+  "surfaceHash": "sha256:5ed46beef29ad656a13494a2173c1008",
+  "distHash": "sha256:0b56308766299df914828325cfebeab6",
   "note": "8 段串行执行，均针对 dist 的同一次构建（distHash 为该构建的内容指纹，I-17）；totalMs 为端到端墙钟，sumMs 为各段之和，并发时二者不等。surfaceHash 为被测面内容指纹（I-12），distHash 为产物指纹（I-17），二者须与当前仓库同时相符，耗时基线才成立。每段另记 reportHash 与 checkedAt（I-20），证明八份证据出自本次执行，采集器第 8 条逐段重算比对。",
   "serial": true,
   "concurrency": 1,
-  "wallMs": 436620,
-  "sumMs": 436615,
-  "totalMs": 436620,
+  "wallMs": 439509,
+  "sumMs": 439501,
+  "totalMs": 439509,
   "totalAssertions": 248,
   "totalPassed": 248,
   "scripts": [
     {
       "slug": "dual-entry",
       "file": "tools/check-dual-entry.mjs",
-      "ms": 39115,
+      "ms": 40363,
       "assertions": 27,
       "passed": 27,
-      "checkedAt": "2026-10-28T08:06:05.544Z",
-      "reportHash": "sha256:ccb4e1bc17ca9c3b2419bc16ac61329d"
+      "checkedAt": "2026-11-01T01:54:37.958Z",
+      "reportHash": "sha256:a0ac5d3d9df3f7df4cde48f905128551"
     },
     {
       "slug": "aplus-flow",
       "file": "tools/check-aplus-flow.mjs",
-      "ms": 33259,
+      "ms": 33265,
       "assertions": 35,
       "passed": 35,
-      "checkedAt": "2026-10-28T08:06:38.778Z",
-      "reportHash": "sha256:098a8e6b2c07b7873682429e4db8f31e"
+      "checkedAt": "2026-11-01T01:55:11.189Z",
+      "reportHash": "sha256:7e710e43031dfc8dafce0ee99c93d521"
     },
     {
       "slug": "community-flow",
       "file": "tools/check-community-flow.mjs",
-      "ms": 51529,
+      "ms": 51703,
       "assertions": 25,
       "passed": 25,
-      "checkedAt": "2026-10-28T08:07:30.675Z",
-      "reportHash": "sha256:b6e8cd3645bc11d5569c67d868568f98"
+      "checkedAt": "2026-11-01T01:56:03.273Z",
+      "reportHash": "sha256:eb7889d3c1531b8a8199bd64c2bb006c"
     },
     {
       "slug": "acceptance",
       "file": "tools/check-acceptance.mjs",
-      "ms": 38689,
+      "ms": 38924,
       "assertions": 27,
       "passed": 27,
-      "checkedAt": "2026-10-28T08:08:11.141Z",
-      "reportHash": "sha256:a62eaf246c7b043e03bbae6f401e1ea8"
+      "checkedAt": "2026-11-01T01:56:43.996Z",
+      "reportHash": "sha256:4f508b6fca5e686048e12407af2e0180"
     },
     {
       "slug": "recovery",
       "file": "tools/check-recovery.mjs",
-      "ms": 53308,
+      "ms": 53441,
       "assertions": 28,
       "passed": 28,
-      "checkedAt": "2026-10-28T08:09:02.087Z",
-      "reportHash": "sha256:af78b39e00a042385726777e49cfcfb9"
+      "checkedAt": "2026-11-01T01:57:35.076Z",
+      "reportHash": "sha256:9c73450d1ce6d9bcbd73626dfa6855b8"
     },
     {
       "slug": "fixes-a",
       "file": "tools/check-fixes-a.mjs",
-      "ms": 77740,
+      "ms": 78022,
       "assertions": 55,
       "passed": 55,
-      "checkedAt": "2026-10-28T08:10:23.678Z",
-      "reportHash": "sha256:f9e8b136ec0c57f238de78bbac4d496b"
+      "checkedAt": "2026-11-01T01:58:56.921Z",
+      "reportHash": "sha256:febffbfff67fe548fc4df1f3c4eee665"
     },
     {
       "slug": "fixes-b",
       "file": "tools/check-fixes-b.mjs",
-      "ms": 83992,
+      "ms": 84568,
       "assertions": 39,
       "passed": 39,
-      "checkedAt": "2026-10-28T08:11:44.821Z",
-      "reportHash": "sha256:03beac0c5c15d9899526f2755a137501"
+      "checkedAt": "2026-11-01T02:00:18.655Z",
+      "reportHash": "sha256:326051a53e78f9a56c53ee301f5f687d"
     },
     {
       "slug": "p0-gaps",
       "file": "tools/check-p0-gaps.mjs",
-      "ms": 58983,
+      "ms": 59215,
       "assertions": 12,
       "passed": 12,
-      "checkedAt": "2026-10-28T08:12:43.464Z",
-      "reportHash": "sha256:480ee29e9f16a3796f2b3c37efd228a7"
+      "checkedAt": "2026-11-01T02:01:17.538Z",
+      "reportHash": "sha256:857cf80aba9ecc31f4f93a03d98b07b5"
     }
   ]
 }

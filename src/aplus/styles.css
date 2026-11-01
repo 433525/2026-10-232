@@ -666,6 +666,36 @@ button.metric-card:hover { border-color: var(--teal); transform: none; }
 .mobile-nav { display: none; }
 .mobile-nav button:disabled { opacity: .5; }
 
+/* 9.1 · 备案信息行 --------------------------------------------------------
+   工信部要求已备案站点在页面底部公示备案号并外链 beian.miit.gov.cn。
+   位置在 .content 内，故不声明 margin-left —— 侧栏让位与响应式内边距
+   一律由 .main-area 提供，避免两处各写一套而在断点处漂移。
+   全站禁用 box-shadow，焦点环统一用 outline。 */
+.aplus-footer {
+  margin-top: 20px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.aplus-footer a {
+  color: var(--faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.aplus-footer a:hover {
+  color: var(--teal);
+}
+
+.aplus-footer a:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* 10 · 响应式 ------------------------------------------------------------- */
 @media (max-width: 1240px) {
   .side-rail { width: 212px; }
