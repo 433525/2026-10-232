@@ -549,15 +549,17 @@ dist/robots.txt
 | 域名 | `linli.lzbdcxm.cn`（DNSPod A 记录 → `62.234.23.197`，RecordId 2440115145） |
 | 主机 | 腾讯云轻量 `lhins-ol4yz1eo`，Ubuntu 22.04.5 LTS，4C8G / 120G，ap-beijing-6 |
 | Web | nginx 1.18.0，配置 `/etc/nginx/conf.d/linli.conf`，80 → 443 强制 301 |
-| HTTPS | Let's Encrypt，到期 2027-01-28，`certbot.timer` 自动续期，认证方式 webroot |
+| HTTPS | Let's Encrypt，到期 2027-02-02（2026-11-04 强制续期实测通过，7 秒完成），`certbot.timer` 自动续期，认证方式 webroot |
 | 站点根 | `/var/www/linli`（上一版保留在 `linli.prev`，最旧的 `linli.prev.keep` 发版后清理） |
 | 发版 | `node deploy/release.mjs`：构建 → 打包 → 上传 → 原子切换 → reload → 冒烟，失败自动回滚 |
 | 后端 | `linli-api.service`（Node 20，`/opt/linli-api`），只监听 `127.0.0.1:3000`，公网入口仅 nginx `/api/` 反代 |
 | 探针 | `https://linli.lzbdcxm.cn/api/health` → `{"status":"ok",...}` |
 
-**改动 nginx 配置时必须守住的一条**：80 与 443 必须是两个独立的 server 块。certbot 默认会把 `if ($host = <域名>) { return 301 https://...; }` 塞进 80 块，而 nginx 的 server 级 `if` 处于 rewrite 阶段，执行顺序**先于 location 匹配**——`/.well-known/acme-challenge/` 会被 301 吞掉，`certbot renew` 必然失败（实测报 `Unable to update challenge :: authorization must be pending`），90 天后证书过期。改完配置一律跑一次 `certbot renew --dry-run` 复验。
+**改动 nginx 配置时必须守住的一条**：80 与 443 必须是两个独立的 server 块。certbot 默认会把 `if ($host = <域名>) { return 301 https://...; }` 塞进 80 块，而 nginx 的 server 级 `if` 处于 rewrite 阶段，执行顺序**先于 location 匹配**——`/.well-known/acme-challenge/` 会被 301 吞掉，`certbot renew` 必然失败（实测报 `Unable to update challenge :: authorization must be pending`），90 天后证书过期。改完配置要验证 ACME 路径返回 404 而非 301；**不要用 `certbot renew --dry-run` 判断**——本机 staging 端点不可达，该命令必然失败，会误导判断。详见 `docs/OPS-HANDOVER.md` §7。
 
-**仍缺的上线前置**：公安联网备案、监控告警、内容安全服务。ICP 备案已通过（`桂ICP备2026024158号`），页脚已按工信部要求公示备案号并外链 `https://beian.miit.gov.cn/`；公安联网备案与 ICP 是两套独立流程，仍需在网站开通后按属地要求另行办理。
+**仍缺的上线前置**：公安联网备案、监控告警通道、内容安全服务。ICP 备案已通过（`桂ICP备2026024158号`），页脚已按工信部要求公示备案号并外链 `https://beian.miit.gov.cn/`；公安联网备案与 ICP 是两套独立流程，仍需在网站开通后按属地要求另行办理。监控已部署 `linli-monitor.timer`（5 分钟 / 7 项检查），但 webhook 未配置，**异常目前无人收到通知**。
+
+> **运维操作**（发版、改配置、故障处置、到期日历、交接清单）见 [`docs/OPS-HANDOVER.md`](OPS-HANDOVER.md)，本文不重复。
 
 ### 6.6 常见故障
 
