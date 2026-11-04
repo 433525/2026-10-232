@@ -1,189 +1,182 @@
-import React, { useRef } from 'react';
-import { 
-  Award, 
-  Download, 
-  Printer, 
-  X, 
-  QrCode, 
-  CheckCircle, 
-  Building
-} from 'lucide-react';
+import React from 'react';
+import { Award, CheckCircle2, Download, Printer, QrCode } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
+import { dateStamp, downloadTextFile } from '../shared/download';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 
 export const CertificateModal: React.FC = () => {
   const { currentUser, setActiveSubPage } = useApp();
-  const certRef = useRef<HTMLDivElement>(null);
 
   const certNo = `CN-VOL-2026-${currentUser.id.slice(-4).toUpperCase()}-8821`;
-  const issueDate = '2026年10月22日';
+  const issueDate = '2026 年 10 月 22 日';
+
+  const celebrate = (count: number) => {
+    try {
+      confetti({ particleCount: count, spread: 70, origin: { y: 0.6 } });
+    } catch {
+      // 无 canvas 环境时静默
+    }
+  };
 
   const handlePrint = () => {
     sound.playSuccess();
-    try {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    } catch {
-      //
-    }
+    celebrate(90);
     window.print();
   };
 
+  /** 下载的证明文本：与版式同一套口径，明确标注合成数据、不具备真实证明效力。 */
+  const certificateText = () =>
+    [
+      '社区志愿服务电子证明（本机合成演练）',
+      '====================================',
+      `证明编号：${certNo}（仅用于本机核对）`,
+      `演练身份：${currentUser.name}`,
+      `演练社区：${currentUser.community}`,
+      `签发日期（演示）：${issueDate}`,
+      '',
+      `累计完成演练任务：${currentUser.completedTasks} 次`,
+      `统计志愿时长：${currentUser.volunteerHours.toFixed(1)} 小时（未经任何机构审核或认证）`,
+      '',
+      '兹证明上述演练身份参与了「时间银行 · 银龄守护」本机合成演练。',
+      '本人名称、服务次数与时长均为虚构演示数据，不构成任何真实的志愿服务记录或证明，',
+      '不能用于学时认定、信用申报或任何真实用途。',
+      '',
+      '社区服务演练项目组（虚构） · 合成数据 · 非真实证明',
+      `生成时间：${new Date().toLocaleString('zh-CN')}`,
+    ].join('\n');
+
   const handleDownload = () => {
-    sound.playSuccess();
     try {
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.7 }
-      });
+      downloadTextFile(
+        `community-drill-certificate-${dateStamp()}.txt`,
+        certificateText(),
+        'text/plain;charset=utf-8',
+      );
+      sound.playSuccess();
+      celebrate(70);
+      toast('已请求下载演练证明文本；内容仅为本机合成数据，不具备真实证明效力。', 'success');
     } catch {
-      //
+      toast('证明下载失败：浏览器拒绝了文件创建。可改用「打印 / 保存 PDF」保存。');
     }
-    toast('志愿服务电子证书已生成，可使用打印对话框保存为 PDF', 'success');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Top Header Bar */}
-        <div className="p-3 sm:p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+    <Modal
+      title="社区志愿服务电子证明"
+      subtitle="演练证明 · 合成数据 · 不具备真实证明效力"
+      onClose={() => setActiveSubPage(null)}
+      wide
+      footer={
+        <>
+          <p className="nl-modal__foot-note">
+            本证明仅为版式演示，不对接任何机构核验，也不能用于学时认定或信用申报。
+          </p>
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-sm sm:text-base">
-              社区志愿服务电子证明规范查验
+            <Button variant="ghost" size="sm" onClick={handlePrint}>
+              <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+              打印 / 保存 PDF
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleDownload}>
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              下载证书
+            </Button>
+          </div>
+        </>
+      }
+    >
+      <div
+        className="relative rounded-[16px] border border-line-strong bg-white px-6 py-8 sm:px-10"
+        style={{
+          backgroundImage: 'radial-gradient(#f6e7d8 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      >
+        <span className="pointer-events-none absolute left-3 top-3 h-5 w-5 border-l border-t border-brand/40" />
+        <span className="pointer-events-none absolute right-3 top-3 h-5 w-5 border-r border-t border-brand/40" />
+        <span className="pointer-events-none absolute bottom-3 left-3 h-5 w-5 border-b border-l border-brand/40" />
+        <span className="pointer-events-none absolute bottom-3 right-3 h-5 w-5 border-b border-r border-brand/40" />
+
+        <div className="text-center">
+          <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-brand-tint text-brand">
+            <Award className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <h1 className="mt-2 font-serif text-[24px] font-bold tracking-[0.18em] text-ink">
+            志愿服务荣誉证书
+          </h1>
+          <p className="mt-1 font-mono text-[9px] tracking-[0.2em] text-muted">
+            CERTIFICATE OF COMMUNITY VOLUNTEER SERVICE
+          </p>
+          <div className="mx-auto mt-3 h-px w-28 bg-line-strong" />
+        </div>
+
+        <div className="mt-5 grid gap-3 font-serif text-[12.5px] leading-[2] text-text">
+          <p className="indent-8">
+            兹证明{' '}
+            <strong className="font-sans text-[15px] text-ink underline decoration-brand/50 underline-offset-4">
+              {currentUser.name}
+            </strong>{' '}
+            参与了梧桐里（虚构）社区「时间银行 · 银龄守护」<strong>本机合成演练</strong>。本人名称、服务次数与时长均为虚构演示数据，
+            不构成任何真实的志愿服务记录或证明。
+          </p>
+          <p className="indent-8">
+            截至目前，该演练账号在本机记录中累计完成陪医、照护、修缮等演练任务{' '}
+            <strong className="font-sans text-[14px] text-accent">{currentUser.completedTasks}</strong> 次；
+            以下时长按本机演练规则统计，未经任何机构审核或认证：
+          </p>
+
+          <div className="py-1 text-center">
+            <div className="inline-flex items-baseline gap-1.5 rounded-[12px] border border-line bg-page px-7 py-2.5">
+              <span className="nl-num font-sans text-[30px] font-bold text-brand-ink">
+                {currentUser.volunteerHours.toFixed(1)}
+              </span>
+              <span className="font-sans text-[11px] font-semibold text-brand-ink">标准志愿小时</span>
+            </div>
+          </div>
+
+          <p className="indent-8 text-[11.5px] text-text2">
+            特发此证，以资鼓励。志愿精神，德行流芳。
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-line pt-5 sm:flex-row">
+          <div className="flex items-center gap-3">
+            <span className="grid h-14 w-14 place-items-center rounded-[10px] border border-line bg-white">
+              <QrCode className="h-9 w-9 text-ink" aria-hidden="true" />
+            </span>
+            <div className="text-[9.5px] leading-relaxed text-muted">
+              <p className="font-mono text-[10px] font-semibold text-text2">{certNo}</p>
+              <p className="mt-0.5 flex items-center gap-1 text-accent">
+                <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
+                演练编号，仅用于本机核对
+              </p>
+              <p>二维码仅作版式演示，不连接核验服务</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 sm:justify-end">
+            <p className="text-right text-[9.5px] leading-relaxed text-muted">
+              社区服务演练项目组（虚构）
+              <br />
+              合成数据 · 非真实证明
+              <br />
+              <span className="font-mono">{issueDate}</span>
+            </p>
+            <span
+              className="grid h-16 w-16 -rotate-12 place-items-center rounded-full border border-danger/50 text-center text-[7px] font-bold leading-tight text-danger/75"
+              aria-hidden="true"
+            >
+              演练项目组
+              <br />
+              仅用于版式演示
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs flex items-center gap-1 font-medium transition-colors"
-              title="打印证书"
-            >
-              <Printer className="w-4 h-4 text-amber-300" />
-              <span className="hidden sm:inline">打印/保存PDF</span>
-            </button>
-            <button
-              onClick={handleDownload}
-              className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs flex items-center gap-1 font-semibold transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">下载证书</span>
-            </button>
-            <button
-              onClick={() => {
-                sound.playTap();
-                setActiveSubPage(null);
-              }}
-              className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white transition-colors ml-1"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Certificate Container */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-amber-50/40">
-          <div 
-            ref={certRef}
-            className="relative bg-white rounded-xl border-4 border-amber-600/30 p-6 sm:p-10 shadow-lg text-slate-800 space-y-6"
-            style={{
-              backgroundImage: 'radial-gradient(#fef3c7 1px, transparent 1px)',
-              backgroundSize: '24px 24px'
-            }}
-          >
-            {/* Corner Ornaments */}
-            <div className="absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-amber-600 pointer-events-none" />
-            <div className="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-amber-600 pointer-events-none" />
-            <div className="absolute bottom-2 left-2 w-8 h-8 border-b-2 border-l-2 border-amber-600 pointer-events-none" />
-            <div className="absolute bottom-2 right-2 w-8 h-8 border-b-2 border-r-2 border-amber-600 pointer-events-none" />
-
-            {/* Certificate Header */}
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-900 shadow-md mb-1">
-                <Award className="w-7 h-7" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-serif font-black tracking-widest text-slate-900">
-                志愿服务荣誉证书
-              </h1>
-              <p className="text-xs uppercase tracking-widest text-amber-800 font-semibold font-mono">
-                CERTIFICATE OF COMMUNITY VOLUNTEER SERVICE
-              </p>
-              <div className="w-32 h-0.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto mt-2" />
-            </div>
-
-            {/* Certificate Body */}
-            <div className="space-y-4 text-sm sm:text-base leading-relaxed text-slate-700 font-serif pt-2">
-              <p className="indent-8">
-                兹证明 <strong className="text-slate-950 font-sans text-lg underline decoration-amber-500 underline-offset-4 font-bold">{currentUser.name}</strong> 同志（身份证号：<span className="font-mono text-slate-900">{currentUser.idCardMasked || '3201061994****6618'}</span>），热心践行邻里互助精神，积极参与翠湖花园社区“时间银行·银龄守护”志愿服务行动。
-              </p>
-              <p className="indent-8">
-                截至目前，该同志已累计完成社区陪同就医、慢病照护、家务修缮等助老服务 <strong className="text-emerald-700 font-sans text-lg font-bold">{currentUser.completedTasks || 68}</strong> 次，经街道社区互助监督委员会审核认证，有效志愿服务时长累计达：
-              </p>
-              
-              <div className="text-center py-2">
-                <div className="inline-block px-8 py-3 bg-gradient-to-r from-amber-50 via-yellow-100 to-amber-50 rounded-xl border border-amber-300 shadow-xs">
-                  <span className="text-3xl sm:text-4xl font-black font-sans text-amber-800 tracking-tight">
-                    {currentUser.volunteerHours || 142.5}
-                  </span>
-                  <span className="text-sm font-bold text-amber-900 ml-1.5 font-sans">
-                    标准志愿小时
-                  </span>
-                </div>
-              </div>
-
-              <p className="indent-8 text-xs sm:text-sm text-slate-600">
-                特发此证，以资鼓励与表彰。志愿精神，德行流芳！
-              </p>
-            </div>
-
-            {/* Certificate Footer with Seals & QR */}
-            <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-amber-200/80">
-              {/* QR Verification */}
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-xs flex items-center justify-center">
-                  <QrCode className="w-14 h-14 text-slate-800" />
-                </div>
-                <div className="text-[11px] text-slate-500 space-y-0.5">
-                  <div className="font-mono text-slate-800 font-bold">{certNo}</div>
-                  <div className="flex items-center gap-1 text-emerald-700">
-                    <CheckCircle className="w-3 h-3" />
-                    <span>官方防伪编码已上链备案</span>
-                  </div>
-                  <div>扫码查验服务真伪与明细</div>
-                </div>
-              </div>
-
-              {/* Official Seal Mock */}
-              <div className="relative text-center sm:text-right">
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div className="font-bold text-slate-800">翠湖花园社区志愿服务工作站</div>
-                  <div className="font-bold text-slate-800">翠湖社区新时代文明实践站</div>
-                  <div className="text-slate-500 font-mono">{issueDate}</div>
-                </div>
-
-                {/* Red Circular Stamp Graphic */}
-                <div className="sm:absolute -top-3 -right-2 w-20 h-20 rounded-full border-2 border-red-600/80 text-red-600 flex flex-col items-center justify-center text-[8px] font-bold rotate-[-12deg] opacity-85 select-none pointer-events-none mx-auto mt-2 sm:mt-0 shadow-xs">
-                  <div className="text-[7px]">★ 社区工作站 ★</div>
-                  <div className="text-[9px] my-0.5">志愿服务审核专用</div>
-                  <div className="text-[7px]">2026.10.22</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Tip */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500 flex items-center justify-center gap-1">
-          <Building className="w-3.5 h-3.5 text-slate-400" />
-          <span>本电子证书符合《志愿服务条例》规范标准，可用于学生社会实践学时认定及个人信用积分申报。</span>
         </div>
       </div>
-    </div>
+
+    </Modal>
   );
 };

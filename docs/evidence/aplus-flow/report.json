@@ -1,0 +1,184 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-11-01T01:55:11.189Z",
+  "summary": "演练-功能验收-mvx6gspv",
+  "total": 35,
+  "passed": 35,
+  "results": [
+    {
+      "name": "新建弹层可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "未勾选虚构确认时创建按钮禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "勾选虚构确认后创建按钮可用",
+      "ok": true,
+      "detail": "disabled=false"
+    },
+    {
+      "name": "新建记录后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "新建记录给出成功提示",
+      "ok": true,
+      "detail": "演练记录已加入队列"
+    },
+    {
+      "name": "新建记录后队列 +1",
+      "ok": true,
+      "detail": "5 → 6"
+    },
+    {
+      "name": "新建记录自动选中",
+      "ok": true,
+      "detail": "演练-功能验收-mvx6gspv"
+    },
+    {
+      "name": "重复登记进入人工复核",
+      "ok": true,
+      "detail": "发现完全重复的登记内容"
+    },
+    {
+      "name": "重复复核列出候选记录",
+      "ok": true,
+      "detail": "candidates=1"
+    },
+    {
+      "name": "复核确认按钮初始禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "[edge] 重复复核「返回修改」复原表单，且再次提交仍走复核门禁",
+      "ok": true,
+      "detail": "发现完全重复的登记内容 → 新建演练记录 / 候选=0 / 再提交=发现完全重复的登记内容 候选=1 确认禁用=true"
+    },
+    {
+      "name": "[neg] 返回修改不产生新记录（队列数与复核前一致）",
+      "ok": true,
+      "detail": "queue 6 → 6 / modal=true"
+    },
+    {
+      "name": "检查点未完成时流转被阻止",
+      "ok": true,
+      "detail": "action=BEGIN_SCREENING disabled=true"
+    },
+    {
+      "name": "阻止原因可见",
+      "ok": true,
+      "detail": "演练同意状态尚未确认为“已确认”：开始初筛、请求或恢复信息补充、接单、转介、跟进"
+    },
+    {
+      "name": "检查点弹层提交可用",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "检查点保存后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "检查点保存后标记完成",
+      "ok": true,
+      "detail": "ready=true"
+    },
+    {
+      "name": "解锁后流转提交可用",
+      "ok": true,
+      "detail": "action=BEGIN_SCREENING"
+    },
+    {
+      "name": "流转后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "流转后时间线追加",
+      "ok": true,
+      "detail": "2 → 3"
+    },
+    {
+      "name": "流转后状态刷新",
+      "ok": true,
+      "detail": "初筛中"
+    },
+    {
+      "name": "备份文本非空",
+      "ok": true,
+      "detail": "length=10965"
+    },
+    {
+      "name": "备份文本是合法 JSON",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "备份含新建记录",
+      "ok": true,
+      "detail": "cases=6"
+    },
+    {
+      "name": "刷新后记录仍在本机存档",
+      "ok": true,
+      "detail": "queue=6 status=saved"
+    },
+    {
+      "name": "[edge] 复制链接写入含当前记录编号的深链",
+      "ok": true,
+      "detail": "copied=http://localhost:5180/aplus.html?case=SYNTH-006 toast=已复制当前记录的演练链接。"
+    },
+    {
+      "name": "[edge] 该深链可直接打开被复制的记录（切换到别的记录后仍能定位）",
+      "ok": true,
+      "detail": "复制=SYNTH-006 切走后=SYNTH-001 打开=SYNTH-006 标题=演练-功能验收-mvx6gspv"
+    },
+    {
+      "name": "[neg] 跟进原因为空时保存被拒，弹层保持且时间线不增",
+      "ok": true,
+      "detail": "未勾选禁用=true 报错=请填写调整原因。 时间线 3 → 3"
+    },
+    {
+      "name": "调整跟进保存后时间线追加、弹层关闭、负责人更新",
+      "ok": true,
+      "detail": "时间线 +1 / 负责人=演练-跟进席-07 / toast=跟进信息已追加到时间线"
+    },
+    {
+      "name": "[neg] 模拟联系未勾选虚构确认时保存禁用",
+      "ok": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "[edge] 模拟联系结果写入时间线，登记状态保持不变",
+      "ok": true,
+      "detail": "时间线 +1 / 结果=结果：约定稍后再联系（模拟） / 状态 初筛中 → 初筛中"
+    },
+    {
+      "name": "关联重开生成新记录并反向指回原记录",
+      "ok": true,
+      "detail": "原=SYNTH-006 → 新=SYNTH-007 队列 6 → 7 / 新记录状态=已收件 时间线=2 / 反查=SYNTH-006 · 演练-006演练-功"
+    },
+    {
+      "name": "[neg] 关联重开不改变原记录终态",
+      "ok": true,
+      "detail": "终态 已结束（服务结果未核实） → 已结束（服务结果未核实） / 新记录反查原记录标注=已结束（服务结果未核实） / 新记录自身标注=已收件"
+    },
+    {
+      "name": "[neg] 失效 ?case= 深链清理参数并给出说明（不停在空详情）",
+      "ok": true,
+      "detail": "search=（空） 提示=链接中的演练记录不存在，已显示队列首条。 队列=7 详情=SYNTH-007"
+    },
+    {
+      "name": "主流程无控制台异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

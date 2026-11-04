@@ -1,0 +1,204 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-11-01T02:00:18.655Z",
+  "stamp": "mvx6m9ra",
+  "total": 39,
+  "passed": 39,
+  "results": [
+    {
+      "name": "社区桥可读取并列出 B 端已通过的求助",
+      "ok": true,
+      "detail": "done status="
+    },
+    {
+      "name": "登记后同弹层立即显示已登记（记忆化正确失效）",
+      "ok": true,
+      "detail": "registeredNow=true"
+    },
+    {
+      "name": "登记后 A+ 队列 +1",
+      "ok": true,
+      "detail": "5 → 6"
+    },
+    {
+      "name": "重新读取后仍显示已登记（跨读取稳定）",
+      "ok": true,
+      "detail": "stillRegistered=true"
+    },
+    {
+      "name": "新登记记录写入存档：绑定社区帖子 id 与专属来源",
+      "ok": true,
+      "detail": "case=SYNTH-006"
+    },
+    {
+      "name": "重复登记进入人工重复复核（不静默合并）",
+      "ok": true,
+      "detail": "done"
+    },
+    {
+      "name": "人工确认后另建独立记录并绑定社区帖子",
+      "ok": true,
+      "detail": "registered=true ui=true"
+    },
+    {
+      "name": "复核说明写入新记录时间线（留痕）",
+      "ok": true,
+      "detail": "reviewKept=true"
+    },
+    {
+      "name": "投诉提交后进入待复核队列",
+      "ok": true,
+      "detail": "0 → 1"
+    },
+    {
+      "name": "受理席不可复核（角色门禁），复核席可完成",
+      "ok": true,
+      "detail": "pendingAfter=0 role=demo-review disabled=false err= step=done"
+    },
+    {
+      "name": "复核结论与复核人角色写入存档（留痕）",
+      "ok": true,
+      "detail": "status=已复核 reviewer=demo-review"
+    },
+    {
+      "name": "转介席视角可见投诉队列与详情（含当前演示角色说明）",
+      "ok": true,
+      "detail": "done pick=true/true/true"
+    },
+    {
+      "name": "转介席不得复核「针对转介席」的投诉（回避门禁）",
+      "ok": true,
+      "detail": "blocked=true disabled=true"
+    },
+    {
+      "name": "转介席不得复核「转介席自己提交」的投诉（提交人回避）",
+      "ok": true,
+      "detail": "blocked=true disabled=true"
+    },
+    {
+      "name": "转介席可完成他人投诉的复核并写入复核角色",
+      "ok": true,
+      "detail": "step=done status=已复核 reviewer=demo-referral"
+    },
+    {
+      "name": "投诉复核不改写关联 case 的时间线与状态",
+      "ok": true,
+      "detail": "case=SYNTH-008 timeline=-1→-1 status=已收件→已收件"
+    },
+    {
+      "name": "转介席完成复核后待复核队列计数递减一条",
+      "ok": true,
+      "detail": "pending=3→2 complaints=4"
+    },
+    {
+      "name": "A+ 重置演练恢复初始记录",
+      "ok": true,
+      "detail": "8 → 5"
+    },
+    {
+      "name": "合法备份导入后记录完整恢复（含桥登记记录）",
+      "ok": true,
+      "detail": "cases=8/8 bridge=true"
+    },
+    {
+      "name": "版本不符的备份被拒绝且存档不变",
+      "ok": true,
+      "detail": "cases=8 toast=备份格式或版本不受支持。"
+    },
+    {
+      "name": "争议用例订单进入待审（数据基线可用）",
+      "ok": true,
+      "detail": "moderation=pending"
+    },
+    {
+      "name": "已接单订单出现「发起争议」入口（争议态前不显示处理入口）",
+      "ok": true,
+      "detail": "opened=true accepted=true entry=true resolve=false"
+    },
+    {
+      "name": "争议弹层要求理由：空理由禁用提交，填写后放行",
+      "ok": true,
+      "detail": "done field=true empty=true filled=true"
+    },
+    {
+      "name": "争议弹层声明不发起真实仲裁/投诉",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "发起争议后详情不关闭且留痕立即出现 dispute 事件",
+      "ok": true,
+      "detail": "done open=true event=true"
+    },
+    {
+      "name": "争议态：状态标签、原因提示与领域状态一致",
+      "ok": true,
+      "detail": "status=disputed-local-demo label=true alert=true reason=true"
+    },
+    {
+      "name": "撤销争议需理由并回到履约中（留痕 resume-after-dispute）",
+      "ok": true,
+      "detail": "done empty=true status=accepted-local-demo event=true"
+    },
+    {
+      "name": "撤销后界面复原：争议提示消失、可再次发起",
+      "ok": true,
+      "detail": "alert=true accepted=true entry=true"
+    },
+    {
+      "name": "因争议关闭需理由且订单终止（留痕 close-after-dispute）",
+      "ok": true,
+      "detail": "done empty=true status=cancelled-local-demo event=true"
+    },
+    {
+      "name": "终止后不再显示争议入口，历史理由仍可读",
+      "ok": true,
+      "detail": "entry=true cancelled=true reason=true disputes=2"
+    },
+    {
+      "name": "时间存折明细：余额与流水条数在界面上自洽",
+      "ok": true,
+      "detail": "done hero=2.8/2.8 rows=2/2 label=2"
+    },
+    {
+      "name": "时间存折明细：折合小时、未结算计数与金额格式正确",
+      "ok": true,
+      "detail": "hours=2.8/2.8 unsettled=true amounts=true"
+    },
+    {
+      "name": "时间存折明细：凭证号与「不可兑现/不可转让」只读声明在位",
+      "ok": true,
+      "detail": "voucher=true readable=true readonly=true"
+    },
+    {
+      "name": "[neg] 待审帖驳回：理由为空时提交按钮禁用",
+      "ok": true,
+      "detail": "done disabled=true"
+    },
+    {
+      "name": "[edge] 待审帖驳回：理由仅空白字符仍视为空，按钮保持禁用；填写后放行",
+      "ok": true,
+      "detail": "blank=true filled=false"
+    },
+    {
+      "name": "[neg] 驳回后状态转 rejected 并写审核日志，且不进入公开信息流",
+      "ok": true,
+      "detail": "rejected audits=1 inFeed=false note=合成演练：含未脱敏联系方式，按演练规则驳回。"
+    },
+    {
+      "name": "[neg] 时间账本只读：调账入口不改变任何余额，仅给只读说明",
+      "ok": true,
+      "detail": "before=165 after=165 aria-disabled=true toast=i演练数据只读：时间账本不支持调账、兑现或转让。"
+    },
+    {
+      "name": "[neg] 暂停新登记后 A+ 新建入口禁用并给出提示，恢复后放行",
+      "ok": true,
+      "detail": "done paused=true notice=true pressed=true resumed=false"
+    },
+    {
+      "name": "B 段全流程无控制台异常（A+ 桥接与投诉链路）",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -1,66 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  HeartHandshake, 
-  Sparkles, 
-  MessageSquare, 
-  Camera, 
-  MapPin, 
-  Lock, 
-  EyeOff, 
-  Flame,
-  CheckCircle2
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Camera, CheckCircle2, EyeOff, Flame, Lock, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
 import { toast } from '../utils/toast';
 import { moderateContent, validateRequired } from '../utils/moderation';
 import { loadDraft, saveDraft, clearDraft } from '../utils/draft';
-import { HelpCategory, PostCategory } from '../types';
+import type { HelpCategory, PostCategory } from '../types';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Segmented } from '../ui/Segmented';
 
+const CATEGORIES: { key: HelpCategory; label: string }[] = [
+  { key: 'daily_chores', label: '日常家务' },
+  { key: 'medical_escort', label: '陪同就医' },
+  { key: 'chat_companion', label: '聊天陪伴' },
+  { key: 'childcare_guide', label: '隔代育儿' },
+  { key: 'urgent_help', label: '紧急求助' },
+];
+
+const DURATIONS = [1, 2, 3, 4];
+
+/**
+ * 发布弹层：桌面为 880px 双栏弹层，移动端铺满整页。
+ * 三条通道共用一套外壳，提交逻辑沿用既有校验（实名前置 / 内容预检 / 草稿恢复）。
+ */
 export const PublishModal: React.FC = () => {
-  const { 
-    currentUser, 
-    createHelpOrder, 
-    createPost, 
-    setActiveTab, 
-    setActiveSubPage, 
-    elderlyMode 
-  } = useApp();
+  const { currentUser, createHelpOrder, createPost, setActiveSubPage } = useApp();
 
-  // Mode: 1: Help Order, 2: Volunteer Story, 3: Neighborhood Post
   const [publishMode, setPublishMode] = useState<1 | 2 | 3>(1);
 
-  // Form states for Help Order
   const [helpTitle, setHelpTitle] = useState('');
   const [helpCategory, setHelpCategory] = useState<HelpCategory>('medical_escort');
   const [helpDesc, setHelpDesc] = useState('');
-  const [helpLocationArea, setHelpLocationArea] = useState('翠湖花园3期');
-  const [helpLocationDetail, setHelpLocationDetail] = useState(currentUser.address || '8号楼2单元601');
+  const [helpLocationArea, setHelpLocationArea] = useState(currentUser.community);
   const [helpDate, setHelpDate] = useState('明日 (周六)');
   const [helpTime, setHelpTime] = useState('09:00 - 11:30');
-  const [helpDuration, setHelpDuration] = useState(2.5);
+  const [helpDuration, setHelpDuration] = useState(2);
   const [helpMedicalNotes, setHelpMedicalNotes] = useState('');
   const [consentSensitive, setConsentSensitive] = useState(true);
+  const [promiseTruth, setPromiseTruth] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
-  const [photos] = useState<string[]>([
-    'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=400&q=80'
-  ]);
 
-  // Form states for Volunteer Story / Post
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [postCategory, setPostCategory] = useState<PostCategory>('story');
 
-  const categories = [
-    { key: 'daily_chores', label: '日常家务', icon: '🧹' },
-    { key: 'medical_escort', label: '陪同就医', icon: '🏥' },
-    { key: 'chat_companion', label: '聊天陪伴', icon: '🍵' },
-    { key: 'childcare_guide', label: '隔代育儿', icon: '👶' },
-    { key: 'urgent_help', label: '紧急求助', icon: '🚨' },
-  ];
-
-  // 发布草稿自动暂存：误刷新/误返回不再丢失长者的长段输入
+  // 草稿自动暂存：误刷新/误返回不丢长段输入
   useEffect(() => {
     const timer = window.setTimeout(() => {
       saveDraft({
@@ -69,7 +55,7 @@ export const PublishModal: React.FC = () => {
         helpCategory,
         helpDesc,
         helpLocationArea,
-        helpLocationDetail,
+        helpLocationDetail: '',
         helpDate,
         helpTime,
         helpDuration,
@@ -87,7 +73,6 @@ export const PublishModal: React.FC = () => {
     helpCategory,
     helpDesc,
     helpLocationArea,
-    helpLocationDetail,
     helpDate,
     helpTime,
     helpDuration,
@@ -98,23 +83,20 @@ export const PublishModal: React.FC = () => {
     postCategory,
   ]);
 
-  // 首次进入恢复草稿（合规勾选不恢复，需用户重新确认）
   useEffect(() => {
     const draft = loadDraft();
     if (!draft) return;
-    const hasContent =
-      Boolean(draft.helpTitle || draft.helpDesc || draft.postTitle || draft.postContent);
+    const hasContent = Boolean(draft.helpTitle || draft.helpDesc || draft.postTitle || draft.postContent);
     if (!hasContent) return;
 
     setPublishMode((draft.mode === 2 || draft.mode === 3 ? draft.mode : 1) as 1 | 2 | 3);
     setHelpTitle(draft.helpTitle || '');
     if (draft.helpCategory) setHelpCategory(draft.helpCategory as HelpCategory);
     setHelpDesc(draft.helpDesc || '');
-    setHelpLocationArea(draft.helpLocationArea || '翠湖花园3期');
-    setHelpLocationDetail(draft.helpLocationDetail || '');
+    setHelpLocationArea(draft.helpLocationArea || currentUser.community);
     setHelpDate(draft.helpDate || '明日 (周六)');
     setHelpTime(draft.helpTime || '09:00 - 11:30');
-    setHelpDuration(Number(draft.helpDuration) || 2.5);
+    setHelpDuration(Math.round(Number(draft.helpDuration) || 2));
     setHelpMedicalNotes(draft.helpMedicalNotes || '');
     setIsUrgent(Boolean(draft.isUrgent));
     setPostTitle(draft.postTitle || '');
@@ -124,8 +106,10 @@ export const PublishModal: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSubmitHelpOrder = (e: React.FormEvent) => {
-    e.preventDefault();
+  const close = () => setActiveSubPage(null);
+
+  const submitHelpOrder = (event: React.FormEvent) => {
+    event.preventDefault();
 
     if (currentUser.verifyStatus !== 'verified') {
       sound.playSosAlert();
@@ -145,25 +129,27 @@ export const PublishModal: React.FC = () => {
       return;
     }
 
-    // 内容安全预检：先审后发的第一道闸门（对应合规雷点 R7）
+    if (!promiseTruth) {
+      toast('请先确认信息真实、不含真实个人敏感信息');
+      return;
+    }
+
     const audit = moderateContent(helpTitle, helpDesc, helpMedicalNotes);
     if (!audit.ok) {
       toast(audit.advice);
       return;
     }
-    if (audit.severity === 'warn') {
-      toast(audit.advice);
-    }
+    if (audit.severity === 'warn') toast(audit.advice);
 
-    const catObj = categories.find(c => c.key === helpCategory);
+    const category = CATEGORIES.find((item) => item.key === helpCategory);
 
-    createHelpOrder({
+    const submitted = createHelpOrder({
       title: helpTitle.trim(),
       category: helpCategory,
-      categoryLabel: catObj ? catObj.label : '日常家务',
+      categoryLabel: category ? category.label : '日常家务',
       description: helpDesc.trim() || '老人日常需求互助，希望附近热心志愿者协助。',
       locationArea: helpLocationArea,
-      locationDetail: helpLocationDetail,
+      locationDetail: '',
       dateStr: helpDate,
       timeStr: helpTime,
       durationHours: helpDuration,
@@ -171,402 +157,403 @@ export const PublishModal: React.FC = () => {
       isUrgent: isUrgent || helpCategory === 'urgent_help',
       medicalNotes: helpMedicalNotes.trim(),
       consentSensitive: true,
-      photos
+      photos: [],
     });
 
+    // 失败：具体原因已由 Context toast（未实名 / 校验失败 / 存档异常等）。
+    // 草稿保留、弹层不关，用户改完可直接重试；成功才清草稿并回到首页。
+    if (!submitted) return;
+
     clearDraft();
-    toast('求助订单已发布至接单大厅，附近认证志愿者将收到派单提醒', 'success');
-    setActiveTab('home');
+    close();
   };
 
-  const handleSubmitPost = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitPost = (event: React.FormEvent) => {
+    event.preventDefault();
     const contentError = validateRequired(postContent, '正文内容', 5);
     if (contentError) {
       toast(contentError);
       return;
     }
 
-    // 内容安全预检：先审后发的第一道闸门
     const audit = moderateContent(postTitle, postContent);
     if (!audit.ok) {
       toast(audit.advice);
       return;
     }
-    if (audit.severity === 'warn') {
-      toast(audit.advice);
-    }
+    if (audit.severity === 'warn') toast(audit.advice);
 
-    createPost({
+    const submitted = createPost({
       title: postTitle.trim(),
       content: postContent.trim(),
       category: publishMode === 2 ? 'story' : postCategory,
-      categoryLabel: publishMode === 2 ? '志愿风采' : (postCategory === 'idle' ? '闲置互助' : '求助交流'),
+      categoryLabel:
+        publishMode === 2 ? '志愿风采' : postCategory === 'idle' ? '闲置互助' : '求助交流',
       isAnonymous,
-      images: [
-        'https://images.unsplash.com/photo-1516307365426-bea591f05011?auto=format&fit=crop&w=600&q=80'
-      ],
-      locationTag: currentUser.community
+      images: [],
+      locationTag: currentUser.community,
     });
 
+    // 失败：原因已由 Context toast；草稿保留、弹层不关，改完可重试。
+    if (!submitted) return;
+
     clearDraft();
-    toast('动态已发布并同步至社区信息流', 'success');
-    setActiveTab('community');
+    close();
   };
 
+  const summary = useMemo(() => {
+    const category = CATEGORIES.find((item) => item.key === helpCategory)?.label ?? '陪同就医';
+    return `求助订单 · ${category} · ${helpDuration} 小时`;
+  }, [helpCategory, helpDuration]);
+
+  const modeItems = [
+    { key: '1', label: '求助订单' },
+    { key: '2', label: '志愿动态' },
+    { key: '3', label: '邻里帖子' },
+  ];
+
   return (
-    <div className="space-y-4 pb-12 animate-in fade-in duration-150 max-w-2xl mx-auto">
-      {/* Top 3 Publish Options Switcher */}
-      <div className="p-1.5 rounded-2xl bg-slate-200/80 grid grid-cols-3 gap-1 text-center font-bold text-xs sm:text-sm">
-        <button
-          onClick={() => {
-            sound.playTap();
-            setPublishMode(1);
-          }}
-          className={`py-2.5 px-2 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            publishMode === 1
-              ? 'bg-white text-emerald-800 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <HeartHandshake className="w-4 h-4 text-emerald-600" />
-          <span>发布求助订单</span>
-        </button>
+    <Modal
+      title="发布"
+      subtitle="不离开当前页面 · 提交后自动进入接单大厅"
+      onClose={close}
+      wide
+      full
+      footer={
+        <>
+          <p className="nl-publish__summary">
+            {publishMode === 1 ? `已选：${summary}` : publishMode === 2 ? '已选：志愿动态' : '已选：邻里帖子'}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={close}>
+              取消
+            </Button>
+            {publishMode === 1 ? (
+              <Button type="submit" form="publish-help-form" variant="primary">
+                确认发布到接单大厅
+              </Button>
+            ) : (
+              <Button type="submit" form="publish-post-form" variant="primary">
+                发布并同步至社区
+              </Button>
+            )}
+          </div>
+        </>
+      }
+    >
+      <Segmented
+        label="发布类型"
+        value={String(publishMode)}
+        onChange={(key) => {
+          sound.playTap();
+          setPublishMode(Number(key) as 1 | 2 | 3);
+        }}
+        items={modeItems}
+      />
 
-        <button
-          onClick={() => {
-            sound.playTap();
-            setPublishMode(2);
-          }}
-          className={`py-2.5 px-2 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            publishMode === 2
-              ? 'bg-white text-amber-800 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-amber-600" />
-          <span>发布志愿风采</span>
-        </button>
+      {publishMode === 1 ? (
+        <div className="nl-publish mt-4">
+          <form id="publish-help-form" className="grid gap-4" onSubmit={submitHelpOrder}>
+            <h3 className="text-[12px] font-semibold text-ink">发布求助订单</h3>
 
-        <button
-          onClick={() => {
-            sound.playTap();
-            setPublishMode(3);
-          }}
-          className={`py-2.5 px-2 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
-            publishMode === 3
-              ? 'bg-white text-blue-800 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4 text-blue-600" />
-          <span>普通邻里贴</span>
-        </button>
-      </div>
-
-      {/* Mode 1: 发布求助订单 */}
-      {publishMode === 1 && (
-        <form onSubmit={handleSubmitHelpOrder} className="p-4 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
+            {currentUser.verifyStatus !== 'verified' ? (
+              <div className="nl-alert">
+                <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>发布求助订单需先完成实名认证，未认证将无法提交。</span>
+              </div>
+            ) : null}
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                填写长者求助需求单（生成时间银行订单）
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                长者本人或家属代办均可发布 · 提交后入驻接单大厅
-              </p>
-            </div>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold shrink-0">
-              需实名核验
-            </span>
-          </div>
-
-          {/* Service Category Buttons */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700">需求服务类型 (必选其一)：</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {categories.map((c) => (
-                <button
-                  type="button"
-                  key={c.key}
-                  onClick={() => {
-                    sound.playTap();
-                    setHelpCategory(c.key as HelpCategory);
-                    if (c.key === 'urgent_help') setIsUrgent(true);
-                  }}
-                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                    helpCategory === c.key
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-500'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <span className="text-lg">{c.icon}</span>
-                  <span className="text-xs">{c.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">求助标题：</label>
-            <input
-              type="text"
-              value={helpTitle}
-              onChange={(e) => setHelpTitle(e.target.value)}
-              placeholder="如：周六上午陪同去中医院配降压药 / 卧室换灯泡"
-              className={`w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${elderlyMode ? 'text-base font-medium' : 'text-xs sm:text-sm'}`}
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">具体需求描述：</label>
-            <textarea
-              value={helpDesc}
-              onChange={(e) => setHelpDesc(e.target.value)}
-              placeholder="请详细说明老人目前身体状况、需要帮忙的具体事项、是否需要自备工具等..."
-              rows={3}
-              className={`w-full p-2.5 rounded-xl border border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none ${elderlyMode ? 'text-base font-medium' : 'text-xs sm:text-sm'}`}
-            />
-          </div>
-
-          {/* Time & Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">服务日期：</label>
-              <input
-                type="text"
-                value={helpDate}
-                onChange={(e) => setHelpDate(e.target.value)}
-                className="w-full p-2 rounded-xl border border-slate-200 text-xs text-slate-800"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">服务时间段：</label>
-              <input
-                type="text"
-                value={helpTime}
-                onChange={(e) => setHelpTime(e.target.value)}
-                className="w-full p-2 rounded-xl border border-slate-200 text-xs text-slate-800"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">预估时长 (小时)：</label>
-              <select
-                value={helpDuration}
-                onChange={(e) => setHelpDuration(Number(e.target.value))}
-                className="w-full p-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white"
-              >
-                <option value={1}>1.0 小时 (结算 1 币)</option>
-                <option value={1.5}>1.5 小时 (结算 2 币)</option>
-                <option value={2}>2.0 小时 (结算 2 币)</option>
-                <option value={3}>3.0 小时 (结算 3 币)</option>
-                <option value={4}>4.0 小时 (结算 4 币)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Location Area & Privacy Address */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                服务地点与隐私分级管理
-              </span>
-              <span className="text-[10px] text-emerald-700 font-normal">
-                公开区域脱敏 / 接单凭证解密
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] text-slate-500">公开展示区域 (如小区期数)：</label>
-                <input
-                  type="text"
-                  value={helpLocationArea}
-                  onChange={(e) => setHelpLocationArea(e.target.value)}
-                  className="w-full mt-0.5 p-2 rounded-lg border border-slate-200 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-500">详细门牌号 (接单前保密)：</label>
-                <input
-                  type="text"
-                  value={helpLocationDetail}
-                  onChange={(e) => setHelpLocationDetail(e.target.value)}
-                  className="w-full mt-0.5 p-2 rounded-lg border border-slate-200 text-xs bg-emerald-50/50"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Medical Notes & Sensitive Consent */}
-          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-              <Lock className="w-3.5 h-3.5 text-amber-700" />
-              <span>长者既往病史与特殊健康说明（选填，单独加密授权）</span>
-            </div>
-            <textarea
-              value={helpMedicalNotes}
-              onChange={(e) => setHelpMedicalNotes(e.target.value)}
-              placeholder="例如：行动不便需坐轮椅、有高血压二期需随身带降压含片、对花粉过敏等..."
-              rows={2}
-              className="w-full p-2 rounded-lg border border-amber-200 text-xs text-slate-800 bg-white"
-            />
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="checkbox"
-                id="consentCheck"
-                checked={consentSensitive}
-                onChange={(e) => setConsentSensitive(e.target.checked)}
-                className="rounded text-emerald-600 w-4 h-4"
-              />
-              <label htmlFor="consentCheck" className="text-[11px] text-slate-600">
-                我已确认老人知情并单独授权平台在接单后向志愿者提供上述健康照护注意事项。
+              <label className="nl-label" htmlFor="help-title">
+                求助标题
               </label>
+              <input
+                id="help-title"
+                type="text"
+                className="nl-field"
+                value={helpTitle}
+                onChange={(event) => setHelpTitle(event.target.value)}
+                placeholder="例：陪同去市一医院复查，需搀扶上下车"
+              />
             </div>
-          </div>
 
-          {/* Urgent Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-rose-50/50 border border-rose-200">
-            <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-rose-600" />
-              <div>
-                <div className="text-xs font-bold text-rose-900">加急求助标识</div>
-                <div className="text-[10px] text-rose-600">置顶接单大厅并优先推送附近空闲志愿者</div>
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={isUrgent}
-              onChange={(e) => setIsUrgent(e.target.checked)}
-              className="w-5 h-5 text-rose-600 rounded"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            <span>确认发布到接单大厅</span>
-          </button>
-        </form>
-      )}
-
-      {/* Mode 2 & 3: 发布志愿风采 / 普通邻里帖 */}
-      {(publishMode === 2 || publishMode === 3) && (
-        <form onSubmit={handleSubmitPost} className="p-4 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-          <div className="border-b pb-3">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              {publishMode === 2 ? '分享志愿服务感悟与陪护日常' : '发布邻里交流与闲置互助帖子'}
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {publishMode === 2 
-                ? '支持上传实拍照片 · 记录社区温暖点滴' 
-                : '纯邻里互动交流 · 不生成订单 · 0时间币纯公益'}
-            </p>
-          </div>
-
-          {publishMode === 3 && (
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">帖子分类：</label>
-              <div className="flex gap-2">
-                {[
-                  { key: 'story', label: '邻里日常' },
-                  { key: 'idle', label: '闲置互助 (0币借用/转赠)' },
-                  { key: 'help', label: '邻里求教' },
-                ].map(c => (
+            <div>
+              <span className="nl-label">需求类型（必选）</span>
+              <div className="nl-pick" role="group" aria-label="需求类型">
+                {CATEGORIES.map((item) => (
                   <button
+                    key={item.key}
                     type="button"
-                    key={c.key}
-                    onClick={() => setPostCategory(c.key as PostCategory)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                      postCategory === c.key
-                        ? 'bg-blue-50 border-blue-500 text-blue-900'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className="nl-pick__item"
+                    aria-pressed={helpCategory === item.key}
+                    onClick={() => {
+                      sound.playTap();
+                      setHelpCategory(item.key);
+                      if (item.key === 'urgent_help') setIsUrgent(true);
+                    }}
                   >
-                    {c.label}
+                    {item.label}
                   </button>
                 ))}
               </div>
             </div>
-          )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">标题：</label>
-            <input
-              type="text"
-              value={postTitle}
-              onChange={(e) => setPostTitle(e.target.value)}
-              placeholder="请输入标题..."
-              className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">正文内容：</label>
-            <textarea
-              value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
-              placeholder="分享今天在社区发生的美好瞬间、心得感悟或互助经验..."
-              rows={4}
-              className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
-          </div>
-
-          {/* Photo Attachment preview */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">附加照片：</label>
-            <div className="flex items-center gap-2">
-              <img 
-                src="https://images.unsplash.com/photo-1516307365426-bea591f05011?auto=format&fit=crop&w=200&q=80" 
-                alt="配图" 
-                className="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-xs"
-              />
-              <button
-                type="button"
-                onClick={() => toast('已自动选取本地照片并完成压缩与定位信息清除', 'success')}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 transition-colors"
-              >
-                <Camera className="w-5 h-5" />
-                <span className="text-[10px] mt-0.5">加图</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Anonymous Switch */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center gap-2">
-              <EyeOff className="w-4 h-4 text-slate-600" />
+            <div className="nl-form-2">
               <div>
-                <div className="text-xs font-bold text-slate-800">匿名发布动态</div>
-                <div className="text-[10px] text-slate-500">前台对外隐藏昵称，后台仍严格绑定实名合规存证</div>
+                <label className="nl-label" htmlFor="help-location">
+                  服务地点
+                </label>
+                <input
+                  id="help-location"
+                  type="text"
+                  className="nl-field"
+                  value={helpLocationArea}
+                  onChange={(event) => setHelpLocationArea(event.target.value)}
+                  placeholder="只填社区或小区，不需要门牌号"
+                />
+              </div>
+              <div>
+                <label className="nl-label" htmlFor="help-date">
+                  服务日期
+                </label>
+                <input
+                  id="help-date"
+                  type="text"
+                  className="nl-field"
+                  value={helpDate}
+                  onChange={(event) => setHelpDate(event.target.value)}
+                />
               </div>
             </div>
-            <input
-              type="checkbox"
-              checked={isAnonymous}
-              onChange={(e) => setIsAnonymous(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 rounded"
-            />
-          </div>
 
-          <button
-            type="submit"
-            className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>发布并同步至社区信息流</span>
-          </button>
-        </form>
+            <div className="nl-form-2">
+              <div>
+                <label className="nl-label" htmlFor="help-time">
+                  服务时间
+                </label>
+                <input
+                  id="help-time"
+                  type="text"
+                  className="nl-field"
+                  value={helpTime}
+                  onChange={(event) => setHelpTime(event.target.value)}
+                />
+              </div>
+              <div>
+                <span className="nl-label">预估时长</span>
+                <div className="nl-pick nl-pick--4" role="group" aria-label="预估时长">
+                  {DURATIONS.map((hour) => (
+                    <button
+                      key={hour}
+                      type="button"
+                      className="nl-pick__item"
+                      aria-pressed={helpDuration === hour}
+                      onClick={() => setHelpDuration(hour)}
+                    >
+                      {hour} 小时
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="nl-label" htmlFor="help-desc">
+                具体需求描述
+              </label>
+              <textarea
+                id="help-desc"
+                className="nl-textarea"
+                value={helpDesc}
+                onChange={(event) => setHelpDesc(event.target.value)}
+                placeholder="说明需要帮忙的具体事项、是否需要自备工具等；不要填写真实姓名与门牌号。"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="nl-label" htmlFor="help-notes">
+                特殊注意事项（选填 · 单独授权）
+              </label>
+              <textarea
+                id="help-notes"
+                className="nl-textarea"
+                value={helpMedicalNotes}
+                onChange={(event) => setHelpMedicalNotes(event.target.value)}
+                placeholder="如：行动不便需搀扶、有高血压需随身带药。仅接单后向志愿者展示。"
+                rows={2}
+              />
+              <label className="nl-consent mt-2">
+                <input
+                  type="checkbox"
+                  checked={consentSensitive}
+                  onChange={(event) => setConsentSensitive(event.target.checked)}
+                />
+                <span>
+                  老人已知情并单独授权：上述健康注意事项在接单后向志愿者展示，可随时撤回。
+                </span>
+              </label>
+            </div>
+
+            <div className="nl-switch-line">
+              <span className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-danger" aria-hidden="true" />
+                <span>
+                  <span className="block text-[11.5px] font-semibold text-ink">加急求助</span>
+                  <span className="block text-[9.5px] text-muted">置顶接单大厅，并优先提醒附近志愿者</span>
+                </span>
+              </span>
+              <button
+                type="button"
+                className="nl-switch"
+                role="switch"
+                aria-checked={isUrgent}
+                aria-label="加急求助"
+                onClick={() => setIsUrgent((value) => !value)}
+              />
+            </div>
+
+            <label className="nl-consent">
+              <input
+                type="checkbox"
+                checked={promiseTruth}
+                onChange={(event) => setPromiseTruth(event.target.checked)}
+              />
+              <span>我确认信息真实、不含真实个人敏感信息，并同意先审后发（待审核通过后才会公开）。</span>
+            </label>
+          </form>
+
+          <aside className="nl-publish__aside">
+            <div className="nl-publish__aside-card">
+              <p className="nl-publish__aside-title">发布后会发生什么</p>
+              <div className="nl-publish__steps">
+                <span>1. 进入接单大厅，附近志愿者可以认领</span>
+                <span>2. 被认领后会收到订单消息与上门签到提醒</span>
+                <span>3. 服务确认完成后，时长自动计入时间存折</span>
+              </div>
+            </div>
+            <div className="nl-alert nl-alert--info">
+              <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>本页不采集门牌号、手机号与身份证号；订单只写本机存档。</span>
+            </div>
+          </aside>
+        </div>
+      ) : (
+        <div className="nl-publish mt-4">
+          <form id="publish-post-form" className="grid gap-4" onSubmit={submitPost}>
+            <div className="rounded-[12px] bg-page px-3.5 py-2.5">
+              <p className="text-[12px] font-semibold text-ink">
+                {publishMode === 2 ? '分享志愿服务感悟与陪护日常' : '发布邻里交流与闲置互助帖子'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted">
+                {publishMode === 2
+                  ? '记录社区温暖点滴 · 发布后进入先审后发队列'
+                  : '纯邻里互动 · 不生成订单 · 不计时长'}
+              </p>
+            </div>
+
+            {publishMode === 3 ? (
+              <div>
+                <span className="nl-label">帖子分类</span>
+                <div className="nl-pick" role="group" aria-label="帖子分类">
+                  {[
+                    { key: 'story', label: '邻里日常' },
+                    { key: 'idle', label: '闲置互助' },
+                    { key: 'help', label: '邻里求教' },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className="nl-pick__item"
+                      aria-pressed={postCategory === item.key}
+                      onClick={() => setPostCategory(item.key as PostCategory)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div>
+              <label className="nl-label" htmlFor="post-title">
+                标题
+              </label>
+              <input
+                id="post-title"
+                type="text"
+                className="nl-field"
+                value={postTitle}
+                onChange={(event) => setPostTitle(event.target.value)}
+                placeholder="一句话说清这条动态"
+              />
+            </div>
+
+            <div>
+              <label className="nl-label" htmlFor="post-content">
+                正文内容
+              </label>
+              <textarea
+                id="post-content"
+                className="nl-textarea"
+                value={postContent}
+                onChange={(event) => setPostContent(event.target.value)}
+                placeholder="分享今天在社区发生的美好瞬间、心得或互助经验…"
+                rows={5}
+              />
+            </div>
+
+            <div>
+              <span className="nl-label">附加照片</span>
+              <div className="flex items-center gap-3 rounded-[12px] bg-page px-3 py-3">
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-[10px] border border-dashed border-line-strong text-faint">
+                  <Camera className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <p className="text-[10px] leading-relaxed text-muted">
+                  本轮不开放图片上传（无对象存储、无 EXIF 清除、无图片审核）。生产环境需先补齐这三项。
+                </p>
+              </div>
+            </div>
+
+            <div className="nl-switch-line">
+              <span className="flex items-center gap-2">
+                <EyeOff className="h-4 w-4 text-text2" aria-hidden="true" />
+                <span>
+                  <span className="block text-[11.5px] font-semibold text-ink">匿名发布</span>
+                  <span className="block text-[9.5px] text-muted">前台隐藏昵称，后台仍绑定实名存证</span>
+                </span>
+              </span>
+              <button
+                type="button"
+                className="nl-switch"
+                role="switch"
+                aria-checked={isAnonymous}
+                aria-label="匿名发布"
+                onClick={() => setIsAnonymous((value) => !value)}
+              />
+            </div>
+
+            <div className="nl-alert nl-alert--info">
+              <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>发布后进入先审后发队列，审核通过才会出现在社区信息流。</span>
+            </div>
+          </form>
+
+          <aside className="nl-publish__aside">
+            <div className="nl-publish__aside-card">
+              <p className="nl-publish__aside-title">发布后会发生什么</p>
+              <div className="nl-publish__steps">
+                <span>1. 内容进入待审队列，只有审核通过才公开</span>
+                <span>2. 通过后出现在社区信息流，可被点赞与评论</span>
+                <span>3. 每条内容都可被举报，处置结果写回站内消息</span>
+              </div>
+            </div>
+            <div className="nl-alert nl-alert--info">
+              <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>不要填写真实姓名、联系方式或门牌号；演示数据只存本机。</span>
+            </div>
+          </aside>
+        </div>
       )}
-    </div>
+    </Modal>
   );
 };

@@ -1,0 +1,284 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-11-01T01:58:56.921Z",
+  "stamp": "mvx6kljy",
+  "total": 55,
+  "passed": 55,
+  "results": [
+    {
+      "name": "接单大厅有数据且「可接需求 N 条」与渲染卡片数一致",
+      "ok": true,
+      "detail": "done cards=1 shown=1"
+    },
+    {
+      "name": "接单大厅分类筛选：选中自身分类结果不变、选他类给空态",
+      "ok": true,
+      "detail": "done same=1/1 other=0 empty=true"
+    },
+    {
+      "name": "「仅看紧急」结果与首条紧急标记一致且每条都带加急标签",
+      "ok": true,
+      "detail": "urgent=0 firstUrgent=false all=1"
+    },
+    {
+      "name": "接单大厅关键词：命中标题可筛出、无结果给空态、清空恢复",
+      "ok": true,
+      "detail": "hit=1/1 miss=0 restore=1/1"
+    },
+    {
+      "name": "成员发布成功后弹层关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "成功路径只出现一条「已提交审核」提示",
+      "ok": true,
+      "detail": "✓已提交审核；通过后才会进入社区信息流（本机演练）。"
+    },
+    {
+      "name": "发布后帖子进入待审状态",
+      "ok": true,
+      "detail": "moderation=pending"
+    },
+    {
+      "name": "待审内容不出现在公开信息流（R7）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "评论提交后提示待审核",
+      "ok": true,
+      "detail": "✓评论已提交，待审核通过后展示（先审后发）。"
+    },
+    {
+      "name": "评论写入存档为待审状态",
+      "ok": true,
+      "detail": "moderation=pending"
+    },
+    {
+      "name": "待审评论不出现在信息流（R7）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "审核后台可打开且待审帖在队列中",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "待审评论也在审核队列中（修复前恒为空）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "帖子审核通过并写入审计日志",
+      "ok": true,
+      "detail": "post=approved"
+    },
+    {
+      "name": "评论审核通过并写入审计日志",
+      "ok": true,
+      "detail": "comment=approved"
+    },
+    {
+      "name": "通过后的帖子出现在信息流（正文可见）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "通过后的评论出现在原帖下（展开后）",
+      "ok": true,
+      "detail": "articleFound=true"
+    },
+    {
+      "name": "失败后发布弹层保持打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "失败提示给出可执行原因（切换演练成员）",
+      "ok": true,
+      "detail": "!审核身份不能代替演练成员完成发布或互动，请先切换为演练成员。"
+    },
+    {
+      "name": "失败时不出现「已提交审核」成功提示",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "失败时存档未新增帖子",
+      "ok": true,
+      "detail": "5 → 5"
+    },
+    {
+      "name": "失败后的草稿已自动暂存",
+      "ok": true,
+      "detail": "draft=失败保留草稿-mvx6kljy"
+    },
+    {
+      "name": "重新打开发布弹层时草稿被恢复",
+      "ok": true,
+      "detail": "restored=失败保留草稿-mvx6kljy"
+    },
+    {
+      "name": "含已接单订单的备份导入成功",
+      "ok": true,
+      "detail": "✓已恢复上次未提交的发布草稿（敏感信息授权需重新勾选） | ✓已导入本机备份：6 条帖子 / 6 条评论 / 0 条举报"
+    },
+    {
+      "name": "新接单订单出现在「我发起的求助」并可发起沟通",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "消息页会话列表按订单定位（修复前恒取第一条会话）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "无会话订单给出「第一条绑定到该订单」提示",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "第一条留言按订单建立线程",
+      "ok": true,
+      "detail": "messages=1 postId=SYNTH-POST-DCHAT-mvx6kljy"
+    },
+    {
+      "name": "另一订单（SYNTH-POST-001）线程未被串线",
+      "ok": true,
+      "detail": "p1=2"
+    },
+    {
+      "name": "留言出现在当前会话窗口",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "认领另一订单后可继续履约沟通",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "焦点会话随订单切换（标题对得上）",
+      "ok": true,
+      "detail": "求助：帮忙把两箱演练物资搬到活动室（虚构）第二条订单留言-mvx6kljy09:58"
+    },
+    {
+      "name": "第二条留言落到所认领订单的线程",
+      "ok": true,
+      "detail": "p1=3 last=第二条订单留言-mvx6kljy"
+    },
+    {
+      "name": "第一条订单线程保持 1 条不串线",
+      "ok": true,
+      "detail": "o1=1"
+    },
+    {
+      "name": "私信会话可直达对应订单详情（不串单）",
+      "ok": true,
+      "detail": "done right=true"
+    },
+    {
+      "name": "订单详情展示演练留痕时间线（含事件与操作方）",
+      "ok": true,
+      "detail": "timeline=true accept=true"
+    },
+    {
+      "name": "消息页（订单会话列表）320/390/768/1024/1440 无横向溢出",
+      "ok": true,
+      "detail": "{\"320\":0,\"390\":0,\"768\":0,\"1024\":0,\"1440\":0}"
+    },
+    {
+      "name": "发布者发布求助订单进入待审",
+      "ok": true,
+      "detail": "moderation=pending"
+    },
+    {
+      "name": "求助订单审核通过并公开",
+      "ok": true,
+      "detail": "moderation=approved"
+    },
+    {
+      "name": "发布者订单可代合成邻居接单（状态与入口联动）",
+      "ok": true,
+      "detail": "done"
+    },
+    {
+      "name": "接单后发布者可发起双方确认（修复前必报角色错误）",
+      "ok": true,
+      "detail": "done"
+    },
+    {
+      "name": "完成链路事件完整（代接单/申请/确认）",
+      "ok": true,
+      "detail": "accept=true req=true confirm=true"
+    },
+    {
+      "name": "发布者完成后账本新增未结算记录",
+      "ok": true,
+      "detail": "2 → 3 status=completed-local-demo"
+    },
+    {
+      "name": "完成评价已保存",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "发布者订单完成后可见完整留痕时间线",
+      "ok": true,
+      "detail": "timeline=true accept=true req=true confirm=true"
+    },
+    {
+      "name": "证书弹层可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "「下载证书」产出真实文本文件（含免责口径）",
+      "ok": true,
+      "detail": "community-drill-certificate-2026-11-01.txt"
+    },
+    {
+      "name": "证书下载失败给出可执行提示且不谎报成功",
+      "ok": true,
+      "detail": "{\"clicked\":true,\"failedToast\":true,\"noSuccessToast\":true}"
+    },
+    {
+      "name": "SOS 演练可走完",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SOS 文案如实：演练完成且不再声称「已在本机记录」",
+      "ok": true,
+      "detail": "honest=true noFalse=true"
+    },
+    {
+      "name": "A+ 普通新建不列出「社区入口演练」来源（修复前选了必失败）",
+      "ok": true,
+      "detail": "[{\"value\":\"manual-entry\",\"label\":\"人工录入演练\"},{\"value\":\"other-fictional\",\"label\":\"其他虚构来源\"}]"
+    },
+    {
+      "name": "来源默认仍是「人工录入演练」",
+      "ok": true,
+      "detail": "value=manual-entry"
+    },
+    {
+      "name": "A+ 坏档导出失败提示可执行且未标记已下载",
+      "ok": true,
+      "detail": "原文下载失败：浏览器拒绝创建下载。请改用桌面浏览器重试；尚未标记为已下载。"
+    },
+    {
+      "name": "恢复后坏档导出可正常完成",
+      "ok": true,
+      "detail": "已下载无法读取的旧存档原文"
+    },
+    {
+      "name": "全流程无控制台异常（B+A+ 双端）",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

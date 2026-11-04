@@ -1,101 +1,81 @@
 import React from 'react';
-import { ShieldCheck, HeartHandshake, Accessibility, Phone, ExternalLink } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
-import { BrandMark } from './BrandMark';
 
+/**
+ * 页脚（轻量版，对齐设计稿）。
+ *
+ * 设计稿的页脚只有一行 10px 说明。这个项目必须保留合规披露，
+ * 所以拆成三层：一行主披露 → 协议与备案 → 可展开的「合规与边界说明」。
+ * 折叠不等于删除：正文仍在 DOM 里，读屏与检索都能拿到。
+ */
 export const FooterCompliance: React.FC = () => {
   const { setActiveSubPage } = useApp();
 
+  const openTerms = () => {
+    sound.playTap();
+    setActiveSubPage('terms_modal');
+  };
+
   return (
-    <footer className="mt-8 bg-slate-900 text-slate-400 text-xs border-t border-slate-800 pb-20 pt-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Brand Signature */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 pb-2">
-          <BrandMark size={44} />
-          <div className="text-center sm:text-left">
-            <div className="font-black text-slate-200 text-sm tracking-tight">
-              翠湖花园社区 · 时间银行与银龄守护互助平台
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              纯公益邻里互助 · 时间币仅记账不可兑现 · 本演示环境数据为本机合成，不用于真实运营
-            </div>
-          </div>
+    <footer className="nl-footer">
+      <div className="nl-container nl-footer__inner">
+        <p className="nl-footer__line">
+          本页为社区互助演练数据，不含真实居民信息，联系方式均已脱敏。
+        </p>
+
+        <div className="nl-footer__meta">
+          <button type="button" onClick={openTerms} className="nl-footer__link">
+            用户服务协议
+          </button>
+          <span aria-hidden="true">·</span>
+          <button type="button" onClick={openTerms} className="nl-footer__link">
+            隐私保护政策
+          </button>
+          <span aria-hidden="true">·</span>
+          <button type="button" onClick={openTerms} className="nl-footer__link">
+            互助公约与免责声明
+          </button>
+          <span aria-hidden="true">·</span>
+          {/*
+            工信部要求已备案网站公示备案号并链接至 beian.miit.gov.cn。
+            外链一律 target="_blank" + rel="noopener noreferrer"，避免
+            reverse tabnabbing（新页面可通过 window.opener 改写本页）。
+          */}
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nl-footer__link"
+          >
+            桂ICP备2026024158号
+          </a>
         </div>
 
-        {/* Top Badges */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center sm:text-left">
-          <div className="flex items-center justify-center sm:justify-start gap-2 text-slate-300">
-            <HeartHandshake className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold text-xs">社区纯公益互助 · 0抽成0商业</span>
+        <details className="nl-footer__more">
+          <summary>
+            合规与边界说明
+            <ChevronDown className="nl-footer__chev" aria-hidden="true" />
+          </summary>
+          <div className="nl-footer__more-body">
+            <p>
+              <strong>急救特别提示：</strong>
+              本平台是邻里互助与时间银行的信息交互演练，不是医疗急救或专业抢险通道，也没有 24
+              小时值守。如遇急性心脑血管险情、跌倒重伤、燃气火情等生命危急事件，请务必立即拨打
+              120 急救、119 消防或 110 报警。
+            </p>
+            <p>
+              <strong>演示边界：</strong>
+              已通过 ICP 备案（桂ICP备2026024158号）；公安联网备案尚未办理；未接入短信验证码、对象存储与图片上传、真实定位、支付、WebSocket
+              实时消息与多账号体系；不采集身份证号、手机号、门牌号。演示数据全部为合成虚构内容，刷新与「恢复演示数据」都会改变本机状态。
+            </p>
+            <p className="nl-footer__facts">
+              公益免费 · 0 抽成 · 无支付能力 ／ 先审后发 · 举报可达 · 操作留痕 ／ 按 WCAG 2.2 AA
+              目标设计（未做第三方认证）
+            </p>
           </div>
-          <div className="flex items-center justify-center sm:justify-start gap-2 text-slate-300">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold text-xs">实名准入 · 先审后发 · 存证留痕</span>
-          </div>
-          <div className="flex items-center justify-center sm:justify-start gap-2 text-slate-300">
-            <Accessibility className="w-4 h-4 text-amber-400" />
-            <span className="font-semibold text-xs">国家信息无障碍三级标准认证</span>
-          </div>
-        </div>
-
-        {/* Emergency Note */}
-        <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 text-[11px] leading-relaxed text-slate-300 flex items-start gap-2">
-          <Phone className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-          <span>
-            <strong>急救特别提示：</strong>本平台为邻里互助与时间银行志愿信息交互系统，非医疗急救或专业抢险通道。如遇急性心脑血管险情、跌倒重伤、燃气火情等生命危急事件，请务必立即拨打 <strong>120急救</strong>、<strong>119消防</strong> 或 <strong>110报警</strong>。
-          </span>
-        </div>
-
-        {/* Links & Filings */}
-        <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
-          <div className="flex flex-wrap items-center justify-center gap-3 text-slate-400">
-            <button
-              onClick={() => {
-                sound.playTap();
-                setActiveSubPage('terms_modal');
-              }}
-              className="hover:text-slate-200 underline underline-offset-2"
-            >
-              用户服务协议
-            </button>
-            <span>·</span>
-            <button
-              onClick={() => {
-                sound.playTap();
-                setActiveSubPage('terms_modal');
-              }}
-              className="hover:text-slate-200 underline underline-offset-2"
-            >
-              隐私保护政策
-            </button>
-            <span>·</span>
-            <button
-              onClick={() => {
-                sound.playTap();
-                setActiveSubPage('terms_modal');
-              }}
-              className="hover:text-slate-200 underline underline-offset-2"
-            >
-              社区互助公约与免责声明
-            </button>
-          </div>
-
-          <div className="text-center sm:text-right space-y-1 font-mono text-[10px]">
-            <div>
-              <a 
-                href="https://beian.miit.gov.cn/" 
-                target="_blank" 
-                rel="noreferrer" 
-                className="hover:text-emerald-400 flex items-center justify-center sm:justify-end gap-1"
-              >
-                <span>ICP备案：京ICP备20261018号-1</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </a>
-            </div>
-            <div>京公网安备 11010802026101号 · 翠湖花园社区居委会版权所有</div>
-          </div>
-        </div>
+        </details>
       </div>
     </footer>
   );

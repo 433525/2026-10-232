@@ -40,6 +40,15 @@ export type OrderStatus =
   | 'cancelled'         // 已取消
   | 'disputed';         // 申诉中
 
+/** 订单事件留痕的视图条目（由领域层 orderEvents 投影，供订单详情时间线展示）。 */
+export interface OrderEventView {
+  id: string;
+  typeLabel: string;
+  actorLabel: string;
+  note: string;
+  time: string;
+}
+
 export interface HelpOrder {
   id: string;
   userId: string;
@@ -52,7 +61,7 @@ export interface HelpOrder {
   categoryLabel: string;
   title: string;
   description: string;
-  locationArea: string;       // 翠湖花苑3期 (公开展示区)
+  locationArea: string;       // 梧桐里3期（虚构，公开展示区）
   locationDetail: string;     // 8号楼2单元601 (接单后凭证可见)
   isUrgent: boolean;
   dateStr: string;
@@ -76,6 +85,8 @@ export interface HelpOrder {
   disputeReason?: string;
   createdAt: string;
   auditNote?: string;
+  /** 追加能力（可选）：本机演练的订单事件留痕，按时间正序；不改变既有字段。 */
+  events?: OrderEventView[];
 }
 
 export type PostCategory = 'story' | 'help' | 'activity' | 'idle';
@@ -168,6 +179,10 @@ export interface ChatMessage {
   };
   imageUrl?: string;
   timestamp: string;
+  /** 追加能力（可选，不改变既有字段）：订单留言会话绑定的求助订单 id。 */
+  postId?: string;
+  /** 追加能力（可选）：会话展示标题，订单留言取对应订单标题。 */
+  conversationTitle?: string;
 }
 
 export interface VolunteerProfile {
@@ -220,6 +235,13 @@ export interface ComplaintTicket {
   orderId?: string;
   orderTitle?: string;
   targetUser?: string;
+  /**
+   * 追加能力（可选，不改变既有签名）：举报目标。
+   * 232 原视图只有 orderId，无法表达「评论/留言」级举报；R7 要求每条 UGC 可举报，
+   * 因此补上目标类型与目标 id，缺省时按 post 处理。
+   */
+  targetType?: 'post' | 'comment' | 'message';
+  targetId?: string;
   reason: string;
   detail: string;
   evidencePhotos: string[];
@@ -239,6 +261,6 @@ export interface BannerItem {
   bgGradient: string;
   image: string;
   actionText: string;
-  actionType: 'help' | 'tasks' | 'article' | 'community' | 'sos';
+  actionType: 'help' | 'tasks' | 'article' | 'community' | 'sos' | 'rules';
   targetId?: string;
 }

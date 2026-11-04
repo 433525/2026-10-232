@@ -8,7 +8,7 @@ interface BrandMarkProps {
 }
 
 /**
- * 翠湖社区「时间银行」品牌标识 —— 手绘矢量（非位图）。
+ * 梧桐里（虚构）「时间银行」演练标识 —— 手绘矢量（非位图），不使用任何外部素材。
  *
  * 造型语义：外圈 = 社区守望的圆满；沙漏 = 可储蓄的时间；
  * 下方托举弧 = 双手相托的邻里互助；顶端星芒 = 时间币的微光。
@@ -29,7 +29,7 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label="翠湖社区时间银行标识"
+      aria-label="梧桐里社区互助演练标识"
       className={className}
     >
       <defs>
@@ -41,9 +41,9 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
             </>
           ) : (
             <>
-              <stop offset="0%" stopColor="#059669" />
-              <stop offset="55%" stopColor="#0d9488" />
-              <stop offset="100%" stopColor="#0f766e" />
+              <stop offset="0%" stopColor="#e8834a" />
+              <stop offset="55%" stopColor="#d4663a" />
+              <stop offset="100%" stopColor="#bc4e23" />
             </>
           )}
         </linearGradient>
@@ -55,8 +55,8 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
             </>
           ) : (
             <>
-              <stop offset="0%" stopColor="#fbbf24" />
-              <stop offset="100%" stopColor="#f59e0b" />
+              <stop offset="0%" stopColor="#f3b27a" />
+              <stop offset="100%" stopColor="#e8834a" />
             </>
           )}
         </linearGradient>
@@ -90,7 +90,7 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
       {/* 顶端星芒：时间币微光 */}
       <path
         d="M24 1.6 L25.7 5 L29.1 6.7 L25.7 8.4 L24 11.8 L22.3 8.4 L18.9 6.7 L22.3 5 Z"
-        fill={isMono ? 'currentColor' : '#f59e0b'}
+        fill={isMono ? 'currentColor' : '#e8834a'}
       />
     </svg>
   );

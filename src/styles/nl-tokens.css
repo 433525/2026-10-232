@@ -1,0 +1,121 @@
+/* ============================================================
+   暖阳邻里 · Design Tokens
+   社区服务产品（长者 / 家属 / 志愿者）的暖色设计系统
+   ------------------------------------------------------------
+   硬约束：
+   1. 全站不使用 box-shadow，层次只靠 1px 描边 + 三档底色；
+   2. 品牌橘只给「可点击 / 当前选中」，危险红只给危险与紧急；
+   3. 标题衬线、正文无衬线；数字用 Inter 并等宽对齐；
+   4. 渐变只允许出现在首页公告大卡。
+   ============================================================ */
+
+:root {
+  /* ---------- 底色 ---------- */
+  --nl-bg-page: #fbf6ef;
+  --nl-bg-surface: #ffffff;
+  --nl-bg-sunken: #f6e7d8;
+  --nl-bg-subtle: #f1eadf;
+  --nl-bg-hover: #f2e7d9;
+
+  /* ---------- 品牌 ---------- */
+  --nl-brand: #bc4e23;
+  --nl-brand-ink: #9c4a20;
+  --nl-brand-warm: #e8834a;
+  --nl-brand-strong: #b0431d;
+  --nl-brand-tint: #f9e9e0;
+  --nl-brand-gradient: linear-gradient(90deg, #e8834a 0%, #b0431d 100%);
+
+  /* ---------- 语义 ---------- */
+  --nl-accent: #1f6f5c;
+  --nl-accent-tint: #e4efe9;
+  --nl-accent-on-dark: #cbdfd6;
+  --nl-accent-on-dark-weak: #a8cfc2;
+  --nl-danger: #b4432f;
+  --nl-danger-tint: #fbe6e0;
+  --nl-danger-ink: #8e2f1d;
+  --nl-warn: #8a5f1c;
+  --nl-warn-tint: #f7edd9;
+
+  /* ---------- 文字 ---------- */
+  --nl-ink: #2a2320;
+  --nl-text: #3d332c;
+  --nl-text-2: #6e6055;
+  --nl-muted: #7a6757;
+  --nl-faint: #7f6a52;
+
+  /* ---------- 线 ---------- */
+  --nl-border: #efe3d5;
+  --nl-border-strong: #e5d5c2;
+
+  /* ---------- 圆角 ---------- */
+  --nl-r-pill: 999px;
+  --nl-r-modal: 24px;
+  --nl-r-card: 22px;
+  --nl-r-card-sm: 18px;
+  --nl-r-input: 12px;
+  --nl-r-chip: 10px;
+
+  /* ---------- 间距 ---------- */
+  --nl-sp-1: 4px;
+  --nl-sp-2: 8px;
+  --nl-sp-3: 10px;
+  --nl-sp-4: 12px;
+  --nl-sp-5: 14px;
+  --nl-sp-6: 16px;
+  --nl-sp-7: 18px;
+  --nl-sp-8: 20px;
+  --nl-sp-9: 22px;
+  --nl-sp-10: 24px;
+  --nl-sp-12: 28px;
+  --nl-sp-14: 32px;
+
+  /* ---------- 字号 ----------
+     设计稿口径：Body 14 / 行高 22，Title 22 衬线，Display 32 衬线。
+     这里把 Title 拆成 h1(25)/h2(18)/h3(16) 三档，页面标题仍用 25 衬线。 */
+  --nl-fs-display: 34px;
+  --nl-fs-h1: 26px;
+  --nl-fs-h2: 18px;
+  --nl-fs-h3: 16px;
+  --nl-fs-h4: 15px;
+  --nl-fs-title: 14px;
+  --nl-fs-body: 14px;
+  --nl-fs-sm: 12.5px;
+  --nl-fs-caption: 10.5px;
+  --nl-fs-micro: 9.5px;
+
+  /* ---------- 行高 ---------- */
+  --nl-lh-tight: 1.3;
+  --nl-lh-body: 1.6;
+
+  /* ---------- 字体 ----------
+     正文无衬线，标题衬线。字体走系统栈（离线环境不引外链、不打包 17MB 字体）。 */
+  --nl-font-serif: "Noto Serif SC", "Source Han Serif CN", "Songti SC", "STSong",
+    "SimSun", serif;
+  --nl-font-sans: "Noto Sans SC", "Source Han Sans CN", "PingFang SC",
+    "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --nl-font-num: "Inter", "SF Pro Text", "Segoe UI", ui-monospace, monospace;
+
+  /* ---------- 布局 ---------- */
+  --nl-content: 1152px;
+  --nl-col-main: 764px;
+  --nl-col-side: 360px;
+  --nl-gutter: 28px;
+  --nl-header-h: 68px;
+  --nl-dock-h: 64px;
+
+  /* ---------- 可达性 ---------- */
+  --nl-focus-ring: 2px solid var(--nl-brand);
+  --nl-focus-offset: 2px;
+  --nl-tap: 44px;
+
+  /* ---------- 动效 ---------- */
+  --nl-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --nl-dur: 0.16s;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --nl-fs-h1: 22px;
+    --nl-gutter: 16px;
+  }
+}

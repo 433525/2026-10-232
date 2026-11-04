@@ -25,7 +25,12 @@ export function useDialog(open: boolean, onClose: () => void) {
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]:last-of-type');
     const container = dialog || document.body;
     const focusables = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-    (focusables[0] || container).focus?.();
+    // 初始焦点优先级：显式标记 → 弹层容器本身 → 首个可聚焦元素。
+    // 优先落在容器上，避免鼠标打开时关闭按钮出现一圈键盘焦点环。
+    const explicit = container.querySelector<HTMLElement>('[data-autofocus]');
+    if (explicit) explicit.focus();
+    else if (dialog) dialog.focus();
+    else (focusables[0] || container).focus?.();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {

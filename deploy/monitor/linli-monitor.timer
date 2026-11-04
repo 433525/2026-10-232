@@ -1,0 +1,19 @@
+# deploy/monitor/linli-monitor.timer
+# 落盘：/etc/systemd/system/linli-monitor.timer
+# 启用：systemctl daemon-reload && systemctl enable --now linli-monitor.timer
+
+[Unit]
+Description=Run Linli site health check every 5 minutes
+
+[Timer]
+# 开机 2 分钟后首跑，避免与 nginx/certbot 启动竞争
+OnBootSec=2min
+# 之后每 5 分钟一次；用 OnUnitActiveSec 而非 OnCalendar，
+# 保证「上次跑完再计时」，不会因为检查变慢而堆积
+OnUnitActiveSec=5min
+AccuracySec=30s
+RandomizedDelaySec=10s
+Unit=linli-monitor.service
+
+[Install]
+WantedBy=timers.target

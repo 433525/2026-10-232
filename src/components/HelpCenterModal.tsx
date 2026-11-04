@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import { 
-  HelpCircle, 
-  Volume2, 
-  VolumeX, 
-  X, 
-  ChevronDown, 
-  ChevronUp, 
-  Phone, 
-  Coins, 
-  HeartHandshake, 
-  ShieldCheck
+import React, { useEffect, useState } from 'react';
+import {
+  ChevronDown,
+  Coins,
+  HeartHandshake,
+  HelpCircle,
+  Phone,
+  ShieldCheck,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sound } from '../utils/audio';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 
 interface FaqItem {
   id: string;
@@ -24,28 +24,36 @@ interface FaqItem {
 const FAQ_LIST: FaqItem[] = [
   {
     id: 'faq_1',
-    question: '老人如何一键发布求助订单？',
-    answer: '点击屏幕中央的【＋】号大按钮，选择【发布求助订单】，选择您需要的服务类型（如陪同就医、日常家务、维修等），填写您所在单元门牌号，点击提交即可！附近认证的志愿者将立即收到通知并接单。',
-    audioText: '老人如何发布求助订单：点击屏幕中间的加号按钮，选择发布求助，选择您需要的服务，比如陪同看病或者日常家务，确认您的房间号，点击提交就可以啦！附近的志愿者很快就会接单联系您。'
+    question: '老人如何发布一条求助订单？',
+    answer:
+      '点击屏幕中央的「＋」按钮，选择「求助订单」，选需求类型，填写标题、社区级地点与时间后提交。未实名访客会被拦在提交之前；提交后进入先审后发队列，通过后才会出现在接单大厅。',
+    audioText:
+      '发布求助订单：点击屏幕中间的加号，选择求助订单，选择需求类型，填写标题、地点和时间，然后提交。未实名的访客需要先切换为演练成员。',
   },
   {
     id: 'faq_2',
-    question: '什么是“时间银行”？时间币怎么存入和使用？',
-    answer: '时间银行是社区纯公益互助模式。志愿者每为老人服务 1 小时，个人账户就存入 1 个标准时间币。存入的时间币可在自己或父母年迈需要帮助时，免费兑换其他志愿者的服务。时间币严禁任何形式的买卖或非法套现。',
-    audioText: '什么是时间银行：时间银行是社区爱心储蓄池。年轻时服务老人存入时间币，年迈时可以用时间币免费兑换别人的照顾。时间币是邻里爱心的记录，不可兑换现金。'
+    question: '什么是「时间银行」？时间币怎么记账？',
+    answer:
+      '时间银行是社区纯公益互助的记账方式：志愿者每服务 1 小时，本机账本记 1 个时间币。演练中的时间币只做展示，不可兑现、不可转让，也不构成任何支付凭证。',
+    audioText:
+      '什么是时间银行：时间银行是社区爱心记账。服务一小时记一个时间币。演练里的时间币只能看，不能换钱，也不能转给别人。',
   },
   {
     id: 'faq_3',
-    question: '志愿者上门服务时如何保障老人家中安全与隐私？',
-    answer: '平台所有入驻志愿者均经过公安背景审核与社区实名认证；老人的具体房间门牌号和既往病史默认处于加密脱敏状态，只有志愿者接单并验证通过后方可限时查看；服务前后支持拍照签到与平台双向确认。',
-    audioText: '安全保障说明：所有志愿者都经过社区实名审核，老人的门牌号和病史严格保密，只有接单的志愿者才能看到，服务过程有记录，请您放心！'
+    question: '上门服务时如何保障老人安全与隐私？',
+    answer:
+      '本原型不做真实背景审核或实名认证：志愿者头像、评分与「已实名」标签全部是虚构演示数据。演练不采集门牌号与病史，也不存在「接单后自动解锁」的真实数据；签到与双向确认只记录在当前浏览器。',
+    audioText:
+      '安全说明：本演练不做真实实名审核，志愿者信息和评分都是虚构的，不会采集真实门牌号或病史，所有记录只存在当前浏览器。',
   },
   {
     id: 'faq_4',
     question: '遇到突发紧急情况该怎么使用？',
-    answer: '遇到严重身体不适或险情，请直接点击首页红色【紧急求助】按钮，或拨打 120/110。系统将同步震动告警呼叫 500 米内金牌急救志愿者和社区网格长紧急上门支援。',
-    audioText: '紧急情况应对：遇到突发紧急情况，请点击红色紧急求助按钮，或者直接拨打120急救电话。系统会立刻通知附近的网格员和急救员上门。'
-  }
+    answer:
+      '遇到严重身体不适或险情，请直接拨打 120 / 110。本平台的「紧急求助」只是界面演示：它不会呼叫急救、不会通知项目组值班人员、不会定位，也不会派单，不能替代任何急救通道。',
+    audioText:
+      '紧急情况：请直接拨打 120 或 110。本页的紧急求助只是演示，不会通知任何人，也不能替代急救电话。',
+  },
 ];
 
 export const HelpCenterModal: React.FC = () => {
@@ -53,154 +61,128 @@ export const HelpCenterModal: React.FC = () => {
   const [openId, setOpenId] = useState<string>('faq_1');
   const [readingId, setReadingId] = useState<string | null>(null);
 
+  // 关闭时停止朗读，避免声音留在后台
+  useEffect(() => () => sound.stopSpeaking(), []);
+
   const toggleRead = (item: FaqItem) => {
     if (readingId === item.id) {
       sound.stopSpeaking();
       setReadingId(null);
     } else {
       setReadingId(item.id);
-      sound.speakText(item.audioText, () => {
-        setReadingId(null);
-      });
+      sound.speakText(item.audioText, () => setReadingId(null));
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-              <HelpCircle className="w-5 h-5 text-amber-300" />
-            </div>
-            <div>
-              <h2 className="font-bold text-base sm:text-lg">
-                帮助中心 · 适老操作教程与语音指南
-              </h2>
-              <p className="text-xs text-emerald-100">
-                支持人机语音朗读 · 大字清晰排版 · 常见问题解答
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              sound.stopSpeaking();
-              sound.playTap();
-              setActiveSubPage(null);
-            }}
-            className="p-1.5 rounded-lg hover:bg-white/20 text-slate-200 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <Modal
+      title="帮助中心 · 适老操作教程"
+      subtitle="支持人机语音朗读 · 大字排版 · 常见问题"
+      onClose={() => {
+        sound.stopSpeaking();
+        setActiveSubPage(null);
+      }}
+      footer={
+        <Button variant="ghost" block onClick={() => setActiveSubPage(null)}>
+          关闭
+        </Button>
+      }
+    >
+      <div className="grid gap-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {[
+            { icon: HeartHandshake, title: '1. 一键求助', desc: '点加号发单，等待审核', tone: 'bg-brand-tint text-brand' },
+            { icon: Coins, title: '2. 时间记账', desc: '双方确认后写入本机账本', tone: 'bg-warn-tint text-[#9a6a1f]' },
+            { icon: ShieldCheck, title: '3. 实名前置', desc: '未实名不能发布求助', tone: 'bg-accent-tint text-accent' },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.title} className="rounded-[12px] bg-page px-3 py-3 text-center">
+                <span className={`mx-auto grid h-8 w-8 place-items-center rounded-full ${item.tone}`}>
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p className="mt-1.5 text-[11.5px] font-semibold text-ink">{item.title}</p>
+                <p className="mt-0.5 text-[9.5px] leading-relaxed text-muted">{item.desc}</p>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* Quick Guide Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
-              <HeartHandshake className="w-6 h-6 text-emerald-700 mx-auto" />
-              <div className="text-xs font-bold text-emerald-900">1. 一键求助</div>
-              <p className="text-[11px] text-emerald-700">点加号发单，就近志愿者上门</p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-center space-y-1">
-              <Coins className="w-6 h-6 text-amber-700 mx-auto" />
-              <div className="text-xs font-bold text-amber-900">2. 时间储蓄</div>
-              <p className="text-[11px] text-amber-700">服务记录上链，时长终身有效</p>
-            </div>
-            <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-center space-y-1">
-              <ShieldCheck className="w-6 h-6 text-sky-700 mx-auto" />
-              <div className="text-xs font-bold text-sky-900">3. 实名安全</div>
-              <p className="text-[11px] text-sky-700">社区网格把关，全程双向确认</p>
-            </div>
-          </div>
-
-          {/* FAQ Accordion with Speech Buttons */}
-          <div className="space-y-2.5 pt-2">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              常见使用疑问（点击可展开并朗读）
-            </h3>
-
-            {FAQ_LIST.map((item) => {
-              const isOpen = openId === item.id;
-              const isReading = readingId === item.id;
-              return (
-                <div 
-                  key={item.id}
-                  className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-xs"
-                >
+        <div className="mt-1 grid gap-2">
+          <h3 className="text-[10px] font-semibold tracking-wide text-muted">常见使用疑问</h3>
+          {FAQ_LIST.map((item) => {
+            const isOpen = openId === item.id;
+            const isReading = readingId === item.id;
+            return (
+              <div key={item.id} className="overflow-hidden rounded-[12px] border border-line bg-white">
+                <div className="flex items-center gap-2 px-3.5 py-2.5">
                   <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                    aria-expanded={isOpen}
                     onClick={() => {
                       sound.playTap();
                       setOpenId(isOpen ? '' : item.id);
                     }}
-                    className={`w-full p-3.5 text-left flex items-center justify-between gap-3 transition-colors ${
-                      isOpen ? 'bg-emerald-50/60 text-emerald-950 font-bold' : 'hover:bg-slate-50 text-slate-800'
-                    }`}
                   >
-                    <span className={`${elderlyMode ? 'text-base font-bold' : 'text-sm font-semibold'} flex-1`}>
+                    <span
+                      className={`flex-1 ${elderlyMode ? 'text-[14px] font-semibold' : 'text-[12px] font-semibold'} text-ink`}
+                    >
                       {item.question}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleRead(item);
-                        }}
-                        className={`p-1.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition-all ${
-                          isReading 
-                            ? 'bg-amber-500 text-white border-amber-600 animate-pulse' 
-                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                        title="语音朗读该条解答"
-                      >
-                        {isReading ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
-                        <span className="text-[11px] hidden xs:inline">{isReading ? '停止' : '朗读'}</span>
-                      </button>
-                      {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                    </div>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                    />
                   </button>
-
-                  {isOpen && (
-                    <div className="p-3.5 bg-slate-50/80 border-t border-slate-100 space-y-2 animate-in fade-in duration-150">
-                      <p className={`text-slate-700 leading-relaxed ${elderlyMode ? 'text-base font-medium' : 'text-xs sm:text-sm'}`}>
-                        {item.answer}
-                      </p>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleRead(item)}
+                    className={`inline-flex min-h-[32px] shrink-0 items-center gap-1 rounded-full border px-2.5 text-[10px] font-medium ${
+                      isReading
+                        ? 'border-brand bg-brand text-white'
+                        : 'border-line-strong text-text2 hover:border-brand hover:text-brand'
+                    }`}
+                    title="语音朗读该条解答"
+                    aria-label={isReading ? `停止朗读：${item.question}` : `朗读：${item.question}`}
+                  >
+                    {isReading ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                    {isReading ? '停止' : '朗读'}
+                  </button>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Hotline Box */}
-          <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Phone className="w-5 h-5 text-emerald-700 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-800">
-                  如遇操作困难，可直接拨打社区长者帮办热线
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  热线服务时间：工作日 08:30 - 17:30 · 社区网格员人工指导
-                </p>
+                {isOpen ? (
+                  <div className="border-t border-line bg-page px-3.5 py-3">
+                    <p
+                      className={`leading-relaxed text-text2 ${
+                        elderlyMode ? 'text-[14px] font-medium' : 'text-[11.5px]'
+                      }`}
+                    >
+                      {item.answer}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-            </div>
-            <a
-              href="tel:025-88886666"
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800 shadow-xs shrink-0"
-            >
-              025-88886666
-            </a>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-400">
-          翠湖花园社区“时间银行·银龄守护”综合便民服务站编制
+        <div className="flex items-center justify-between gap-3 rounded-[12px] bg-page px-3.5 py-3">
+          <div className="flex items-center gap-2.5">
+            <Phone className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <p className="text-[11px] font-semibold text-ink">操作困难时，可先看图文教程</p>
+              <p className="mt-0.5 text-[9.5px] text-muted">本演示不提供真实热线与值班时段</p>
+            </div>
+          </div>
+          <span className="nl-tag nl-tag--neutral shrink-0">未提供</span>
         </div>
+
+        <p className="flex items-center justify-center gap-1.5 text-[9.5px] text-muted">
+          <HelpCircle className="h-3 w-3" aria-hidden="true" />
+          社区服务演练项目组（虚构）编制
+        </p>
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -67,7 +67,7 @@ export function useToasts(): ToastItem[] {
 const VARIANT_STYLE: Record<ToastVariant, string> = {
   info: 'bg-slate-900/92 text-white border-slate-700/60',
   success: 'bg-emerald-700/95 text-white border-emerald-500/50',
-  error: 'bg-rose-700/95 text-white border-rose-400/50',
+  error: 'bg-danger/95 text-white border-rose-400/50',
 };
 
 const VARIANT_ICON: Record<ToastVariant, string> = {
@@ -91,11 +91,11 @@ export const Toaster: React.FC = () => {
           key={t.id}
           role={t.variant === 'error' ? 'alert' : 'status'}
           aria-live={t.variant === 'error' ? 'assertive' : 'polite'}
-          className={`pointer-events-auto max-w-[92vw] sm:max-w-md w-auto px-4 py-2.5 rounded-2xl shadow-2xl border text-sm font-medium flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-4 duration-200 ${VARIANT_STYLE[t.variant]}`}
+          className={`pointer-events-auto max-w-[92vw] sm:max-w-md w-auto px-4 py-2.5 rounded-[18px]  border text-sm font-medium flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-4 duration-200 ${VARIANT_STYLE[t.variant]}`}
         >
           <span
             aria-hidden="true"
-            className="mt-0.5 w-5 h-5 rounded-full bg-white/20 text-[12px] font-black flex items-center justify-center shrink-0"
+            className="mt-0.5 w-5 h-5 rounded-full bg-surface/20 text-[12px] font-black flex items-center justify-center shrink-0"
           >
             {VARIANT_ICON[t.variant]}
           </span>

@@ -1,0 +1,134 @@
+{
+  "base": "http://localhost:5180",
+  "checkedAt": "2026-11-01T01:56:03.273Z",
+  "title": "演练-求助-mvx6hidy",
+  "total": 25,
+  "passed": 25,
+  "results": [
+    {
+      "name": "B 端发布页可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "未实名访客被前置拦截",
+      "ok": true,
+      "detail": "!依据实名制法规要求，发布求助订单须先完成实名认证！正在打开认证界面…"
+    },
+    {
+      "name": "拦截后未写入本机存档",
+      "ok": true,
+      "detail": "archive=false"
+    },
+    {
+      "name": "可切换到已实名演练成员",
+      "ok": true,
+      "detail": "演演练用户"
+    },
+    {
+      "name": "成员发布后写入本机存档",
+      "ok": true,
+      "detail": "archive=true"
+    },
+    {
+      "name": "发布后提示进入审核",
+      "ok": true,
+      "detail": "跳转到主要内容 演练社区·梧桐里 互助演练站 时间银行 · 银龄邻里守护平台 首页 社区 消息 我的 搜索服务、志愿者、求助 Ctrl K 大字模式 演 演练用"
+    },
+    {
+      "name": "社区信息流已渲染内容",
+      "ok": true,
+      "detail": "textLength=1058"
+    },
+    {
+      "name": "待审内容不出现在公开信息流",
+      "ok": true,
+      "detail": "hasTitle=false"
+    },
+    {
+      "name": "[edge] 点赞往返：计数按 ±1 变化后回到初值",
+      "ok": true,
+      "detail": "5 → 6 → 5"
+    },
+    {
+      "name": "[edge] 收藏往返：aria-pressed 置真后复原",
+      "ok": true,
+      "detail": "initial=false after=true back=false"
+    },
+    {
+      "name": "[edge] 点赞与收藏在刷新后保持（未回落）",
+      "ok": true,
+      "detail": "like=true count=6 mark=true"
+    },
+    {
+      "name": "报名活动后名额 +1 且按钮转为已报名不可重复提交",
+      "ok": true,
+      "detail": "已报名 8/12 人 → 已报名 9/12 人 / 已报名 / disabled=true / stored=9"
+    },
+    {
+      "name": "[edge] 长辈模式切换生效、刷新保持、关闭后复原",
+      "ok": true,
+      "detail": "on=true kept=true reverted=false / 大字版"
+    },
+    {
+      "name": "播放朗读后进入播放态，且出现全局停止入口",
+      "ok": true,
+      "detail": "初始=开始语音朗读 → 播放=停止朗读 / 正文提示=true / 全局停止=true / speak 调用=1"
+    },
+    {
+      "name": "[edge] 全局停止朗读后回到静默态（弹层按钮与顶栏控件同时复原）",
+      "ok": true,
+      "detail": "停止后=开始语音朗读 / 正文提示=false / 顶栏停止=false / cancel 调用=2"
+    },
+    {
+      "name": "[neg] 同一内容重复举报不新增工单（命中既有待处理记录）",
+      "ok": true,
+      "detail": "工单 0 → 1 → 1（编号 SYNTH-REPORT-001 → SYNTH-REPORT-001）"
+    },
+    {
+      "name": "[neg] 未实名访客点赞被拒：计数与选中态均不变",
+      "ok": true,
+      "detail": "访客=true 计数 9 → 9 / 选中 false → false / 提示=!请先切换为演练成员，再使用发布或互动功能。"
+    },
+    {
+      "name": "[neg] 未实名访客举报被拒：工单数不变且提示先实名",
+      "ok": true,
+      "detail": "工单 1 → 1 / 提示=!请先切换为演练成员，再使用发布或互动功能。"
+    },
+    {
+      "name": "[edge] 有效 ?post= 深链高亮目标、失效 id 不误高亮且页面照常渲染",
+      "ok": true,
+      "detail": "有效：高亮=true 卡片=4；失效：高亮=0 卡片=4 文本=955 异常增量=0"
+    },
+    {
+      "name": "[neg] 访客在后台办结举报被拒：工单仍待处理且不写审核日志",
+      "ok": true,
+      "detail": "入口=true 页签=true 按钮=true 工单 pending → pending / 已办结 0 → 0 / 日志 1 → 1 / 提示=i只有审核员可以执行审核或处理举报。"
+    },
+    {
+      "name": "[neg] 审核员不能代替成员发布：帖子数不变且发布弹层保持",
+      "ok": true,
+      "detail": "切换=true 表单=true 帖子 5 → 5 / 弹层保持=true / 提示=!审核身份不能代替演练成员完成发布或互动，请先切换为演练成员。"
+    },
+    {
+      "name": "[edge] 纯空白评论被拒：提交按钮禁用且表单直提不新增评论",
+      "ok": true,
+      "detail": "禁用(空白)=true 禁用(空)=true 有文本可用=true / 评论 1 → 1"
+    },
+    {
+      "name": "A+ 社区桥可打开",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A+ 读到 B 写入的存档（不再提示未找到）",
+      "ok": true,
+      "detail": "已读取 1 条合成求助 · 存档保存于 11/01 09:55"
+    },
+    {
+      "name": "B 主链路无控制台异常",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

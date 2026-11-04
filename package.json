@@ -6,7 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check:dual": "node tools/check-dual-entry.mjs",
+    "check:aplus": "node tools/check-aplus-flow.mjs",
+    "check:community": "node tools/check-community-flow.mjs",
+    "check:acceptance": "node tools/check-acceptance.mjs",
+    "check:recovery": "node tools/check-recovery.mjs",
+    "check:fixes": "node tools/check-fixes-a.mjs && node tools/check-fixes-b.mjs",
+    "check:fixes:a": "node tools/check-fixes-a.mjs",
+    "check:fixes:b": "node tools/check-fixes-b.mjs",
+    "check:p0": "node tools/check-p0-gaps.mjs",
+    "gate": "node tools/run-gate.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
